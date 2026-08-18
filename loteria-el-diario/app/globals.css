@@ -1,0 +1,228 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Sistema de diseño de Lotería El Diario.
+
+   Todos los valores están tomados literalmente del prototipo navegable
+   (prototipo/Loteria El Diario.dc.html). No aproximar: la escala tipográfica
+   incluye medias unidades (13.5px, 11.5px, 10.5px) y los radios son
+   deliberadamente irregulares (9 / 11 / 14px). Cambiar cualquiera de estos
+   valores rompe la equivalencia visual con la maqueta aprobada.
+
+   El prototipo es de un solo tema (claro). No hay variante oscura.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* — Superficies ------------------------------------------------------- */
+  --color-fondo: #f4f7fb; /* fondo de página; también el divisor más tenue de tabla */
+  --color-superficie: #ffffff; /* tarjetas, barra lateral, inputs */
+  --color-tinte: #fbfcfe; /* encabezado de tabla, pie de tabla, hover de fila */
+  --color-panel: #f8fafc; /* tarjetas de nota, pantalla del teléfono, hover ghost */
+  --color-chip: #f1f5f9; /* chip inactivo, pista de barra, píldora CERRADO */
+  --color-riel: #eef2f7; /* contenedor de tabs, hairline, botón deshabilitado */
+
+  /* — Bordes ------------------------------------------------------------ */
+  --color-borde: #e6ecf4; /* borde canónico de tarjeta */
+  --color-borde-campo: #e2e8f0; /* inputs y botones secundarios */
+  --color-borde-pos: #e8eef6; /* bordes en reposo dentro del POS */
+  --color-borde-punteado: #cbd5e1; /* estados vacíos, recibo del ticket */
+
+  /* — Texto ------------------------------------------------------------- */
+  --color-tinta: #0f172a; /* primario; también el relleno oscuro de acción */
+  --color-tinta-nav: #334155; /* etiqueta de nav inactiva */
+  --color-cuerpo: #475569;
+  --color-secundario: #64748b;
+  --color-mudo: #94a3b8;
+
+  /* — Acento ------------------------------------------------------------ */
+  --color-acento: #2563eb;
+  --color-acento-fuerte: #1d4ed8; /* hover de enlace, texto de nav activa */
+  --color-acento-profundo: #1e40af; /* fin del degradado del logotipo */
+  --color-acento-suave: #eef4ff; /* fondo de nav activa, avatar, píldora numérica */
+  --color-acento-foco: #93b4fd;
+  --color-barra-baja: #c7d7f0; /* barras por debajo del umbral en control */
+
+  /* — Navy de datos (tarjetas héroe) ------------------------------------ */
+  --color-navy: #0f2547;
+  --color-navy-claro: #183a6b; /* fin del degradado "Total del día" */
+  --color-navy-etiqueta: #cbd8ea;
+  --color-navy-pie: #9fb6d4;
+  --color-navy-fila: #a9bdd8;
+  --color-navy-nota: #8ba5c6;
+  --color-navy-tenue: #a9c2e8; /* etiquetas sobre el héroe del simulador */
+  --color-navy-suave: #c3d4ee;
+
+  /* — Positivo (esmeralda) ---------------------------------------------- */
+  --color-positivo: #047857; /* cifras positivas — el de uso general */
+  --color-positivo-vivo: #059669; /* puntos, "en línea", anillo de éxito */
+  --color-positivo-texto: #065f46; /* texto sobre banner de éxito */
+  --color-positivo-fondo: #dcfce7;
+  --color-positivo-borde: #a7f3cf;
+  --color-positivo-punto: #34d399; /* punto sobre tarjeta KPI oscura */
+  --color-positivo-claro: #6ee7b7; /* cifras positivas SOBRE fondo oscuro */
+
+  /* — Negativo (rosa) --------------------------------------------------- */
+  --color-negativo: #e11d48;
+  --color-negativo-texto: #a4133c;
+  --color-negativo-fondo: #fee2e6;
+  --color-negativo-borde: #fbc4ce;
+  --color-negativo-fila: #fff7f8; /* fila OCR de baja confianza */
+  --color-negativo-claro: #fb7185; /* cifras negativas SOBRE fondo oscuro */
+  --color-negativo-suave: #fda4af; /* negativo sobre el héroe del simulador */
+
+  /* — Ámbar ------------------------------------------------------------- */
+  --color-ambar: #d97706;
+  --color-ambar-fondo: #fef3c7;
+  --color-ambar-texto: #92400e;
+  --color-ambar-sucio: #fbbf24; /* borde de input con cambios sin guardar */
+  --color-ambar-fila-sucia: #fefce8;
+  --color-ambar-ganador: #fed7aa; /* píldora del número ganador */
+  --color-ambar-ganador-texto: #9a3412;
+  --color-ambar-fila-ganadora: #fff7ed;
+  --color-ambar-nav: #ea580c;
+
+  /* — Paleta categórica de vendedores ----------------------------------- */
+  --color-v1: #2563eb;
+  --color-v2: #0891b2;
+  --color-v3: #e11d48;
+  --color-v4: #7c3aed;
+  --color-v5: #059669;
+
+  /* — Papel del OCR ----------------------------------------------------- */
+  --color-papel: #f6f9fd;
+  --color-papel-raya: #e5ecf6;
+
+  /* — Escala tipográfica (cada valor distinto del prototipo) ------------ */
+  --text-badge: 10px;
+  --text-eyebrow: 10.5px; /* etiquetas de sección, GANADOR, NÚMERO/MONTO */
+  --text-th: 11px; /* encabezados de tabla, ejes de gráfico */
+  --text-label: 11.5px; /* etiquetas de formulario, pies de KPI */
+  --text-micro: 12px;
+  --text-meta: 12.5px; /* etiqueta de KPI, chips, botones ghost */
+  --text-tabla: 13px; /* cuerpo de tabla, subtítulo de página */
+  --text-base: 13.5px; /* nav, inputs, selects, párrafos héroe */
+  --text-card: 14px;
+  --text-cta: 14.5px;
+  --text-h2: 15px; /* también marca, celdas de subtotal, ‹ › */
+  --text-pos: 16px;
+  --text-pos-lg: 17px; /* hora del sorteo, cuenta regresiva, ± */
+  --text-pos-xl: 18px;
+  --text-modal: 19px; /* título de modal, operadores − = */
+  --text-exito: 20px;
+  --text-ganador: 22px;
+  --text-tecla: 23px;
+  --text-h1: 24px; /* todos los h1, total del ticket, KPI de control */
+  --text-kpi: 26px;
+  --text-sim: 27px;
+  --text-rapida: 30px;
+  --text-display: 32px; /* displays NÚMERO / MONTO del POS */
+  --text-tile: 44px; /* mosaico ganador del modal */
+  --text-captura: 54px; /* input del número ganador */
+
+  /* — Interletraje ------------------------------------------------------ */
+  --tracking-titular: -0.02em; /* h1 24px, KPI 26px, cifras grandes */
+  --tracking-sutil: -0.01em; /* h2 15px, marca, POS 17px */
+  --tracking-rapida: 0.02em;
+  --tracking-subtotal: 0.04em;
+  --tracking-th: 0.06em; /* encabezados de tabla, GANADOR, SORTEO */
+  --tracking-eyebrow: 0.07em; /* NÚMERO / MONTO (L), NÚMERO GANADOR */
+  --tracking-ticket: 0.08em;
+  --tracking-seccion: 0.09em; /* etiquetas de sección, TOTAL DEL RANGO */
+
+  /* — Radios ------------------------------------------------------------ */
+  --radius-punto: 3px;
+  --radius-barra-geo: 5px;
+  --radius-barra: 6px;
+  --radius-celda: 7px; /* píldora numérica, celda de rejilla, tab interno */
+  --radius-chip: 8px; /* chip de icono nav, píldora CERRADO */
+  --radius-campo: 9px; /* inputs, selects, item de nav, botón pequeño */
+  --radius-boton: 10px; /* contenedor de tabs, inputs de modal */
+  --radius-banner: 11px; /* logotipo, banner de cupo, fila OCR, chip histórico */
+  --radius-pos: 12px; /* botones del POS, estados vacíos, leaflet */
+  --radius-card: 14px; /* radio canónico de tarjeta */
+  --radius-hero: 16px; /* héroe del simulador, input de captura */
+  --radius-modal: 18px;
+  --radius-atajo: 20px; /* píldoras de atajo del POS */
+  --radius-pantalla: 30px; /* pantalla del teléfono */
+  --radius-marco: 40px; /* marco del teléfono */
+
+  /* — Sombras ----------------------------------------------------------- */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-oscura: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-tab: 0 1px 2px rgba(15, 23, 42, 0.1);
+  --shadow-telefono: 0 20px 45px rgba(15, 23, 42, 0.24);
+  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.28);
+
+  /* — Degradados -------------------------------------------------------- */
+  --gradiente-logo: linear-gradient(145deg, #2563eb, #1e40af);
+  --gradiente-dia: linear-gradient(160deg, #0f2547, #183a6b);
+  --gradiente-sim: linear-gradient(150deg, #0f2547, #1d4ed8);
+}
+
+/* --- Reglas globales, portadas literalmente del prototipo ---------------- */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-fondo);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-acento);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-acento-fuerte);
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+/* El prototipo no declara ninguna transición: todo cambio de estado es
+   instantáneo. No añadir transition sin decisión explícita. */
+input:focus,
+select:focus {
+  border-color: var(--color-acento-foco);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d5dfec;
+  border-radius: 8px;
+  border: 3px solid var(--color-fondo);
+}
+
+.leaflet-container {
+  font-family: inherit;
+  border-radius: var(--radius-pos);
+}
+
+@keyframes blip {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}

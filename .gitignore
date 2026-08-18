@@ -1,0 +1,36 @@
+# Dependencias y artefactos de compilación
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Credenciales. `.env.local` lleva la llave de servicio de Supabase, que ignora
+# RLS, y la de Google. La plantilla sí se versiona: el README manda copiarla.
+.env
+.env.*
+!.env.local.example
+
+# Hojas manuscritas de prueba: llevan apuestas de personas reales.
+loteria-el-diario/muestras/*
+!loteria-el-diario/muestras/LEEME.md
+
+# Copia suelta e idéntica de `prototipo/support.js`, que es donde el prototipo
+# la carga. Versionar las dos invita a que se separen.
+/support.js
+
+# Preferencias de la máquina, no del proyecto
+.claude/settings.local.json
+.thumbnail
+.DS_Store
+*.pem
+
+# Registros
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Despliegue
+.vercel

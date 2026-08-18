@@ -1,0 +1,564 @@
+/**
+ * Tipos del esquema `allan`, derivados de supabase/migrations/.
+ *
+ * Escritos a mano en vez de generados porque `supabase gen types` exige un
+ * token personal o la contraseña de la base, que no tenemos. Si más adelante
+ * hay alguno de los dos, este archivo se puede reemplazar por la salida de:
+ *
+ *     npx supabase gen types typescript \
+ *       --project-id <ref> --schema allan > lib/supabase/tipos.ts
+ *
+ * Mientras tanto: **al cambiar una migración, cambiar también este archivo.**
+ */
+
+/** Fila con los campos que la base rellena sola marcados como opcionales al insertar. */
+type Insertable<Fila, Auto extends keyof Fila> = Omit<Fila, Auto> &
+  Partial<Pick<Fila, Auto>>;
+
+// --- Enumeraciones ---------------------------------------------------------
+
+export type RolUsuario = "vendedor" | "digitador" | "administrador" | "auditor";
+export type EstadoSorteo = "programado" | "abierto" | "cerrado" | "liquidado";
+export type HoraSorteo = "11:00" | "15:00" | "20:00";
+export type CanalTicket = "movil" | "ocr";
+export type EstadoLote =
+  | "cargado"
+  | "extraido"
+  | "en_revision"
+  | "validado"
+  | "rechazado";
+
+// --- Filas -----------------------------------------------------------------
+
+export type Vendedor = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  identidad: string | null;
+  telefono: string | null;
+  correo: string | null;
+  ciudad: string;
+  barrio: string | null;
+  zona: string;
+  color: string;
+  lat: number | null;
+  lng: number | null;
+  activo: boolean;
+  creado_en: string;
+};
+
+/** `comision` es FRACCIÓN (0.125 = 12.5 %), no porcentaje. */
+export type ParametroVendedor = {
+  id: string;
+  vendedor_id: string;
+  comision: number;
+  factor_pago: number;
+  tope_por_numero: number;
+  vigente_desde: string;
+  /** `null` = fila vigente. Sólo puede haber una por vendedor. */
+  vigente_hasta: string | null;
+  creado_por: string | null;
+};
+
+export type Sorteo = {
+  id: string;
+  fecha: string;
+  hora: HoraSorteo;
+  estado: EstadoSorteo;
+  hora_cierre: string;
+  /** No nulo si y sólo si `estado === 'liquidado'`. */
+  numero_ganador: number | null;
+  liquidado_en: string | null;
+  liquidado_por: string | null;
+};
+
+export type CupoNumero = {
+  sorteo_id: string;
+  numero: number;
+  limite_casa: number;
+  vendido: number;
+};
+
+export type Dispositivo = {
+  id: string;
+  etiqueta: string;
+  vendedor_id: string | null;
+  ultimo_visto: string | null;
+  version_app: string | null;
+  activo: boolean;
+  creado_en: string;
+};
+
+export type CuotaDispositivo = {
+  sorteo_id: string;
+  dispositivo_id: string;
+  numero: number;
+  asignado: number;
+  consumido: number;
+};
+
+export type Ticket = {
+  id: string;
+  folio: string;
+  sorteo_id: string;
+  vendedor_id: string;
+  canal: CanalTicket;
+  total: number;
+  creado_en: string;
+  creado_por: string | null;
+  lat: number | null;
+  lng: number | null;
+  dispositivo_id: string | null;
+  lote_ocr_id: string | null;
+  anulado_en: string | null;
+  anulado_por: string | null;
+  motivo_anulacion: string | null;
+};
+
+export type Linea = {
+  id: string;
+  ticket_id: string;
+  numero: number;
+  monto: number;
+  /** Congelados en la venta. Cambiar los parámetros del vendedor no los toca. */
+  comision_congelada: number;
+  factor_congelado: number;
+  gana: boolean;
+  premio: number;
+};
+
+export type Liquidacion = {
+  id: string;
+  sorteo_id: string;
+  vendedor_id: string;
+  venta: number;
+  comision: number;
+  premios: number;
+  utilidad: number;
+  generada_en: string;
+  usuario_id: string | null;
+};
+
+export type LoteOcr = {
+  id: string;
+  imagen_path: string;
+  vendedor_id: string;
+  sorteo_id: string;
+  total_declarado: number;
+  confianza_global: number | null;
+  estado: EstadoLote;
+  validado_por: string | null;
+  validado_en: string | null;
+  modelo: string | null;
+  tokens_entrada: number | null;
+  tokens_salida: number | null;
+  costo_inferencia: number | null;
+  creado_en: string;
+};
+
+export type Auditoria = {
+  id: number;
+  entidad: string;
+  entidad_id: string | null;
+  campo: string | null;
+  valor_anterior: string | null;
+  valor_nuevo: string | null;
+  accion: string;
+  usuario_id: string | null;
+  ip: string | null;
+  ocurrido_en: string;
+};
+
+export type UsuarioPerfil = {
+  id: string;
+  rol: RolUsuario;
+  vendedor_id: string | null;
+  nombre: string;
+  creado_en: string;
+};
+
+export type Escenario = {
+  id: string;
+  nombre: string;
+  desde: string;
+  hasta: string;
+  comision: number;
+  factor_pago: number;
+  creado_por: string | null;
+  creado_en: string;
+};
+
+/** Límite de la casa por número, por franja horaria (§13). */
+export type LimiteFranja = {
+  hora: HoraSorteo;
+  limite_casa: number;
+  actualizado_en: string;
+};
+
+/** Única superficie legible sin autenticación. */
+export type ResultadoPublico = {
+  fecha: string;
+  hora: HoraSorteo;
+  numero_ganador: number;
+};
+
+// --- Forma que espera supabase-js ------------------------------------------
+
+type Tabla<Fila, Auto extends keyof Fila> = {
+  Row: Fila;
+  Insert: Insertable<Fila, Auto>;
+  Update: Partial<Fila>;
+  Relationships: [];
+};
+
+export type Database = {
+  allan: {
+    Tables: {
+      vendedor: Tabla<Vendedor, "id" | "activo" | "creado_en">;
+      parametro_vendedor: Tabla<ParametroVendedor, "id" | "vigente_desde" | "vigente_hasta" | "creado_por">;
+      sorteo: Tabla<Sorteo, "id" | "estado" | "numero_ganador" | "liquidado_en" | "liquidado_por">;
+      cupo_numero: Tabla<CupoNumero, "vendido">;
+      dispositivo: Tabla<Dispositivo, "id" | "activo" | "creado_en" | "ultimo_visto" | "version_app" | "vendedor_id">;
+      cuota_dispositivo: Tabla<CuotaDispositivo, "consumido">;
+      ticket: Tabla<
+        Ticket,
+        | "id" | "creado_en" | "creado_por" | "lat" | "lng" | "dispositivo_id"
+        | "lote_ocr_id" | "anulado_en" | "anulado_por" | "motivo_anulacion"
+      >;
+      linea: Tabla<Linea, "id" | "gana" | "premio">;
+      liquidacion: Tabla<Liquidacion, "id" | "generada_en" | "usuario_id">;
+      lote_ocr: Tabla<
+        LoteOcr,
+        | "id" | "estado" | "creado_en" | "confianza_global" | "validado_por"
+        | "validado_en" | "modelo" | "tokens_entrada" | "tokens_salida" | "costo_inferencia"
+      >;
+      auditoria: Tabla<Auditoria, "id" | "ocurrido_en">;
+      usuario_perfil: Tabla<UsuarioPerfil, "creado_en" | "vendedor_id">;
+      escenario: Tabla<Escenario, "id" | "creado_en" | "creado_por">;
+      limite_franja: Tabla<LimiteFranja, "actualizado_en">;
+    };
+    Views: {
+      v_resultado_publico: { Row: ResultadoPublico; Relationships: [] };
+    };
+    Functions: {
+      fn_abrir_sorteo: {
+        Args: { p_sorteo_id: string; p_limite_por_numero: number };
+        Returns: undefined;
+      };
+      fn_cerrar_sorteo: {
+        Args: { p_sorteo_id: string };
+        Returns: undefined;
+      };
+      fn_registrar_ticket: {
+        Args: {
+          p_sorteo_id: string;
+          p_vendedor_id: string;
+          /** `[{ numero: 0..99, monto: number }]` */
+          p_lineas: { numero: number; monto: number }[];
+          p_lat?: number | null;
+          p_lng?: number | null;
+          p_dispositivo_id?: string | null;
+          p_canal?: CanalTicket;
+          p_lote_ocr_id?: string | null;
+        };
+        Returns: { ticket_id: string; ticket_folio: string; ticket_total: number }[];
+      };
+      fn_reservar_cuota: {
+        Args: {
+          p_sorteo_id: string;
+          p_dispositivo_id: string;
+          p_monto_por_numero: number;
+        };
+        Returns: number;
+      };
+      fn_liquidar_sorteo: {
+        Args: { p_sorteo_id: string; p_numero_ganador: number };
+        Returns: {
+          total_vendedores: number;
+          total_lineas_ganadoras: number;
+          total_premios: number;
+        }[];
+      };
+      fn_anular_ticket: {
+        Args: { p_ticket_id: string; p_motivo: string };
+        Returns: undefined;
+      };
+      fn_guardar_parametros: {
+        Args: {
+          p_vendedor_id: string;
+          /** Fracción: 0.125 para 12.5 %. */
+          p_comision: number;
+          p_factor_pago: number;
+          p_tope_por_numero: number;
+        };
+        Returns: string;
+      };
+      /** Consulta de conveniencia. NO es autoritativa: la que manda es la de fn_registrar_ticket. */
+      fn_cupo_disponible: {
+        Args: { p_sorteo_id: string; p_vendedor_id: string; p_numero: number };
+        Returns: number;
+      };
+      /**
+       * Agregados del tablero. Corren como el invocador, así que RLS filtra:
+       * un vendedor sólo agrega lo suyo. Liquidado y pendiente van separados.
+       */
+      fn_resumen_periodo: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          venta: number;
+          comision: number;
+          tickets: number;
+          venta_liquidada: number;
+          comision_liquidada: number;
+          premios: number;
+          utilidad: number;
+          venta_pendiente: number;
+          sorteos_liquidados: number;
+          sorteos_pendientes: number;
+        }[];
+      };
+      fn_resumen_mensual: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          anio: number;
+          /** 0–11. */
+          mes: number;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+          venta_pendiente: number;
+        }[];
+      };
+      fn_resumen_vendedor: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          vendedor_id: string;
+          codigo: string;
+          nombre: string;
+          color: string;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+        }[];
+      };
+      /** Simulador: recalcula el histórico liquidado con otros parámetros. */
+      /** Ciclo automático de sorteos. Lo dispara pg_cron, no la aplicación. */
+      fn_ciclo_sorteos: {
+        Args: Record<string, never>;
+        Returns: { accion: string; fecha: string; hora: HoraSorteo }[];
+      };
+      fn_simular: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          /** Fracción: 0.13 para 13 %. */
+          p_comision: number;
+          p_factor: number;
+        };
+        Returns: {
+          anio: number;
+          /** 0–11. */
+          mes: number;
+          dias: number;
+          venta: number;
+          comision_real: number;
+          premios_real: number;
+          utilidad_real: number;
+          comision_sim: number;
+          premios_sim: number;
+          utilidad_sim: number;
+        }[];
+      };
+      /** Comisión y factor reales del rango, ponderados por venta. */
+      fn_parametros_ponderados: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { comision_ponderada: number; factor_ponderado: number; venta: number }[];
+      };
+      fn_crear_lote_ocr: {
+        Args: {
+          p_imagen_path: string;
+          p_vendedor_id: string;
+          p_sorteo_id: string;
+          p_total_declarado: number;
+          p_confianza_global: number;
+          p_modelo: string;
+          p_tokens_entrada: number;
+          p_tokens_salida: number;
+          p_costo: number;
+        };
+        Returns: string;
+      };
+      /** Exige cuadre exacto y crea los tickets por la misma vía que la venta móvil. */
+      fn_validar_lote_ocr: {
+        Args: { p_lote_id: string; p_lineas: { numero: number; monto: number }[] };
+        Returns: { ticket_id: string; ticket_folio: string; lineas: number }[];
+      };
+      fn_rechazar_lote_ocr: {
+        Args: { p_lote_id: string; p_motivo: string };
+        Returns: undefined;
+      };
+      fn_gasto_ocr: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          lotes: number;
+          imagenes_validadas: number;
+          costo_total: number;
+          confianza_media: number;
+        }[];
+      };
+      /** Filas paginadas del reporte. Los subtotales van aparte, a propósito. */
+      fn_reporte_filas: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_vendedor_id?: string | null;
+          p_hora?: HoraSorteo | null;
+          p_numero?: number | null;
+          p_limite?: number;
+          p_desde_fila?: number;
+        };
+        Returns: {
+          fecha: string;
+          hora: HoraSorteo;
+          estado: EstadoSorteo;
+          numero_ganador: number | null;
+          vendedor_id: string;
+          vendedor: string;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+        }[];
+      };
+      /** Subtotales sobre el filtro COMPLETO, no sobre la página visible. */
+      fn_reporte_totales: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_vendedor_id?: string | null;
+          p_hora?: HoraSorteo | null;
+          p_numero?: number | null;
+        };
+        Returns: {
+          registros: number;
+          dias: number;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+          venta_pendiente: number;
+          registros_pendientes: number;
+        }[];
+      };
+      /** La única consulta que baja a la línea individual. */
+      fn_bitacora_vendedor: {
+        Args: { p_vendedor_id: string; p_fecha: string; p_hora?: HoraSorteo | null };
+        Returns: {
+          creado_en: string;
+          hora: HoraSorteo;
+          estado: EstadoSorteo;
+          folio: string;
+          numero: number;
+          monto: number;
+          gana: boolean;
+          premio: number;
+          lat: number | null;
+          lng: number | null;
+        }[];
+      };
+      fn_actividad_horaria: {
+        Args: { p_vendedor_id: string; p_fecha: string };
+        Returns: { hora_reloj: number; monto: number }[];
+      };
+      fn_resumen_dia: {
+        Args: { p_fecha: string };
+        Returns: {
+          sorteo_id: string;
+          hora: HoraSorteo;
+          estado: EstadoSorteo;
+          numero_ganador: number | null;
+          tickets: number;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+        }[];
+      };
+      fn_desglose_dia: {
+        Args: { p_fecha: string };
+        Returns: {
+          vendedor_id: string;
+          nombre: string;
+          hora: HoraSorteo;
+          estado: EstadoSorteo;
+          venta: number;
+          comision: number;
+          premios: number;
+          utilidad: number;
+        }[];
+      };
+      /** Lectura. Con `p_numero` nulo devuelve sólo venta, comisión y tickets. */
+      fn_impacto_numero: {
+        Args: { p_sorteo_id: string; p_numero?: number | null };
+        Returns: {
+          venta: number;
+          comision: number;
+          tickets: number;
+          lineas_ganadoras: number;
+          pago: number;
+          utilidad: number;
+        }[];
+      };
+      /** El número que más costaría si saliera (regla de peor escenario, §5). */
+      fn_peor_escenario: {
+        Args: { p_sorteo_id: string };
+        Returns: { numero: number; pago: number; utilidad_peor: number }[];
+      };
+      fn_crear_vendedor: {
+        Args: {
+          p_nombre: string;
+          p_telefono: string;
+          p_correo: string;
+          p_identidad: string;
+          p_ciudad: string;
+          p_barrio: string;
+          p_lat: number;
+          p_lng: number;
+          p_color: string;
+          /** Fracción: 0.125 para 12.5 %. */
+          p_comision: number;
+          p_factor_pago: number;
+          p_tope_por_numero: number;
+        };
+        Returns: { vendedor_id: string; vendedor_codigo: string }[];
+      };
+      /** Crea los tres sorteos de una fecha, en estado `programado`. */
+      fn_programar_dia: { Args: { p_fecha: string }; Returns: number };
+      fn_es_servicio: { Args: Record<string, never>; Returns: boolean };
+      fn_exige: { Args: { p_roles: RolUsuario[] }; Returns: undefined };
+      fn_rol_actual: { Args: Record<string, never>; Returns: RolUsuario };
+      fn_vendedor_actual: { Args: Record<string, never>; Returns: string | null };
+      fn_auditar: {
+        Args: {
+          p_entidad: string;
+          p_entidad_id: string;
+          p_accion: string;
+          p_campo?: string | null;
+          p_valor_anterior?: string | null;
+          p_valor_nuevo?: string | null;
+        };
+        Returns: undefined;
+      };
+    };
+    Enums: {
+      rol_usuario: RolUsuario;
+      estado_sorteo: EstadoSorteo;
+      hora_sorteo: HoraSorteo;
+      canal_ticket: CanalTicket;
+      estado_lote: EstadoLote;
+    };
+    CompositeTypes: Record<string, Record<string, unknown>>;
+  };
+};

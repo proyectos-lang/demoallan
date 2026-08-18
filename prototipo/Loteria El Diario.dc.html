@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+html,body{margin:0;padding:0;background:#f4f7fb}
+*{box-sizing:border-box}
+body{-webkit-font-smoothing:antialiased}
+a{color:#2563eb;text-decoration:none}
+a:hover{color:#1d4ed8}
+button,input,select{font-family:inherit}
+input:focus,select:focus{border-color:#93b4fd;box-shadow:0 0 0 3px rgba(37,99,235,.13)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#d5dfec;border-radius:8px;border:3px solid #f4f7fb}
+.leaflet-container{font-family:inherit;border-radius:12px}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+</style>
+</helmet>
+<div style="display:flex;height:100vh;overflow:hidden;font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:#0f172a;background:#f4f7fb;font-size:14px;font-variant-numeric:tabular-nums">
+
+  <aside style="width:262px;flex:none;background:#ffffff;border-right:1px solid #e6ecf4;display:flex;flex-direction:column;overflow-y:auto">
+    <div style="padding:20px 18px 16px;display:flex;align-items:center;gap:11px">
+      <span style="width:38px;height:38px;flex:none;border-radius:11px;background:linear-gradient(145deg,#2563eb,#1e40af);display:flex;align-items:center;justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"></path></svg>
+      </span>
+      <span style="display:block">
+        <span style="display:block;font-size:15px;font-weight:600;letter-spacing:-.01em">Lotería El Diario</span>
+        <span style="display:block;font-size:11.5px;color:#64748b;margin-top:2px">Cortés · Honduras</span>
+      </span>
+    </div>
+
+    <div style="padding:0 18px 8px;font-size:10.5px;font-weight:600;letter-spacing:.09em;color:#94a3b8">OPERACIÓN</div>
+    <nav style="display:flex;flex-direction:column;gap:2px;padding:0 10px 8px">
+      <button onClick="{{ goTablero }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.tablero.bg }};color:{{ nav.tablero.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.tablero.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+        </span>Tablero de control
+      </button>
+      <button onClick="{{ goPos }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.pos.bg }};color:{{ nav.pos.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.pos.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="3"></rect><path d="M11 18h2"></path></svg>
+        </span>Punto de venta
+      </button>
+      <button onClick="{{ goResultados }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.resultados.bg }};color:{{ nav.resultados.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.resultados.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"></path><path d="M17 5h2a2 2 0 0 1 0 4h-2M7 5H5a2 2 0 0 0 0 4h2"></path></svg>
+        </span>Sorteos y resultados
+      </button>
+      <button onClick="{{ goOcr }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.ocr.bg }};color:{{ nav.ocr.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.ocr.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M7 9h10M7 13h7"></path></svg>
+        </span>Digitalización IA
+      </button>
+    </nav>
+
+    <div style="padding:10px 18px 8px;font-size:10.5px;font-weight:600;letter-spacing:.09em;color:#94a3b8">ANÁLISIS</div>
+    <nav style="display:flex;flex-direction:column;gap:2px;padding:0 10px 8px">
+      <button onClick="{{ goReportes }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.reportes.bg }};color:{{ nav.reportes.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.reportes.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18M9 10v10M15 10v10"></path></svg>
+        </span>Reportes
+      </button>
+      <button onClick="{{ goControl }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.control.bg }};color:{{ nav.control.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.control.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="8" r="4"></circle><path d="M3 21a7 7 0 0 1 11.5-5.3M18 17.5l3 3"></path><circle cx="17" cy="16" r="3"></circle></svg>
+        </span>Control de vendedores
+      </button>
+      <button onClick="{{ goGeo }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.geo.bg }};color:{{ nav.geo.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.geo.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>
+        </span>Geo-referenciación
+      </button>
+      <button onClick="{{ goSimulador }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.simulador.bg }};color:{{ nav.simulador.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.simulador.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round"><path d="M9 3h6M10 3v6.2L5.5 17A2.5 2.5 0 0 0 7.7 21h8.6a2.5 2.5 0 0 0 2.2-3.8L14 9.2V3"></path><path d="M7.5 15h9"></path></svg>
+        </span>Simulador
+      </button>
+    </nav>
+
+    <div style="padding:10px 18px 8px;font-size:10.5px;font-weight:600;letter-spacing:.09em;color:#94a3b8">CONFIGURACIÓN</div>
+    <nav style="display:flex;flex-direction:column;gap:2px;padding:0 10px 8px">
+      <button onClick="{{ goVendedores }}" style="display:flex;align-items:center;gap:11px;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:500;background:{{ nav.vendedores.bg }};color:{{ nav.vendedores.fg }}" style-hover="background:#f1f5f9">
+        <span style="width:28px;height:28px;flex:none;border-radius:8px;background:{{ nav.vendedores.chip }};display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="9" cy="6" r="2" fill="#fff"></circle><circle cx="15" cy="12" r="2" fill="#fff"></circle><circle cx="8" cy="18" r="2" fill="#fff"></circle></svg>
+        </span>Vendedores y límites
+      </button>
+    </nav>
+
+    <div style="margin-top:auto;padding:14px 18px;border-top:1px solid #eef2f7;display:flex;align-items:center;gap:10px">
+      <span style="width:32px;height:32px;flex:none;border-radius:50%;background:#eef4ff;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">AM</span>
+      <span style="display:block;min-width:0">
+        <span style="display:block;font-size:12.5px;font-weight:500">Alma Mejía</span>
+        <span style="display:block;font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis">Administradora</span>
+      </span>
+    </div>
+  </aside>
+
+  <main style="flex:1;overflow-y:auto;overflow-x:hidden">
+
+    <sc-if value="{{ isTablero }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:24px 28px 60px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px">
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Tablero de control</h1>
+          <p style="margin:6px 0 0;font-size:13px;color:#64748b">{{ dash.subtitulo }}</p>
+        </div>
+        <div style="display:flex;gap:6px;background:#eef2f7;border-radius:10px;padding:4px">
+          <button onClick="{{ dash.verGeneral }}" style="cursor:pointer;border:0;border-radius:7px;padding:8px 15px;font-size:13px;font-weight:500;background:{{ dash.generalBg }};color:{{ dash.generalFg }};box-shadow:{{ dash.generalSombra }}">Resumen general</button>
+          <button onClick="{{ dash.verDia }}" style="cursor:pointer;border:0;border-radius:7px;padding:8px 15px;font-size:13px;font-weight:500;background:{{ dash.diaBg }};color:{{ dash.diaFg }};box-shadow:{{ dash.diaSombra }}">Resumen del día</button>
+        </div>
+      </div>
+
+      <sc-if value="{{ dash.esGeneral }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:26px;margin-bottom:18px">
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:3px;background:#2563eb"></span>
+              <span style="font-size:12.5px;color:#475569;font-weight:500">Venta bruta</span>
+            </div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:10px;white-space:nowrap">{{ dash.venta }}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ dash.periodo }}</div>
+          </div>
+          <div style="position:relative;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <span style="position:absolute;left:-20px;top:50%;transform:translate(-50%,-50%);font-size:19px;color:#94a3b8;font-weight:500">−</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:3px;background:#0891b2"></span>
+              <span style="font-size:12.5px;color:#475569;font-weight:500">Comisiones</span>
+            </div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:10px;white-space:nowrap">{{ dash.comision }}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ dash.comisionPct }} de la venta</div>
+          </div>
+          <div style="position:relative;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <span style="position:absolute;left:-20px;top:50%;transform:translate(-50%,-50%);font-size:19px;color:#94a3b8;font-weight:500">−</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:3px;background:#e11d48"></span>
+              <span style="font-size:12.5px;color:#475569;font-weight:500">Premios pagados</span>
+            </div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:10px;white-space:nowrap">{{ dash.premios }}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ dash.premiosPct }} de la venta</div>
+          </div>
+          <div style="position:relative;border-radius:14px;padding:16px 18px;background:#0f2547;border:1px solid #0f2547;box-shadow:0 1px 2px rgba(15,23,42,.08)">
+            <span style="position:absolute;left:-20px;top:50%;transform:translate(-50%,-50%);font-size:19px;color:#94a3b8;font-weight:500">=</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:3px;background:#34d399"></span>
+              <span style="font-size:12.5px;color:#cbd8ea;font-weight:500">Utilidad neta</span>
+            </div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:10px;color:#fff;white-space:nowrap">{{ dash.utilidad }}</div>
+            <div style="font-size:11.5px;color:#9fb6d4;margin-top:5px">margen {{ dash.margen }}</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px 16px;margin-bottom:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+            <div>
+              <h2 style="margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em">Utilidad mes por mes</h2>
+              <p style="margin:5px 0 0;font-size:12.5px;color:#64748b">Utilidad neta mensual del período. Cada punto es venta menos comisiones menos premios.</p>
+            </div>
+            <div style="display:flex;gap:18px;font-size:12px;color:#64748b">
+              <span>promedio <strong style="color:#0f172a;font-weight:600">{{ dash.promMes }}</strong></span>
+              <span>mejor mes <strong style="color:#0f172a;font-weight:600">{{ dash.mejorMes }}</strong></span>
+            </div>
+          </div>
+          <svg viewBox="0 0 1000 280" preserveAspectRatio="none" style="width:100%;height:270px;display:block;overflow:visible">
+            <sc-for list="{{ dash.grid }}" as="gl" hint-placeholder-count="4">
+              <line x1="0" y1="{{ gl.y }}" x2="1000" y2="{{ gl.y }}" stroke="#eef2f7" stroke-width="1"></line>
+            </sc-for>
+            <path d="{{ dash.area }}" fill="rgba(37,99,235,.10)"></path>
+            <polyline points="{{ dash.linea }}" fill="none" stroke="{{ dash.acento }}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+            <sc-for list="{{ dash.puntos }}" as="p" hint-placeholder-count="8">
+              <circle cx="{{ p.x }}" cy="{{ p.y }}" r="4.5" fill="#fff" stroke="{{ p.color }}" stroke-width="2.5"></circle>
+            </sc-for>
+          </svg>
+          <div style="display:flex;margin-top:8px">
+            <sc-for list="{{ dash.meses }}" as="m" hint-placeholder-count="8">
+              <div style="flex:1;text-align:center">
+                <div style="font-size:12.5px;font-weight:600;color:{{ m.color }}">{{ m.valor }}</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:2px">{{ m.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:18px">
+          <div style="flex:1 1 380px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <h2 style="margin:0 0 4px;font-size:15px;font-weight:600;letter-spacing:-.01em">Ventas por vendedor</h2>
+            <p style="margin:0 0 16px;font-size:12.5px;color:#64748b">{{ dash.periodo }}</p>
+            <sc-for list="{{ dash.barrasVenta }}" as="b" hint-placeholder-count="5">
+              <div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                  <span style="font-size:13px;font-weight:500">{{ b.nombre }}</span>
+                  <span style="font-size:13px;font-weight:600">{{ b.valor }}</span>
+                </div>
+                <span style="display:block;height:9px;border-radius:6px;background:#f1f5f9;overflow:hidden"><span style="display:block;height:9px;border-radius:6px;background:{{ b.color }};width:{{ b.ancho }}"></span></span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:1 1 380px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <h2 style="margin:0 0 4px;font-size:15px;font-weight:600;letter-spacing:-.01em">Utilidad por vendedor</h2>
+            <p style="margin:0 0 16px;font-size:12.5px;color:#64748b">Venta menos comisión menos premios pagados</p>
+            <sc-for list="{{ dash.barrasUtil }}" as="b" hint-placeholder-count="5">
+              <div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                  <span style="font-size:13px;font-weight:500">{{ b.nombre }}</span>
+                  <span style="font-size:13px;font-weight:600;color:{{ b.color }}">{{ b.valor }}</span>
+                </div>
+                <span style="display:block;height:9px;border-radius:6px;background:#f1f5f9;overflow:hidden"><span style="display:block;height:9px;border-radius:6px;background:{{ b.color }};width:{{ b.ancho }}"></span></span>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px">margen {{ b.margen }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ dash.esDia }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Día</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button onClick="{{ dia.anterior }}" style="cursor:pointer;width:34px;height:34px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#475569;font-size:15px" style-hover="background:#f8fafc">‹</button>
+              <input type="date" value="{{ dia.fecha }}" onChange="{{ dia.onFecha }}" style="padding:8px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+              <button onClick="{{ dia.siguiente }}" style="cursor:pointer;width:34px;height:34px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#475569;font-size:15px" style-hover="background:#f8fafc">›</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Vendedor</div>
+            <select value="{{ dia.vend }}" onChange="{{ dia.onVend }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;min-width:220px;color:#0f172a">
+              <option value="todos">Todos los vendedores</option>
+              <sc-for list="{{ opcionesVend }}" as="o" hint-placeholder-count="5">
+                <option value="{{ o.value }}">{{ o.label }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div style="margin-left:auto;font-size:12.5px;color:#64748b">{{ dia.etiqueta }}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:14px;margin-bottom:18px">
+          <sc-for list="{{ dia.sorteos }}" as="s" hint-placeholder-count="3">
+            <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <div>
+                  <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">Sorteo {{ s.hora }}</div>
+                  <div style="font-size:11.5px;color:#64748b;margin-top:3px">{{ s.estado }}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:10.5px;color:#94a3b8;font-weight:500;letter-spacing:.06em">GANADOR</div>
+                  <div style="font-size:22px;font-weight:600;letter-spacing:-.02em;color:{{ s.ganColor }};margin-top:2px">{{ s.ganador }}</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b">Ventas</span><strong style="font-weight:600">{{ s.venta }}</strong></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b">Comisión</span><strong style="font-weight:600">{{ s.comision }}</strong></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b">Premios</span><strong style="font-weight:600">{{ s.premios }}</strong></div>
+                <div style="display:flex;justify-content:space-between;font-size:13.5px;border-top:1px solid #eef2f7;padding-top:9px"><span style="color:#64748b">Utilidad</span><strong style="font-weight:600;color:{{ s.utilColor }}">{{ s.utilidad }}</strong></div>
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#94a3b8"><span>margen {{ s.margen }}</span><span>{{ s.tickets }} tickets</span></div>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="background:linear-gradient(160deg,#0f2547,#183a6b);border:1px solid #0f2547;border-radius:14px;padding:18px 20px">
+            <div style="font-size:15px;font-weight:600;color:#fff;letter-spacing:-.01em">Total del día</div>
+            <div style="font-size:11.5px;color:#9fb6d4;margin-top:3px;margin-bottom:14px">{{ dia.etiqueta }}</div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a9bdd8">Ventas</span><strong style="color:#fff;font-weight:600">{{ dia.venta }}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a9bdd8">Comisión</span><strong style="color:#fff;font-weight:600">{{ dia.comision }}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a9bdd8">Premios</span><strong style="color:#fff;font-weight:600">{{ dia.premios }}</strong></div>
+              <div style="font-size:11px;color:#8ba5c6;margin-top:-3px">{{ dia.premiosNota }}</div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;border-top:1px solid rgba(255,255,255,.14);padding-top:9px"><span style="color:#a9bdd8">Utilidad</span><strong style="font-weight:600;color:{{ dia.utilColor }}">{{ dia.utilidad }}</strong></div>
+              <div style="font-size:11.5px;color:#9fb6d4">{{ dia.utilNota }}</div>
+              <div style="font-size:11px;color:#8ba5c6;line-height:1.45;margin-top:2px">{{ dia.margen }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px 10px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+            <h2 style="margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em">Desglose por vendedor y sorteo</h2>
+            <span style="font-size:12px;color:#64748b">* utilidad proyectada: sorteo aún sin número ganador</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:720px">
+              <thead>
+                <tr style="text-align:right;color:#64748b">
+                  <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 12px 10px 0;border-bottom:1px solid #eef2f7">VENDEDOR</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 12px 10px;border-bottom:1px solid #eef2f7">SORTEO</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 12px 10px;border-bottom:1px solid #eef2f7">VENTAS</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 12px 10px;border-bottom:1px solid #eef2f7">COMISIÓN</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 12px 10px;border-bottom:1px solid #eef2f7">PREMIOS</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:0 0 10px 12px;border-bottom:1px solid #eef2f7">UTILIDAD</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ dia.filas }}" as="r" hint-placeholder-count="8">
+                  <tr style="text-align:right">
+                    <td style="text-align:left;padding:10px 12px 10px 0;border-bottom:1px solid #f4f7fb;font-weight:500">{{ r.nombre }}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.hora }}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f4f7fb">{{ r.venta }}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.comision }}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.premios }}</td>
+                    <td style="padding:10px 0 10px 12px;border-bottom:1px solid #f4f7fb;font-weight:600;color:{{ r.utilColor }}">{{ r.utilidad }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isReportes }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Reportes</h1>
+      <p style="margin:6px 0 18px;font-size:13px;color:#64748b">Detalle por vendedor, sorteo y número ganador. Cada columna numérica muestra su subtotal arriba.</p>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          <sc-for list="{{ rep.presets }}" as="p" hint-placeholder-count="5">
+            <button onClick="{{ p.tap }}" style="cursor:pointer;border:1px solid {{ p.borde }};background:{{ p.bg }};color:{{ p.fg }};border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:500">{{ p.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Desde</div>
+            <input type="date" value="{{ rep.desde }}" onChange="{{ rep.onDesde }}" style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Hasta</div>
+            <input type="date" value="{{ rep.hasta }}" onChange="{{ rep.onHasta }}" style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Vendedor</div>
+            <select value="{{ rep.vend }}" onChange="{{ rep.onVend }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;min-width:210px;color:#0f172a">
+              <option value="todos">Todos</option>
+              <sc-for list="{{ opcionesVend }}" as="o" hint-placeholder-count="5">
+                <option value="{{ o.value }}">{{ o.label }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Sorteo</div>
+            <select value="{{ rep.hora }}" onChange="{{ rep.onHora }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+              <option value="todos">Todas las horas</option>
+              <option value="11:00">11:00</option>
+              <option value="15:00">15:00</option>
+              <option value="20:00">20:00</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Número ganador</div>
+            <input value="{{ rep.numero }}" onChange="{{ rep.onNumero }}" placeholder="cualquiera" style="width:120px;padding:9px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff">
+          </div>
+          <button onClick="{{ rep.limpiar }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:9px;padding:10px 15px;font-size:13px" style-hover="background:#f8fafc">Limpiar filtros</button>
+          <div style="margin-left:auto;font-size:12.5px;color:#64748b">{{ rep.conteo }}</div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+            <thead>
+              <tr style="background:#f8fafc">
+                <th colspan="4" style="text-align:left;padding:13px 16px;border-bottom:1px solid #eef2f7;font-size:11.5px;font-weight:600;color:#64748b;letter-spacing:.04em">SUBTOTALES DEL FILTRO</th>
+                <th style="text-align:right;padding:13px 14px;border-bottom:1px solid #eef2f7;font-size:15px;font-weight:600;color:#0f172a">{{ rep.subVenta }}</th>
+                <th style="text-align:right;padding:13px 14px;border-bottom:1px solid #eef2f7;font-size:15px;font-weight:600;color:#0f172a">{{ rep.subComision }}</th>
+                <th style="text-align:right;padding:13px 14px;border-bottom:1px solid #eef2f7;font-size:15px;font-weight:600;color:#0f172a">{{ rep.subPremios }}</th>
+                <th style="text-align:right;padding:13px 16px;border-bottom:1px solid #eef2f7;font-size:15px;font-weight:600;color:{{ rep.subUtilColor }}">{{ rep.subUtilidad }}</th>
+              </tr>
+              <tr style="background:#fbfcfe;text-align:right;color:#64748b">
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 16px;border-bottom:1px solid #eef2f7">FECHA</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">VENDEDOR</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">SORTEO</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">GANADOR</th>
+                <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">VENTAS</th>
+                <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">COMISIÓN</th>
+                <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">PREMIO</th>
+                <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 16px;border-bottom:1px solid #eef2f7">UTILIDAD</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ rep.filas }}" as="r" hint-placeholder-count="12">
+                <tr style="text-align:right" style-hover="background:#fbfcfe">
+                  <td style="text-align:left;padding:{{ rep.pad }} 16px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.fecha }}</td>
+                  <td style="text-align:left;padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb;font-weight:500">{{ r.nombre }}</td>
+                  <td style="text-align:left;padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.hora }}</td>
+                  <td style="text-align:left;padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb">
+                    <span style="display:inline-block;min-width:30px;text-align:center;padding:2px 7px;border-radius:7px;background:#eef4ff;color:#1d4ed8;font-weight:600;font-size:12.5px">{{ r.ganador }}</span>
+                  </td>
+                  <td style="padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb">{{ r.venta }}</td>
+                  <td style="padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.comision }}</td>
+                  <td style="padding:{{ rep.pad }} 14px;border-bottom:1px solid #f4f7fb;color:#475569">{{ r.premio }}</td>
+                  <td style="padding:{{ rep.pad }} 16px;border-bottom:1px solid #f4f7fb;font-weight:600;color:{{ r.utilColor }}">{{ r.utilidad }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:13px 16px;font-size:12.5px;color:#64748b;background:#fbfcfe;border-top:1px solid #eef2f7">{{ rep.pie }}</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isControl }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Control de vendedores</h1>
+      <p style="margin:6px 0 18px;font-size:13px;color:#64748b">Bitácora de ventas de un vendedor: hora exacta, número, monto y estado de cada línea.</p>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Vendedor</div>
+          <select value="{{ ctrl.vend }}" onChange="{{ ctrl.onVend }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;min-width:260px;color:#0f172a">
+            <sc-for list="{{ opcionesVend }}" as="o" hint-placeholder-count="5">
+              <option value="{{ o.value }}">{{ o.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Sorteo</div>
+          <select value="{{ ctrl.hora }}" onChange="{{ ctrl.onHora }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+            <option value="todas">Los tres sorteos</option>
+            <option value="11:00">11:00</option>
+            <option value="15:00">15:00</option>
+            <option value="20:00">20:00</option>
+          </select>
+        </div>
+        <div style="font-size:12.5px;color:#64748b">{{ ctrl.zona }}</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px">
+        <div style="flex:1 1 190px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="font-size:12.5px;color:#475569;font-weight:500">Ventas del día</div>
+          <div style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:8px">{{ ctrl.venta }}</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ ctrl.resumenLineas }}</div>
+        </div>
+        <div style="flex:1 1 190px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="font-size:12.5px;color:#475569;font-weight:500">Comisión generada</div>
+          <div style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:8px">{{ ctrl.comision }}</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:5px">tasa {{ ctrl.com }}</div>
+        </div>
+        <div style="flex:1 1 190px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="font-size:12.5px;color:#475569;font-weight:500">Premios en sus líneas</div>
+          <div style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:8px">{{ ctrl.premios }}</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ ctrl.ganadoras }} líneas ganadoras · {{ ctrl.premiosAlcance }}</div>
+        </div>
+        <div style="flex:1 1 190px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="font-size:12.5px;color:#475569;font-weight:500">Utilidad liquidada</div>
+          <div style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:8px;color:{{ ctrl.utilColor }}">{{ ctrl.utilidad }}</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:5px">margen {{ ctrl.margen }} · {{ ctrl.alcance }}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">{{ ctrl.pendiente }}</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <div style="flex:1 1 560px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="padding:18px 20px 14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+            <div>
+              <h2 style="margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em">Bitácora de ventas</h2>
+              <p style="margin:5px 0 0;font-size:12.5px;color:#64748b">{{ ctrl.etiqueta }}</p>
+            </div>
+            <div style="font-size:12.5px;color:#64748b">{{ ctrl.conteo }} líneas registradas</div>
+          </div>
+          <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px">
+              <thead>
+                <tr style="background:#fbfcfe;text-align:right;color:#64748b">
+                  <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 16px;border-bottom:1px solid #eef2f7">HORA</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">SORTEO</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">NÚMERO</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">MONTO</th>
+                  <th style="font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 14px;border-bottom:1px solid #eef2f7">PREMIO</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:9px 16px;border-bottom:1px solid #eef2f7">PUNTO DE VENTA</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ ctrl.lineas }}" as="l" hint-placeholder-count="14">
+                  <tr style="text-align:right;background:{{ l.bg }}">
+                    <td style="text-align:left;padding:9px 16px;border-bottom:1px solid #f4f7fb;color:#475569">{{ l.hora }}</td>
+                    <td style="text-align:left;padding:9px 14px;border-bottom:1px solid #f4f7fb;color:#475569">{{ l.sorteo }}</td>
+                    <td style="text-align:left;padding:9px 14px;border-bottom:1px solid #f4f7fb">
+                      <span style="display:inline-block;min-width:30px;text-align:center;padding:2px 7px;border-radius:7px;background:{{ l.numBg }};color:{{ l.numFg }};font-weight:600;font-size:12.5px">{{ l.numero }}</span>
+                    </td>
+                    <td style="padding:9px 14px;border-bottom:1px solid #f4f7fb;font-weight:500">{{ l.monto }}</td>
+                    <td style="padding:9px 14px;border-bottom:1px solid #f4f7fb;font-weight:600;color:{{ l.premioColor }}">{{ l.premio }}</td>
+                    <td style="text-align:left;padding:9px 16px;border-bottom:1px solid #f4f7fb;color:#64748b;font-size:12px">{{ l.punto }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ ctrl.vacio }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:16px;border:1px dashed #cbd5e1;border-radius:12px;padding:30px 18px;text-align:center">
+                <div style="font-size:13.5px;font-weight:500;color:#475569">Sin ventas registradas</div>
+                <div style="font-size:12.5px;color:#94a3b8;margin-top:5px">Este vendedor no tiene líneas en el filtro seleccionado.</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="flex:1 1 280px;max-width:340px;display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <h2 style="margin:0 0 4px;font-size:14px;font-weight:600">Actividad por hora</h2>
+            <p style="margin:0 0 14px;font-size:12px;color:#64748b">Monto vendido en cada hora del día seleccionado</p>
+            <div style="display:flex;align-items:flex-end;gap:5px;height:120px">
+              <sc-for list="{{ ctrl.actividad }}" as="a" hint-placeholder-count="13">
+                <span style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%" title="{{ a.titulo }}">
+                  <span style="display:block;border-radius:5px 5px 2px 2px;background:{{ a.color }};height:{{ a.alto }}"></span>
+                </span>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:7px"><span>8am</span><span>2pm</span><span>8pm</span></div>
+            <div style="font-size:12px;color:#64748b;margin-top:9px">Hora más fuerte: <strong style="color:#0f172a;font-weight:600">{{ ctrl.horaPico }}</strong></div>
+          </div>
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <h2 style="margin:0 0 4px;font-size:14px;font-weight:600">Actividad por día</h2>
+            <p style="margin:0 0 14px;font-size:12px;color:#64748b">Venta diaria de los últimos 14 días</p>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:120px">
+              <sc-for list="{{ ctrl.porDia }}" as="p" hint-placeholder-count="14">
+                <span style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%" title="{{ p.titulo }}">
+                  <span style="display:block;border-radius:5px 5px 2px 2px;background:{{ p.color }};height:{{ p.alto }}"></span>
+                </span>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:7px"><span>{{ ctrl.diaIni }}</span><span>{{ ctrl.diaFin }}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-top:9px">
+              <span>promedio diario</span><strong style="color:#0f172a;font-weight:600">{{ ctrl.promDia }}</strong>
+            </div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e6ecf4;border-radius:14px;padding:15px 17px;font-size:12.5px;color:#475569;line-height:1.55">
+            Cada línea guarda usuario, dispositivo, hora exacta y coordenada. La bitácora es de solo lectura: una venta se corrige con anulación, nunca con edición.
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isGeo }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 40px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Geo-referenciación</h1>
+      <p style="margin:6px 0 18px;font-size:13px;color:#64748b">Puntos de venta registrados hoy en San Pedro Sula y Choloma. Cada marca es una línea vendida con su coordenada.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <div style="flex:1 1 600px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+            <select value="{{ geo.vend }}" onChange="{{ geo.onVend }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;min-width:260px;color:#0f172a">
+              <option value="todos">Todos los vendedores</option>
+              <sc-for list="{{ opcionesVend }}" as="o" hint-placeholder-count="5">
+                <option value="{{ o.value }}">{{ o.label }}</option>
+              </sc-for>
+            </select>
+            <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#64748b">
+              <span style="width:10px;height:10px;border-radius:50%;background:{{ geo.color }}"></span>{{ geo.etiqueta }}
+            </div>
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <button onClick="{{ geo.irSps }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:9px;padding:7px 13px;font-size:12.5px" style-hover="background:#f8fafc">San Pedro Sula</button>
+              <button onClick="{{ geo.irCholoma }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:9px;padding:7px 13px;font-size:12.5px" style-hover="background:#f8fafc">Choloma</button>
+            </div>
+          </div>
+          <div ref="{{ geo.ref }}" style="width:100%;height:560px;border-radius:12px;background:#eef2f7;border:1px solid #e6ecf4"></div>
+          <div style="font-size:11.5px;color:#94a3b8;margin-top:9px">Cartografía OpenStreetMap. Coordenadas simuladas para el prototipo.</div>
+        </div>
+
+        <div style="flex:1 1 280px;max-width:340px;display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <div style="font-size:12.5px;color:#475569;font-weight:500">Puntos mostrados</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:8px">{{ geo.puntos }}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:5px">{{ geo.montoTotal }} vendidos · {{ geo.etiqueta }}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <h2 style="margin:0 0 14px;font-size:14px;font-weight:600">Venta por zona</h2>
+            <sc-for list="{{ geo.zonas }}" as="z" hint-placeholder-count="5">
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+                  <span style="font-size:12.5px;font-weight:500">{{ z.nombre }}</span>
+                  <span style="font-size:12.5px;font-weight:600">{{ z.monto }}</span>
+                </div>
+                <span style="display:block;height:8px;border-radius:5px;background:#f1f5f9;overflow:hidden"><span style="display:block;height:8px;border-radius:5px;background:{{ z.color }};width:{{ z.ancho }}"></span></span>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px">{{ z.puntos }} puntos</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e6ecf4;border-radius:14px;padding:15px 17px;font-size:12.5px;color:#475569;line-height:1.55">
+            Utilidad operativa: detectar ventas fuera de la zona asignada, medir cobertura real y validar rutas antes de abrir nuevos puntos.
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isPos }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px;display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+      <div style="flex:0 0 404px;max-width:100%;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:4px;background:#eef2f7;border-radius:11px;padding:4px">
+          <button onClick="{{ pos.modoTeclado }}" style="flex:1;cursor:pointer;border:0;border-radius:8px;padding:9px 8px;font-size:12.5px;font-weight:500;background:{{ pos.tecladoBg }};color:{{ pos.tecladoFg }};box-shadow:{{ pos.tecladoSombra }}">Teclado</button>
+          <button onClick="{{ pos.modoRapida }}" style="flex:1;cursor:pointer;border:0;border-radius:8px;padding:9px 8px;font-size:12.5px;font-weight:500;background:{{ pos.rapidaBg }};color:{{ pos.rapidaFg }};box-shadow:{{ pos.rapidaSombra }}">Línea rápida</button>
+          <button onClick="{{ pos.modoRejilla }}" style="flex:1;cursor:pointer;border:0;border-radius:8px;padding:9px 8px;font-size:12.5px;font-weight:500;background:{{ pos.rejillaBg }};color:{{ pos.rejillaFg }};box-shadow:{{ pos.rejillaSombra }}">Rejilla 00–99</button>
+        </div>
+
+        <div style="background:#0f172a;border-radius:40px;padding:11px;box-shadow:0 20px 45px rgba(15,23,42,.24)">
+          <div style="background:#f8fafc;border-radius:30px;overflow:hidden;height:780px;display:flex;flex-direction:column">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px 8px;font-size:11.5px;font-weight:500;color:#475569">
+              <span>{{ pos.reloj }}</span>
+              <span style="display:flex;gap:8px;align-items:center"><span style="color:#059669">en línea</span><span style="width:22px;height:10px;border:1.5px solid #64748b;border-radius:4px;display:inline-block"></span></span>
+            </div>
+
+            <div style="padding:6px 20px 14px;border-bottom:1px solid #eef2f7;background:#fff">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:11px;color:#64748b;font-weight:500;letter-spacing:.06em">SORTEO DESTINO</div>
+                  <div style="font-size:17px;font-weight:600;margin-top:4px;letter-spacing:-.01em">20:00 · hoy</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:11px;color:#64748b">cierra en</div>
+                  <div style="font-size:17px;font-weight:600;color:#e11d48;margin-top:4px">{{ kpi.countdown }}</div>
+                </div>
+              </div>
+              <div style="font-size:11.5px;color:#64748b;margin-top:8px">Rosa I. Padilla · V-003 · factor {{ pos.factor }} · comisión {{ pos.com }}</div>
+            </div>
+
+            <sc-if value="{{ pos.mostrarTicket }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;padding:26px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#fff">
+                <div style="width:64px;height:64px;border-radius:50%;background:#dcfce7;color:#059669;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600">✓</div>
+                <div style="font-size:20px;font-weight:600;letter-spacing:-.01em">Venta registrada</div>
+                <div style="width:100%;border:1px dashed #cbd5e1;border-radius:12px;padding:16px;font-size:12.5px">
+                  <div style="text-align:center;font-weight:600;margin-bottom:10px">LOTERÍA EL DIARIO</div>
+                  <div style="text-align:center;font-size:11px;color:#64748b;margin-bottom:12px">{{ pos.folio }}</div>
+                  <sc-for list="{{ pos.ticketLineas }}" as="l" hint-placeholder-count="2">
+                    <div style="display:flex;justify-content:space-between;padding:3px 0"><span>N.º {{ l.numero }} × factor {{ l.factor }}</span><span>{{ l.monto }}</span></div>
+                  </sc-for>
+                  <div style="display:flex;justify-content:space-between;border-top:1px solid #cbd5e1;margin-top:9px;padding-top:9px;font-weight:600"><span>TOTAL</span><span>{{ pos.total }}</span></div>
+                </div>
+                <div style="display:flex;gap:10px;width:100%">
+                  <button onClick="{{ pos.nueva }}" style="flex:1;border:0;cursor:pointer;background:#2563eb;color:#fff;padding:16px;border-radius:12px;font-size:16px;font-weight:600">Nueva venta</button>
+                  <button style="flex:none;border:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#0f172a;padding:16px 18px;border-radius:12px;font-size:15px">Imprimir</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ pos.mostrarVenta }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+              <sc-if value="{{ pos.esTeclado }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column">
+                <div style="padding:16px 20px 12px;display:flex;gap:12px">
+                  <button onClick="{{ pos.focoNumero }}" style="flex:1;text-align:left;cursor:pointer;border-radius:12px;padding:11px 14px;background:#fff;border:2px solid {{ pos.bordeNumero }}">
+                    <div style="font-size:10.5px;color:#64748b;font-weight:600;letter-spacing:.07em">NÚMERO</div>
+                    <div style="font-size:32px;font-weight:600;margin-top:3px;letter-spacing:-.01em;color:{{ pos.colorNumero }}">{{ pos.numero }}</div>
+                  </button>
+                  <button onClick="{{ pos.focoMonto }}" style="flex:1.2;text-align:left;cursor:pointer;border-radius:12px;padding:11px 14px;background:#fff;border:2px solid {{ pos.bordeMonto }};opacity:{{ pos.opacidadMonto }}">
+                    <div style="font-size:10.5px;color:#64748b;font-weight:600;letter-spacing:.07em">MONTO (L)</div>
+                    <div style="font-size:32px;font-weight:600;margin-top:3px;letter-spacing:-.01em">{{ pos.monto }}</div>
+                  </button>
+                </div>
+                <div style="margin:0 20px 12px;border-radius:11px;padding:11px 13px;font-size:13px;font-weight:500;line-height:1.4;background:{{ pos.cupoBg }};color:{{ pos.cupoColor }}">{{ pos.cupoTexto }}</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:0 20px">
+                  <sc-for list="{{ pos.teclas }}" as="t" hint-placeholder-count="12">
+                    <button onClick="{{ t.tap }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:15px 0;font-size:23px;font-weight:600;color:{{ t.color }}" style-active="background:#eef4ff">{{ t.label }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ pos.agregar }}" style="margin:12px 20px 0;cursor:pointer;border:0;border-radius:12px;padding:16px;font-size:16px;font-weight:600;background:{{ pos.agregarBg }};color:{{ pos.agregarColor }}">Agregar al ticket</button>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ pos.esRapida }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;padding:16px 20px 0">
+                <div style="font-size:12px;color:#64748b;margin-bottom:8px">Escriba <strong style="color:#0f172a">número espacio monto</strong> y presione Enter.</div>
+                <input value="{{ pos.rapidaTexto }}" onChange="{{ pos.rapidaOnChange }}" onKeyDown="{{ pos.rapidaOnKey }}" placeholder="47 50" style="width:100%;padding:16px 18px;border:2px solid {{ pos.rapidaBorde }};border-radius:14px;font-size:30px;font-weight:600;outline:none;background:#fff;letter-spacing:.02em">
+                <div style="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:13px;font-weight:500;line-height:1.4;background:{{ pos.rapidaAvisoBg }};color:{{ pos.rapidaAvisoColor }}">{{ pos.rapidaAviso }}</div>
+                <button onClick="{{ pos.rapidaEnviar }}" style="margin-top:10px;cursor:pointer;border:0;border-radius:12px;padding:16px;font-size:16px;font-weight:600;background:#0f172a;color:#fff">Agregar línea (Enter)</button>
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                  <sc-for list="{{ pos.atajos }}" as="a" hint-placeholder-count="4">
+                    <button onClick="{{ a.tap }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:20px;padding:10px 15px;font-size:14px;font-weight:500;color:#0f172a">{{ a.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ pos.esRejilla }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;padding:14px 16px 0;overflow:hidden">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                  <span style="font-size:12px;color:#64748b">Toque el número, luego el monto</span>
+                  <span style="font-size:22px;font-weight:600;color:{{ pos.colorNumero }}">{{ pos.numero }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px">
+                  <sc-for list="{{ pos.rejilla }}" as="c" hint-placeholder-count="100">
+                    <button onClick="{{ c.tap }}" style="cursor:pointer;aspect-ratio:1;border-radius:7px;font-size:11px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }};border:1.5px solid {{ c.borde }};padding:0">{{ c.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="margin-top:10px;border-radius:11px;padding:10px 12px;font-size:12.5px;font-weight:500;background:{{ pos.cupoBg }};color:{{ pos.cupoColor }}">{{ pos.cupoTexto }}</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
+                  <sc-for list="{{ pos.montos }}" as="m" hint-placeholder-count="4">
+                    <button onClick="{{ m.tap }}" style="cursor:pointer;border-radius:12px;padding:14px 0;font-size:17px;font-weight:600;background:{{ m.bg }};color:{{ m.fg }};border:1.5px solid {{ m.borde }}">{{ m.label }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ pos.agregar }}" style="margin-top:10px;cursor:pointer;border:0;border-radius:12px;padding:16px;font-size:16px;font-weight:600;background:{{ pos.agregarBg }};color:{{ pos.agregarColor }}">Agregar al ticket</button>
+              </div>
+              </sc-if>
+
+              <div style="flex:1;overflow-y:auto;padding:14px 20px 0">
+                <div style="font-size:10.5px;font-weight:600;letter-spacing:.08em;color:#64748b;margin-bottom:9px">TICKET EN CURSO · {{ pos.conteo }} LÍNEAS</div>
+                <sc-for list="{{ pos.lineas }}" as="l" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;margin-bottom:7px">
+                    <span style="font-size:18px;font-weight:600;width:36px">{{ l.numero }}</span>
+                    <span style="flex:1;font-size:12px;color:#64748b">premio si acierta {{ l.premio }}</span>
+                    <span style="font-size:15px;font-weight:600">{{ l.monto }}</span>
+                    <button onClick="{{ l.quitar }}" style="border:0;background:none;cursor:pointer;color:#e11d48;font-size:20px;line-height:1;padding:0 4px">×</button>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ pos.vacio }}" hint-placeholder-val="{{ true }}">
+                  <div style="border:1px dashed #cbd5e1;border-radius:12px;padding:18px;text-align:center;font-size:12.5px;color:#94a3b8">Sin líneas todavía</div>
+                </sc-if>
+              </div>
+
+              <div style="border-top:1px solid #eef2f7;background:#fff;padding:13px 20px 16px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+                  <span style="font-size:13px;color:#64748b">Total del ticket</span>
+                  <span style="font-size:24px;font-weight:600;letter-spacing:-.02em">{{ pos.total }}</span>
+                </div>
+                <button onClick="{{ pos.confirmar }}" style="width:100%;cursor:pointer;border:0;border-radius:12px;padding:17px;font-size:17px;font-weight:600;background:{{ pos.confirmarBg }};color:{{ pos.confirmarColor }}">Confirmar venta</button>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Punto de venta móvil</h1>
+          <p style="margin:8px 0 0;font-size:13.5px;color:#475569;line-height:1.6;max-width:56ch">Tres flujos para el mismo registro, pensados para vendedor de calle: objetivos de toque grandes, alto contraste y cero pantallas intermedias. El cupo se consulta al teclear el número y la inserción ocurre en una transacción con bloqueo de fila.</p>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <h2 style="margin:0 0 12px;font-size:14px;font-weight:600">Cuál flujo es más rápido</h2>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:#475569;line-height:1.55">
+            <div><strong style="color:#0f172a">Teclado.</strong> Dos campos con avance automático. Lo más familiar; 4 toques por línea.</div>
+            <div><strong style="color:#0f172a">Línea rápida.</strong> Un solo campo: «47 50» + Enter. Lo más rápido para quien escribe de memoria.</div>
+            <div><strong style="color:#0f172a">Rejilla 00–99.</strong> Sin teclado: se toca el número, con el color indicando el cupo, y luego un monto frecuente. 2 toques por línea.</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <h2 style="margin:0 0 12px;font-size:14px;font-weight:600">Retroalimentación de cupo en vivo</h2>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#475569;line-height:1.5">
+            <div style="display:flex;gap:10px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#059669;margin-top:6px"></span><span>Disponible amplio: se muestra el saldo del número y el monto queda libre.</span></div>
+            <div style="display:flex;gap:10px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#d97706;margin-top:6px"></span><span>Cupo bajo: se advierte el máximo vendible.</span></div>
+            <div style="display:flex;gap:10px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#e11d48;margin-top:6px"></span><span>Agotado: no se acepta monto y el motivo queda visible. El límite por número se configura en Vendedores y límites.</span></div>
+          </div>
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;font-size:12.5px;color:#475569;line-height:1.55">
+          <strong style="color:#0f172a">Modo offline (decisión pendiente).</strong> Para el demo: se permite la venta sin conexión y el ticket se marca para revisión si al sincronizar excede el cupo. La alternativa es asignar cuota descontable al dispositivo.
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isResultados }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px;max-width:1120px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Captura de número ganador</h1>
+      <p style="margin:8px 0 20px;font-size:13.5px;color:#475569;max-width:64ch;line-height:1.6">Habilitada solo cuando el sorteo está cerrado y ya pasó la hora. El administrador ve el impacto económico antes de confirmar y debe redigitar el número.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <div style="flex:1 1 480px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px 24px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+            <div>
+              <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">Sorteo 15:00 · 17 de agosto</div>
+              <div style="font-size:12px;color:#64748b;margin-top:4px">Cerrado 14:55 · {{ res.tickets }} tickets · venta {{ res.venta }}</div>
+            </div>
+            <span style="padding:4px 11px;border-radius:8px;background:#f1f5f9;color:#475569;font-size:11.5px;font-weight:600">CERRADO</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:11px;color:#64748b;font-weight:600;letter-spacing:.07em;margin-bottom:8px">NÚMERO GANADOR</div>
+              <input value="{{ res.numero }}" onChange="{{ res.onNumero }}" placeholder="00" maxLength="2" style="width:150px;text-align:center;font-size:54px;font-weight:600;letter-spacing:-.02em;color:#0f2547;padding:14px 0;border:2px solid #e2e8f0;border-radius:16px;background:#f8fafc;outline:none">
+            </div>
+            <div style="flex:1;min-width:220px;font-size:13px;color:#475569;line-height:1.6">
+              Al confirmar se marcan las líneas ganadoras, se calculan premios con el <strong style="color:#0f172a">factor congelado de cada línea</strong>, se generan las liquidaciones y el sorteo pasa a liquidado.
+            </div>
+          </div>
+
+          <button onClick="{{ res.revisar }}" style="margin-top:20px;cursor:pointer;border:0;border-radius:11px;padding:14px 26px;font-size:14.5px;font-weight:600;background:{{ res.btnBg }};color:{{ res.btnColor }}">Revisar impacto económico</button>
+        </div>
+
+        <div style="flex:1 1 300px;max-width:360px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <h2 style="margin:0 0 12px;font-size:14px;font-weight:600">Últimos resultados</h2>
+          <sc-for list="{{ res.historicos }}" as="h" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f4f7fb">
+              <span style="width:40px;height:40px;flex:none;border-radius:11px;background:#0f2547;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">{{ h.numero }}</span>
+              <span style="flex:1">
+                <span style="display:block;font-size:12.5px;font-weight:500">{{ h.fecha }} · {{ h.franja }}</span>
+                <span style="display:block;font-size:11.5px;color:#64748b;margin-top:2px">venta {{ h.venta }}</span>
+              </span>
+              <span style="font-size:12.5px;font-weight:600;color:{{ h.color }}">{{ h.utilidad }}</span>
+            </div>
+          </sc-for>
+          <div style="margin-top:14px;font-size:11.5px;color:#64748b;line-height:1.5">La consulta pública de resultados se publica sin autenticación para verificación de vendedores y apostadores.</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isVendedores }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Vendedores y límites</h1>
+          <p style="margin:8px 0 0;font-size:13.5px;color:#475569;max-width:70ch;line-height:1.6">Un solo tope en lempiras por número para cada vendedor, más su comisión y factor de pago. Los cambios aplican a ventas futuras: cada línea ya vendida conserva los valores vigentes al momento de la venta.</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:12.5px;color:{{ ven.avisoColor }};font-weight:500;max-width:280px;line-height:1.4">{{ ven.aviso }}</span>
+          <button onClick="{{ ven.abrirNuevo }}" style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #e2e8f0;background:#fff;color:#1d4ed8;border-radius:10px;padding:11px 16px;font-size:13px;font-weight:600" style-hover="background:#f8fafc">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Nuevo vendedor
+          </button>
+          <button onClick="{{ ven.descartar }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:11px 16px;font-size:13px" style-hover="background:#f8fafc">Descartar</button>
+          <button onClick="{{ ven.guardar }}" style="cursor:pointer;border:0;border-radius:10px;padding:12px 20px;font-size:13.5px;font-weight:600;background:{{ ven.guardarBg }};color:{{ ven.guardarColor }}">Guardar cambios</button>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:860px">
+            <thead>
+              <tr style="background:#fbfcfe;color:#64748b">
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 16px;border-bottom:1px solid #eef2f7">VENDEDOR</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 14px;border-bottom:1px solid #eef2f7">CONTACTO</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 14px;border-bottom:1px solid #eef2f7">ZONA</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 14px;border-bottom:1px solid #eef2f7">MÁXIMO POR NÚMERO (L)</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 14px;border-bottom:1px solid #eef2f7">COMISIÓN (%)</th>
+                <th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 14px;border-bottom:1px solid #eef2f7">FACTOR DE PAGO</th>
+                <th style="text-align:right;font-size:11px;font-weight:600;letter-spacing:.06em;padding:11px 16px;border-bottom:1px solid #eef2f7">EXPOSICIÓN MÁX. POR NÚMERO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ ven.filas }}" as="v" hint-placeholder-count="5">
+                <tr style="background:{{ v.bg }}">
+                  <td style="padding:12px 16px;border-bottom:1px solid #f4f7fb">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="width:30px;height:30px;flex:none;border-radius:9px;background:{{ v.chipBg }};color:{{ v.chipFg }};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">{{ v.iniciales }}</span>
+                      <span style="display:block">
+                        <span style="display:flex;align-items:center;gap:7px;font-weight:500">{{ v.nombre }}<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:{{ v.etiquetaBg }};color:{{ v.etiquetaFg }}">{{ v.etiqueta }}</span></span>
+                        <span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">{{ v.codigo }} · {{ v.identidad }}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #f4f7fb;color:#475569">
+                    <div>{{ v.telefono }}</div>
+                    <div style="font-size:11.5px;color:#64748b;margin-top:2px">{{ v.correo }}</div>
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #f4f7fb;color:#475569">{{ v.zona }}</td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #f4f7fb">
+                    <input value="{{ v.limite }}" onChange="{{ v.onLimite }}" style="width:120px;padding:9px 11px;border:1px solid {{ v.bordeLimite }};border-radius:9px;font-size:13.5px;font-weight:500;outline:none;background:#fff;text-align:right">
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #f4f7fb">
+                    <input value="{{ v.com }}" onChange="{{ v.onCom }}" style="width:88px;padding:9px 11px;border:1px solid {{ v.bordeCom }};border-radius:9px;font-size:13.5px;font-weight:500;outline:none;background:#fff;text-align:right">
+                  </td>
+                  <td style="padding:12px 14px;border-bottom:1px solid #f4f7fb">
+                    <input value="{{ v.factor }}" onChange="{{ v.onFactor }}" style="width:88px;padding:9px 11px;border:1px solid {{ v.bordeFactor }};border-radius:9px;font-size:13.5px;font-weight:500;outline:none;background:#fff;text-align:right">
+                  </td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #f4f7fb;text-align:right">
+                    <div style="font-weight:600">{{ v.exposicion }}</div>
+                    <div style="font-size:11.5px;color:#64748b;margin-top:2px">tope × factor</div>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:14px 16px;background:#fbfcfe;border-top:1px solid #eef2f7;font-size:12.5px;color:#475569;line-height:1.55">
+          Al validar una venta se exige el tope del vendedor y el límite global de la casa ({{ ven.limiteGlobal }} por número). Todo cambio queda en auditoría con valor anterior, usuario y fecha.
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isSimulador }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Simulador de escenarios</h1>
+      <p style="margin:8px 0 18px;font-size:13.5px;color:#475569;max-width:72ch;line-height:1.6">Recalcula el histórico real del rango con una comisión y un factor de pago distintos, mes por mes. Supone que el volumen de venta no cambia.</p>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;margin-bottom:16px;display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Desde</div>
+          <input type="date" value="{{ sim.desde }}" onChange="{{ sim.onDesde }}" style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+        </div>
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Hasta</div>
+          <input type="date" value="{{ sim.hasta }}" onChange="{{ sim.onHasta }}" style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:#0f172a">
+        </div>
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Comisión simulada (%)</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onClick="{{ sim.comMenos }}" style="cursor:pointer;width:36px;height:38px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#2563eb;font-size:17px;font-weight:600" style-hover="background:#f8fafc">−</button>
+            <input value="{{ sim.comInput }}" onChange="{{ sim.onCom }}" onBlur="{{ sim.blurCom }}" style="width:92px;text-align:center;padding:8px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:18px;font-weight:600;outline:none;background:#fff">
+            <button onClick="{{ sim.comMas }}" style="cursor:pointer;width:36px;height:38px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#2563eb;font-size:17px;font-weight:600" style-hover="background:#f8fafc">+</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Factor de pago simulado</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onClick="{{ sim.factorMenos }}" style="cursor:pointer;width:36px;height:38px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#2563eb;font-size:17px;font-weight:600" style-hover="background:#f8fafc">−</button>
+            <input value="{{ sim.factorInput }}" onChange="{{ sim.onFactor }}" onBlur="{{ sim.blurFactor }}" style="width:92px;text-align:center;padding:8px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:18px;font-weight:600;outline:none;background:#fff">
+            <button onClick="{{ sim.factorMas }}" style="cursor:pointer;width:36px;height:38px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;color:#2563eb;font-size:17px;font-weight:600" style-hover="background:#f8fafc">+</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#64748b;line-height:1.5;max-width:230px">Real ponderado del rango: comisión {{ sim.comReal }}% · factor {{ sim.factorReal }}</div>
+        <button onClick="{{ sim.reset }}" style="margin-left:auto;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:9px;padding:10px 15px;font-size:13px" style-hover="background:#f8fafc">Restablecer</button>
+      </div>
+
+      <div style="border-radius:16px;padding:20px 22px;margin-bottom:16px;background:linear-gradient(150deg,#0f2547,#1d4ed8);color:#fff">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:16px">
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.09em;color:#a9c2e8">TOTAL DEL RANGO</div>
+            <div style="font-size:19px;font-weight:600;margin-top:6px;letter-spacing:-.01em">{{ sim.rango }}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11.5px;color:#a9c2e8">Diferencia en utilidad</div>
+            <div style="font-size:27px;font-weight:600;letter-spacing:-.02em;margin-top:4px;color:{{ sim.difColor }}">{{ sim.totalDif }}</div>
+            <div style="font-size:12px;color:#a9c2e8;margin-top:2px">{{ sim.totalDifPct }} contra lo real</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px">
+          <sc-for list="{{ sim.totales }}" as="t" hint-placeholder-count="5">
+            <div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:13px 15px">
+              <div style="font-size:11.5px;color:#c3d4ee">{{ t.metrica }}</div>
+              <div style="font-size:20px;font-weight:600;margin-top:7px;letter-spacing:-.01em">{{ t.sim }}</div>
+              <div style="font-size:11.5px;color:#a9c2e8;margin-top:4px">real {{ t.real }}</div>
+              <div style="font-size:12px;font-weight:600;margin-top:5px;color:{{ t.color }}">{{ t.dif }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <h2 style="margin:0 0 12px;font-size:15px;font-weight:600;letter-spacing:-.01em">Mes por mes</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(298px,1fr));gap:14px">
+        <sc-for list="{{ sim.tarjetas }}" as="m" hint-placeholder-count="8">
+          <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:17px 19px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:11px;border-bottom:1px solid #eef2f7">
+              <div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">{{ m.mes }}</div>
+              <div style="font-size:12px;color:#64748b">{{ m.dias }} días</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 12px;margin-top:12px;align-items:baseline">
+              <span style="font-size:10.5px;font-weight:600;letter-spacing:.06em;color:#94a3b8"></span>
+              <span style="font-size:10.5px;font-weight:600;letter-spacing:.06em;color:#94a3b8;text-align:right">REAL</span>
+              <span style="font-size:10.5px;font-weight:600;letter-spacing:.06em;color:#94a3b8;text-align:right">SIMULADO</span>
+              <sc-for list="{{ m.filas }}" as="f" hint-placeholder-count="5">
+                <span style="font-size:12.5px;color:#475569">{{ f.metrica }}</span>
+                <span style="font-size:12.5px;text-align:right;color:#64748b">{{ f.real }}</span>
+                <span style="font-size:13px;text-align:right;font-weight:600;color:{{ f.color }}">{{ f.sim }}</span>
+              </sc-for>
+            </div>
+            <div style="margin-top:12px;padding-top:11px;border-top:1px solid #eef2f7;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:#64748b">Diferencia de utilidad</span>
+              <span style="font-size:14px;font-weight:600;color:{{ m.difColor }}">{{ m.dif }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isOcr }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:24px 28px 60px">
+      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em">Digitalización IA</h1>
+      <p style="margin:8px 0 18px;font-size:13.5px;color:#475569;max-width:72ch;line-height:1.6">Nunca se registra sin validación humana. El control de cuadre compara la suma extraída contra el total declarado al pie de la hoja: si no coinciden, la confirmación queda bloqueada.</p>
+
+      <div style="background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:16px 18px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Vendedor de la hoja</div>
+          <select value="{{ ocr.vend }}" onChange="{{ ocr.onVend }}" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13.5px;outline:none;background:#fff;min-width:240px;color:#0f172a">
+            <sc-for list="{{ opcionesVend }}" as="o" hint-placeholder-count="5">
+              <option value="{{ o.value }}">{{ o.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Sorteo destino</div>
+          <div style="display:flex;gap:6px;background:#eef2f7;border-radius:10px;padding:4px">
+            <sc-for list="{{ ocr.sorteos }}" as="s" hint-placeholder-count="3">
+              <button onClick="{{ s.tap }}" style="cursor:pointer;border:0;border-radius:7px;padding:8px 15px;font-size:13px;font-weight:500;background:{{ s.bg }};color:{{ s.fg }};box-shadow:{{ s.sombra }}">{{ s.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:#475569;line-height:1.5;max-width:280px">Los tickets se crearán a nombre de <strong style="color:#0f172a">{{ ocr.vendNombre }}</strong> con factor {{ ocr.factor }} y comisión {{ ocr.com }}, en el sorteo de {{ ocr.sorteo }}.</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <div style="flex:1 1 320px;max-width:400px;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+            <h2 style="margin:0;font-size:14px;font-weight:600">Hoja original</h2>
+            <span style="font-size:11.5px;color:#64748b">{{ ocr.codigo }} · {{ ocr.sorteo }}</span>
+          </div>
+          <svg viewBox="0 0 300 380" style="width:100%;height:auto;display:block;border-radius:12px;border:1px solid #e6ecf4">
+            <defs>
+              <pattern id="rayasOcr" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="#f6f9fd"></rect>
+                <line x1="0" y1="0" x2="0" y2="8" stroke="#e5ecf6" stroke-width="3"></line>
+              </pattern>
+            </defs>
+            <rect width="300" height="380" fill="url(#rayasOcr)"></rect>
+            <text x="150" y="186" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#64748b">foto de la hoja de apuestas</text>
+            <text x="150" y="206" text-anchor="middle" font-family="Geist, sans-serif" font-size="10.5" fill="#94a3b8">arrastre aquí la imagen real</text>
+          </svg>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button style="flex:1;cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:9px;padding:10px;font-size:12.5px;color:#475569" style-hover="background:#f8fafc">Zoom</button>
+            <button style="flex:1;cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:9px;padding:10px;font-size:12.5px;color:#475569" style-hover="background:#f8fafc">Rotar</button>
+          </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;display:flex;flex-direction:column;gap:9px;font-size:12.5px">
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Modelo</span><span>visión-manuscrito</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Confianza global</span><span>{{ ocr.confianzaGlobal }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Costo de este lote</span><span>$0.0142</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Gasto del mes</span><span>$3.87 · 274 imágenes</span></div>
+          </div>
+          <div style="margin-top:12px;font-size:11.5px;color:#64748b;line-height:1.5">Observación del modelo: «renglón 4 con tachadura».</div>
+        </div>
+
+        <div style="flex:1 1 520px;min-width:0;background:#fff;border:1px solid #e6ecf4;border-radius:14px;padding:20px 22px 22px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+            <div>
+              <h2 style="margin:0;font-size:14px;font-weight:600">Líneas extraídas</h2>
+              <p style="margin:5px 0 0;font-size:12.5px;color:#64748b">Las de confianza menor a 0.85 aparecen primero y resaltadas.</p>
+            </div>
+            <button onClick="{{ ocr.agregar }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:9px;padding:9px 14px;font-size:12.5px;color:#2563eb;font-weight:600" style-hover="background:#f8fafc">+ Agregar línea omitida</button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;gap:10px;font-size:10.5px;font-weight:600;letter-spacing:.07em;color:#94a3b8;padding:0 4px">
+              <span style="width:78px">NÚMERO</span><span style="width:96px">MONTO</span><span style="width:74px">CONFIANZA</span><span style="flex:1">ESTADO</span>
+            </div>
+            <sc-for list="{{ ocr.lineas }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:center;background:{{ l.bg }};border:1px solid {{ l.borde }};border-radius:11px;padding:9px 10px">
+                <input value="{{ l.numero }}" onChange="{{ l.onNumero }}" style="width:78px;padding:9px;border:1px solid #e2e8f0;border-radius:9px;font-size:16px;font-weight:600;text-align:center;outline:none;background:#fff">
+                <input value="{{ l.monto }}" onChange="{{ l.onMonto }}" style="width:96px;padding:9px;border:1px solid #e2e8f0;border-radius:9px;font-size:16px;font-weight:600;text-align:right;outline:none;background:#fff">
+                <span style="width:74px;font-size:12.5px;font-weight:500;color:{{ l.confColor }}">{{ l.conf }}</span>
+                <span style="flex:1;font-size:12.5px;color:{{ l.estadoColor }}">{{ l.estado }}</span>
+                <button onClick="{{ l.descartar }}" style="border:0;background:none;cursor:pointer;color:#e11d48;font-size:19px;line-height:1;padding:0 4px">×</button>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin-top:16px;border-radius:12px;padding:15px 17px;background:{{ ocr.cuadreBg }};border:1px solid {{ ocr.cuadreBorde }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+              <div style="font-size:13px;font-weight:600;color:{{ ocr.cuadreColor }}">{{ ocr.cuadreTexto }}</div>
+              <div style="display:flex;gap:20px;font-size:13px;font-weight:500;color:{{ ocr.cuadreColor }}">
+                <span>suma {{ ocr.suma }}</span><span>declarado {{ ocr.declarado }}</span><span>dif {{ ocr.diferencia }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <button onClick="{{ ocr.confirmar }}" style="flex:1;min-width:230px;cursor:pointer;border:0;border-radius:12px;padding:15px;font-size:15px;font-weight:600;background:{{ ocr.btnBg }};color:{{ ocr.btnColor }}">Confirmar y crear tickets</button>
+            <button style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:15px 20px;font-size:14px;color:#475569" style-hover="background:#f8fafc">Rechazar lote</button>
+          </div>
+          <div style="margin-top:12px;font-size:12.5px;color:{{ ocr.avisoColor }};line-height:1.5">{{ ocr.aviso }}</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+  </main>
+
+  <sc-if value="{{ ven.modal }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50">
+      <div style="background:#fff;border-radius:18px;width:620px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(15,23,42,.28)">
+        <div style="padding:22px 26px 18px;border-bottom:1px solid #eef2f7">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.09em;color:#64748b">RED DE VENTA</div>
+          <div style="font-size:19px;font-weight:600;margin-top:8px;letter-spacing:-.01em">Nuevo vendedor</div>
+          <div style="font-size:12.5px;color:#64748b;margin-top:5px">El código se asigna automáticamente. El vendedor podrá operar desde el siguiente sorteo abierto.</div>
+        </div>
+        <div style="padding:20px 26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px 18px">
+          <div style="grid-column:1/-1">
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Nombre completo</div>
+            <input value="{{ ven.form.nombre }}" onChange="{{ ven.onNombre }}" placeholder="p. ej. Iris N. Bonilla" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Teléfono</div>
+            <input value="{{ ven.form.telefono }}" onChange="{{ ven.onTelefono }}" placeholder="9999-9999" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Correo electrónico</div>
+            <input value="{{ ven.form.correo }}" onChange="{{ ven.onCorreo }}" placeholder="nombre@eldiario.hn" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Identidad</div>
+            <input value="{{ ven.form.identidad }}" onChange="{{ ven.onIdentidad }}" placeholder="0501-1990-00000" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Ciudad</div>
+            <select value="{{ ven.form.ciudad }}" onChange="{{ ven.onCiudad }}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff;color:#0f172a">
+              <sc-for list="{{ ven.ciudades }}" as="c" hint-placeholder-count="4">
+                <option value="{{ c.value }}">{{ c.label }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Barrio o colonia</div>
+            <input value="{{ ven.form.barrio }}" onChange="{{ ven.onBarrio }}" placeholder="Barrio Guamilito" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+          </div>
+          <div style="grid-column:1/-1;height:1px;background:#eef2f7;margin:2px 0"></div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Comisión (%)</div>
+            <input value="{{ ven.form.com }}" onChange="{{ ven.onComForm }}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:500;outline:none;background:#fff;text-align:right">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Factor de pago</div>
+            <input value="{{ ven.form.factor }}" onChange="{{ ven.onFactorForm }}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:500;outline:none;background:#fff;text-align:right">
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:6px;font-weight:500">Máximo por número (L)</div>
+            <input value="{{ ven.form.limite }}" onChange="{{ ven.onLimiteForm }}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:500;outline:none;background:#fff;text-align:right">
+          </div>
+        </div>
+        <div style="padding:0 26px 24px">
+          <div style="font-size:12.5px;color:#e11d48;min-height:18px;margin-bottom:10px">{{ ven.error }}</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button onClick="{{ ven.cerrarNuevo }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:11px;padding:13px 18px;font-size:14px">Cancelar</button>
+            <button onClick="{{ ven.crear }}" style="cursor:pointer;border:0;border-radius:11px;padding:13px 24px;font-size:14.5px;font-weight:600;background:#2563eb;color:#fff">Crear vendedor</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ res.modal }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50">
+      <div style="background:#fff;border-radius:18px;width:560px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(15,23,42,.28)">
+        <div style="padding:22px 26px 18px;border-bottom:1px solid #eef2f7">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.09em;color:#64748b">CONFIRMACIÓN DE IMPACTO</div>
+          <div style="font-size:19px;font-weight:600;margin-top:8px;letter-spacing:-.01em">Sorteo 15:00 · 17 de agosto</div>
+        </div>
+        <div style="padding:22px 26px;display:flex;gap:22px;align-items:center;border-bottom:1px solid #eef2f7;flex-wrap:wrap">
+          <div style="width:104px;height:104px;flex:none;border-radius:18px;background:#0f2547;color:#fff;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:600;letter-spacing:-.02em">{{ res.numero }}</div>
+          <div style="display:flex;flex-direction:column;gap:9px;flex:1;min-width:220px">
+            <div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="color:#64748b">Líneas ganadoras</span><strong>{{ res.ganadores }}</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="color:#64748b">Monto total a pagar</span><strong style="color:#e11d48">{{ res.pago }}</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="color:#64748b">Comisiones del sorteo</span><strong>{{ res.comision }}</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13.5px;border-top:1px solid #eef2f7;padding-top:9px"><span style="color:#64748b">Utilidad neta resultante</span><strong style="color:{{ res.utilColor }}">{{ res.utilidad }}</strong></div>
+          </div>
+        </div>
+        <div style="padding:20px 26px 24px">
+          <div style="font-size:13px;color:#475569;margin-bottom:10px">Redigite el número para confirmar. La operación genera liquidaciones y bloquea el sorteo.</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input value="{{ res.confirmNumero }}" onChange="{{ res.onConfirm }}" placeholder="00" maxLength="2" style="width:96px;text-align:center;font-size:26px;font-weight:600;padding:10px 0;border:2px solid #e2e8f0;border-radius:12px;outline:none">
+            <button onClick="{{ res.liquidar }}" style="flex:1;min-width:180px;cursor:pointer;border:0;border-radius:12px;padding:14px;font-size:14.5px;font-weight:600;background:{{ res.liquidarBg }};color:{{ res.liquidarColor }}">Confirmar y liquidar</button>
+            <button onClick="{{ res.cerrar }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:12px;padding:14px 18px;font-size:14px">Cancelar</button>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:{{ res.avisoColor }}">{{ res.aviso }}</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;acento&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2563eb&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#2563eb&quot;,&quot;#1d4ed8&quot;,&quot;#0891b2&quot;,&quot;#4f46e5&quot;],&quot;section&quot;:&quot;Apariencia&quot;},&quot;densidad&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Cómoda&quot;,&quot;options&quot;:[&quot;Cómoda&quot;,&quot;Compacta&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Apariencia&quot;},&quot;mesesGrafico&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:8,&quot;min&quot;:3,&quot;max&quot;:8,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Tablero&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'tablero', now: Date.now(),
+    dashTab: 'general', diaFecha: '2026-08-17', diaVend: 'todos',
+    repDesde: '2026-08-01', repHasta: '2026-08-17', repVend: 'todos', repHora: 'todos', repNumero: '', repPreset: 'mes',
+    ctrlVend: 0, ctrlHora: 'todas',
+    geoVend: 'todos',
+    venDraft: {}, venCfg: null, venAviso: '', venAvisoTipo: 'neutro', venNuevos: [], venModal: false, venError: '',
+    venForm: { nombre: '', telefono: '', correo: '', ciudad: 'San Pedro Sula', barrio: '', com: '12.5', factor: '70', limite: '1000', identidad: '' },
+    simDesde: '2026-01-01', simHasta: '2026-08-17', simCom: 13, simFactor: 70, simComTxt: null, simFactorTxt: null,
+    posModo: 'teclado', posNumero: '', posMonto: '', posFoco: 'numero', posLineas: [], posTicket: null,
+    rapidaTexto: '', rapidaAviso: '', rapidaOk: null,
+    resNumero: '', resModal: false, resConfirm: '', resAviso: '',
+    ocrVend: 1, ocrSorteo: '20:00', ocrAviso: '',
+    ocrLineas: [
+      { numero: '07', monto: '50', conf: 0.97 },
+      { numero: '23', monto: '100', conf: 0.62 },
+      { numero: '88', monto: '75', conf: 0.41 },
+      { numero: '05', monto: '40', conf: 0.99 },
+      { numero: '61', monto: '60', conf: 0.91 }
+    ],
+    extra: []
+  };
+
+  componentDidMount() { this._t = setInterval(() => this.setState({ now: Date.now() }), 1000); }
+  componentWillUnmount() { clearInterval(this._t); if (this._map) { this._map.remove(); this._map = null; } }
+  componentDidUpdate() { if (this._map) this.drawMarkers(); }
+
+  fmt(n, pre) { const s = Math.round(Math.abs(n)).toLocaleString('en-US'); return (n < 0 ? '−' : '') + (pre === false ? s : 'L ' + s); }
+  fmtK(n) { const a = Math.abs(n); const s = a >= 1000000 ? (a / 1000000).toFixed(2) + 'M' : a >= 1000 ? (a / 1000).toFixed(1) + 'k' : Math.round(a).toString(); return (n < 0 ? '−L ' : 'L ') + s; }
+  pad2(n) { return String(n).padStart(2, '0'); }
+  iso(d) { return d.getFullYear() + '-' + this.pad2(d.getMonth() + 1) + '-' + this.pad2(d.getDate()); }
+  mesNombre(i) { return ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][i]; }
+  fechaLarga(iso) {
+    const p = iso.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
+    const dow = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d.getDay()];
+    return dow + ' ' + (+p[2]) + ' de ' + ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][+p[1] - 1] + ' de ' + p[0];
+  }
+
+  data() {
+    if (this._d) return this._d;
+    let s = 20260817;
+    const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
+    const vend = [
+      { codigo: 'V-001', nombre: 'María F. Cruz', com: 12.5, factor: 70, limite: 1200, zona: 'SPS · Centro', color: '#2563eb', peso: 1.15, lat: 15.5045, lng: -88.0250, telefono: '9812-4407', correo: 'maria.cruz@eldiario.hn', identidad: '0501-1988-04217' },
+      { codigo: 'V-002', nombre: 'José A. Munguía', com: 10, factor: 72, limite: 900, zona: 'SPS · Río de Piedras', color: '#0891b2', peso: 0.92, lat: 15.5219, lng: -88.0086, telefono: '3345-9012', correo: 'jose.munguia@eldiario.hn', identidad: '0501-1979-11884' },
+      { codigo: 'V-003', nombre: 'Rosa I. Padilla', com: 15, factor: 68, limite: 1500, zona: 'Choloma · Centro', color: '#e11d48', peso: 1.28, lat: 15.6136, lng: -87.9525, telefono: '9455-2210', correo: 'rosa.padilla@eldiario.hn', identidad: '0512-1985-00932' },
+      { codigo: 'V-004', nombre: 'Carlos E. Zelaya', com: 11.25, factor: 70, limite: 800, zona: 'SPS · Cofradía', color: '#7c3aed', peso: 0.78, lat: 15.4302, lng: -88.1487, telefono: '8877-1345', correo: 'carlos.zelaya@eldiario.hn', identidad: '0501-1992-07551' },
+      { codigo: 'V-005', nombre: 'Dania Y. Ramos', com: 13, factor: 74, limite: 1000, zona: 'Choloma · López Arellano', color: '#059669', peso: 1.05, lat: 15.6538, lng: -87.9312, telefono: '9601-8823', correo: 'dania.ramos@eldiario.hn', identidad: '0512-1990-03108' }
+    ];
+    const horas = ['11:00', '15:00', '20:00'], hpeso = { '11:00': 0.72, '15:00': 0.95, '20:00': 1.33 };
+    const rows = [];
+    const fin = new Date(2026, 7, 17), cur = new Date(2026, 0, 1);
+    while (cur <= fin) {
+      const iso = this.iso(cur), dow = cur.getDay(), dp = dow === 0 ? 0.78 : dow === 6 ? 1.18 : 1, mp = 0.9 + cur.getMonth() * 0.035;
+      horas.forEach(h => {
+        const sorteado = Math.floor(rnd() * 100);
+        // estado único por sorteo: hoy solo las 11:00 está liquidada, 15:00 espera captura y 20:00 sigue en venta
+        const estado = iso !== '2026-08-17' ? 'liquidado' : (h === '11:00' ? 'liquidado' : h === '15:00' ? 'cerrado' : 'abierto');
+        const liq = estado === 'liquidado';
+        vend.forEach((v, vi) => {
+          const venta = Math.round(2600 * v.peso * hpeso[h] * dp * mp * (0.78 + rnd() * 0.44) / 10) * 10;
+          const com = venta * v.com / 100;
+          const hit = rnd();
+          const bruto = hit < 0.2 ? 0 : Math.round(venta * (0.42 + Math.pow(rnd(), 1.35) * 0.95));
+          const premio = liq ? bruto : 0;
+          rows.push({ iso: iso, mes: cur.getMonth(), vi: vi, hora: h, estado: estado, liquidado: liq,
+            ganador: liq ? sorteado : null, venta: venta, com: com, premio: premio, util: venta - com - premio });
+        });
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    // detalle de líneas del día actual con coordenada
+    const lineas = [];
+    rows.filter(r => r.iso === '2026-08-17').forEach(r => {
+      const v = vend[r.vi];
+      const propias = [];
+      let resto = r.venta, i = 0;
+      const base = r.hora === '11:00' ? 8 : r.hora === '15:00' ? 12 : 17;
+      while (resto > 0 && i < 26) {
+        const monto = Math.min(resto, Math.max(10, Math.round(resto / (7 - Math.min(5, i)) / 10) * 10));
+        const l = { vi: r.vi, hora: base + Math.floor(i / 9), min: Math.floor(rnd() * 58), sorteo: r.hora,
+          numero: Math.floor(rnd() * 100), monto: monto, gano: false, premio: 0, factor: v.factor, ganador: r.ganador,
+          lat: v.lat + (rnd() - 0.5) * 0.052, lng: v.lng + (rnd() - 0.5) * 0.052 };
+        propias.push(l); lineas.push(l);
+        resto -= monto; i++;
+      }
+      // el detalle debe reconciliar con el agregado: se marcan como ganadoras las líneas necesarias
+      let pendiente = r.premio;
+      if (pendiente > 0 && propias.length) {
+        const barajadas = propias.slice().sort((a, b) => b.monto - a.monto);
+        let k = 0;
+        while (pendiente > 0.5 && k < barajadas.length) {
+          const l = barajadas[k];
+          const premio = Math.min(pendiente, l.monto * v.factor);
+          l.numero = r.ganador; l.gano = true; l.premio = premio;
+          pendiente -= premio; k++;
+        }
+      }
+    });
+    lineas.sort((a, b) => (a.hora * 60 + a.min) - (b.hora * 60 + b.min));
+    this._d = { vend: vend, horas: horas, rows: rows, lineas: lineas, limiteGlobal: 6000 };
+    return this._d;
+  }
+
+  cfg() {
+    const d = this.data();
+    const base = this.state.venCfg || d.vend.map(v => ({ com: v.com, factor: v.factor, limite: v.limite }));
+    return base.slice(0, d.vend.length).concat(this.state.venNuevos.map(v => ({ com: v.com, factor: v.factor, limite: v.limite })));
+  }
+
+  rango(desde, hasta) { return this.data().rows.filter(r => r.iso >= desde && r.iso <= hasta); }
+
+  agg(rows) {
+    const t = { venta: 0, com: 0, premio: 0 };
+    rows.forEach(r => { t.venta += r.venta; t.com += r.com; t.premio += r.premio; });
+    t.util = t.venta - t.com - t.premio;
+    t.margen = t.venta ? t.util / t.venta * 100 : 0;
+    return t;
+  }
+
+  countdown() {
+    const now = new Date(this.state.now), t = new Date(now);
+    t.setHours(19, 50, 0, 0);
+    if (t < now) t.setDate(t.getDate() + 1);
+    const s = Math.floor((t - now) / 1000);
+    return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  navItem(id) {
+    const on = this.state.screen === id;
+    return { bg: on ? '#eef4ff' : 'transparent', fg: on ? '#1d4ed8' : '#334155', chip: on ? '#ffffff' : '#f1f5f9' };
+  }
+  tab(on) { return { bg: on ? '#ffffff' : 'transparent', fg: on ? '#0f172a' : '#64748b', sombra: on ? '0 1px 2px rgba(15,23,42,.10)' : 'none' }; }
+
+  disponible(vi, n) {
+    const d = this.data(), c = this.cfg()[vi];
+    const propio = this.state.extra.filter(l => l.vi === vi && l.numero === n).reduce((a, l) => a + l.monto, 0)
+      + d.lineas.filter(l => l.vi === vi && l.numero === n && l.sorteo === '20:00').reduce((a, l) => a + l.monto, 0);
+    return Math.max(0, c.limite - propio);
+  }
+
+  mapaRef(el) {
+    if (!el) { if (this._map) { this._map.remove(); this._map = null; } return; }
+    if (this._map && this._mapEl === el) return;
+    this._mapEl = el;
+    const init = () => {
+      if (!window.L) return setTimeout(init, 150);
+      if (this._map) this._map.remove();
+      const m = window.L.map(el, { scrollWheelZoom: false }).setView([15.56, -87.99], 11);
+      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
+      this._map = m;
+      this._layer = window.L.layerGroup().addTo(m);
+      this.drawMarkers();
+      setTimeout(() => m.invalidateSize(), 250);
+    };
+    init();
+  }
+
+  drawMarkers() {
+    if (!this._map || !window.L) return;
+    const d = this.data(), f = this.state.geoVend;
+    const pts = d.lineas.filter(l => f === 'todos' || l.vi === +f);
+    this._layer.clearLayers();
+    pts.forEach(l => {
+      const v = d.vend[l.vi];
+      window.L.circleMarker([l.lat, l.lng], { radius: Math.max(4, Math.min(11, 3 + l.monto / 140)), color: v.color,
+        weight: 1.6, fillColor: v.color, fillOpacity: .42 })
+        .bindPopup('<strong>' + v.nombre + '</strong><br>' + this.pad2(l.hora) + ':' + this.pad2(l.min) + ' · sorteo ' + l.sorteo + '<br>número ' + this.pad2(l.numero) + ' · ' + this.fmt(l.monto) + '<br><span style="color:#64748b">' + v.zona + '</span>')
+        .addTo(this._layer);
+    });
+    if (f !== 'todos' && pts.length) this._map.setView([d.vend[+f].lat, d.vend[+f].lng], 12);
+  }
+
+  addLinea(n, monto) {
+    this.setState(s => ({ posLineas: s.posLineas.concat([{ numero: n, monto: monto }]), posNumero: '', posMonto: '', posFoco: 'numero', rapidaTexto: '' }));
+  }
+
+  renderVals() {
+    const d0 = this.data(), st = this.state, P = n => this.pad2(n), cfg = this.cfg();
+    const d = { ...d0, vend: d0.vend.concat(st.venNuevos) };
+    const S = k => () => this.setState({ screen: k });
+    const acento = this.props.acento || '#2563eb';
+    const pad = (this.props.densidad || 'Cómoda') === 'Compacta' ? '7px' : '11px';
+    const opcionesVend = d.vend.map((v, i) => ({ value: String(i), label: v.nombre + ' · ' + v.codigo }));
+    const ini = nom => nom.split(' ').filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('');
+
+    // ── dashboard general
+    const nMeses = this.props.mesesGrafico || 8;
+    const rowsAll = d.rows;
+    const tot = this.agg(rowsAll);
+    const porMes = [];
+    for (let m = 0; m < 8; m++) {
+      const rs = rowsAll.filter(r => r.mes === m);
+      if (rs.length) porMes.push({ m: m, ...this.agg(rs) });
+    }
+    const mesesVis = porMes.slice(-nMeses);
+    const utils = mesesVis.map(m => m.util);
+    const minU = Math.min(0, ...utils), maxU = Math.max(...utils), spanU = (maxU - minU) || 1;
+    const X = i => mesesVis.length > 1 ? (i / (mesesVis.length - 1)) * 960 + 20 : 500;
+    const Y = u => 240 - (u - minU) / spanU * 210;
+    const linea = mesesVis.map((m, i) => X(i).toFixed(1) + ',' + Y(m.util).toFixed(1)).join(' ');
+    const area = 'M' + X(0).toFixed(1) + ',' + Y(minU).toFixed(1) + ' L' + linea.split(' ').join(' L') + ' L' + X(mesesVis.length - 1).toFixed(1) + ',' + Y(minU).toFixed(1) + ' Z';
+    const mejor = porMes.reduce((a, b) => b.util > a.util ? b : a, porMes[0]);
+    const porVend = d.vend.map((v, vi) => ({ vi: vi, nombre: v.nombre, color: v.color, ...this.agg(rowsAll.filter(r => r.vi === vi)) }));
+    const maxVenta = Math.max(...porVend.map(v => v.venta));
+    const maxUtilV = Math.max(...porVend.map(v => Math.abs(v.util)));
+
+    // ── resumen del día
+    const diaRows = d.rows.filter(r => r.iso === st.diaFecha && (st.diaVend === 'todos' || r.vi === +st.diaVend));
+    const diaTot = this.agg(diaRows);
+    const diaLiqRows = diaRows.filter(r => r.liquidado), diaLiq = this.agg(diaLiqRows);
+    const horasLiq = Array.from(new Set(diaLiqRows.map(r => r.hora))).sort();
+    const horasPend = Array.from(new Set(diaRows.filter(r => !r.liquidado).map(r => r.hora))).sort();
+    const shiftDia = k => () => {
+      const p = st.diaFecha.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2] + k);
+      const iso = this.iso(dt);
+      if (d.rows.some(r => r.iso === iso)) this.setState({ diaFecha: iso });
+    };
+    const sorteosDia = d.horas.map(h => {
+      const rs = diaRows.filter(r => r.hora === h), a = this.agg(rs);
+      const est = rs.length ? rs[0].estado : 'liquidado', liq = est === 'liquidado';
+      return { hora: h, ganador: liq && rs.length ? P(rs[0].ganador) : '—', ganColor: liq ? '#0f2547' : '#94a3b8',
+        estado: est === 'abierto' ? 'en venta · cierra 19:50' : est === 'cerrado' ? 'cerrado · pendiente de captura' : 'liquidado',
+        venta: this.fmt(a.venta), comision: this.fmt(a.com),
+        premios: liq ? this.fmt(a.premio) : 'pendiente',
+        utilidad: this.fmt(a.util), utilColor: !liq ? '#0f172a' : (a.util < 0 ? '#e11d48' : '#047857'),
+        margen: liq ? a.margen.toFixed(1) + '%' : 'proyectado, sin premios',
+        tickets: Math.max(1, Math.round(a.venta / 260)) };
+    });
+    const filasDia = diaRows.map(r => ({ nombre: d.vend[r.vi].nombre, hora: r.hora, venta: this.fmt(r.venta, false),
+      comision: this.fmt(r.com, false),
+      premios: r.liquidado ? this.fmt(r.premio, false) : 'pendiente',
+      utilidad: this.fmt(r.util, false) + (r.liquidado ? '' : ' *'),
+      utilColor: !r.liquidado ? '#64748b' : (r.util < 0 ? '#e11d48' : '#047857') }));
+
+    // ── reportes
+    const repFiltro = d.rows.filter(r => r.iso >= st.repDesde && r.iso <= st.repHasta
+      && (st.repVend === 'todos' || r.vi === +st.repVend)
+      && (st.repHora === 'todos' || r.hora === st.repHora)
+      && (st.repNumero.length !== 2 || r.ganador === +st.repNumero));
+    const repTot = this.agg(repFiltro);
+    const repOrden = repFiltro.slice().sort((a, b) => a.iso === b.iso ? (a.hora < b.hora ? -1 : 1) : (a.iso < b.iso ? 1 : -1));
+    const presetDef = [
+      { id: 'hoy', label: 'Hoy', desde: '2026-08-17', hasta: '2026-08-17' },
+      { id: '7d', label: 'Últimos 7 días', desde: '2026-08-11', hasta: '2026-08-17' },
+      { id: 'mes', label: 'Mes actual', desde: '2026-08-01', hasta: '2026-08-17' },
+      { id: 'prev', label: 'Mes anterior', desde: '2026-07-01', hasta: '2026-07-31' },
+      { id: 'todo', label: 'Todo el año', desde: '2026-01-01', hasta: '2026-08-17' }
+    ];
+
+    // ── control de vendedores
+    const cv = st.ctrlVend, cVend = d.vend[cv];
+    const cLineas = d.lineas.filter(l => l.vi === cv && (st.ctrlHora === 'todas' || l.sorteo === st.ctrlHora));
+    const cVenta = cLineas.reduce((a, l) => a + l.monto, 0);
+    const cPremios = cLineas.reduce((a, l) => a + (l.premio || 0), 0);
+    const cCom = cVenta * cfg[cv].com / 100;
+    const liqHoras = new Set(d.rows.filter(r => r.iso === '2026-08-17' && r.liquidado).map(r => r.hora));
+    const cLiq = cLineas.filter(l => liqHoras.has(l.sorteo));
+    const cVentaLiq = cLiq.reduce((a, l) => a + l.monto, 0);
+    const cUtil = cVentaLiq - cVentaLiq * cfg[cv].com / 100 - cPremios;
+    const cPend = cVenta - cVentaLiq;
+    const cHorasLiq = Array.from(liqHoras).filter(h => st.ctrlHora === 'todas' || h === st.ctrlHora).sort();
+    const act = new Array(13).fill(0);
+    cLineas.forEach(l => { const i = Math.max(0, Math.min(12, l.hora - 8)); act[i] += l.monto; });
+    const actMax = Math.max(1, ...act);
+    const horaPicoIdx = act.indexOf(Math.max(...act));
+    const isosCtrl = Array.from(new Set(d.rows.map(r => r.iso))).sort().slice(-14);
+    const ctrlDias = isosCtrl.map(iso => {
+      const rs = d.rows.filter(r => r.iso === iso && r.vi === cv && (st.ctrlHora === 'todas' || r.hora === st.ctrlHora));
+      const p = iso.split('-');
+      return { iso: iso, label: (+p[2]) + ' ' + this.mesNombre(+p[1] - 1), venta: rs.reduce((a, r) => a + r.venta, 0) };
+    });
+    const ctrlDiaMax = Math.max(1, ...ctrlDias.map(x => x.venta));
+
+    // ── geo
+    const geoPts = d.lineas.filter(l => st.geoVend === 'todos' || l.vi === +st.geoVend);
+    const zonas = d.vend.map((v, vi) => {
+      const ls = d.lineas.filter(l => l.vi === vi);
+      return { nombre: v.zona, color: v.color, monto: ls.reduce((a, l) => a + l.monto, 0), puntos: ls.length };
+    }).sort((a, b) => b.monto - a.monto);
+    const zonaMax = Math.max(...zonas.map(z => z.monto));
+
+    // ── vendedores (tabular editable)
+    const draftVal = (vi, f) => {
+      const k = vi + ':' + f;
+      return st.venDraft[k] != null ? st.venDraft[k] : String(cfg[vi][f]);
+    };
+    const setDraft = (vi, f) => e => {
+      let v = e.target.value.replace(/[^\d.]/g, '').slice(0, 8);
+      const p = v.split('.');
+      if (p.length > 2) v = p[0] + '.' + p.slice(1).join('');
+      this.setState(s => ({ venDraft: { ...s.venDraft, [vi + ':' + f]: v }, venAviso: '', venAvisoTipo: 'neutro' }));
+    };
+    const sucio = Object.keys(st.venDraft).some(k => {
+      const p = k.split(':');
+      return parseFloat(st.venDraft[k] || '0') !== cfg[+p[0]][p[1]];
+    });
+
+    // ── simulador
+    const simRows = this.rango(st.simDesde, st.simHasta);
+    const simReal = this.agg(simRows);
+    const factorRealPond = simRows.reduce((a, r) => a + d.vend[r.vi].factor * r.venta, 0) / (simReal.venta || 1);
+    const simular = rows => {
+      const a = this.agg(rows);
+      const com = a.venta * st.simCom / 100;
+      const premio = a.premio * (st.simFactor / factorRealPond);
+      const util = a.venta - com - premio;
+      return { venta: a.venta, com: com, premio: premio, util: util, margen: a.venta ? util / a.venta * 100 : 0 };
+    };
+    const simTot = simular(simRows);
+    const mesesSim = [];
+    for (let m = 0; m < 12; m++) {
+      const rs = simRows.filter(r => r.mes === m);
+      if (rs.length) mesesSim.push({ m: m, real: this.agg(rs), sim: simular(rs), dias: new Set(rs.map(r => r.iso)).size });
+    }
+    const filaCmp = (metrica, real, sim, money) => {
+      const dif = sim - real;
+      return { metrica: metrica, real: money ? this.fmtK(real) : real.toFixed(1) + '%', sim: money ? this.fmtK(sim) : sim.toFixed(1) + '%',
+        color: Math.abs(dif) < 0.5 ? '#0f172a' : (dif > 0 ? '#047857' : '#e11d48') };
+    };
+
+    // ── POS
+    const vi3 = 2, c3 = cfg[vi3];
+    const posN = st.posNumero.length === 2 ? parseInt(st.posNumero, 10) : null;
+    const disp = posN != null ? this.disponible(vi3, posN) : null;
+    const montoNum = parseInt(st.posMonto || '0', 10);
+    const totalTicket = st.posLineas.reduce((a, l) => a + l.monto, 0);
+    let cupoTexto = 'Ingrese un número de dos dígitos para ver el cupo disponible.', cupoBg = '#f1f5f9', cupoColor = '#475569';
+    if (disp != null) {
+      if (disp <= 0) { cupoTexto = 'Cupo agotado en el ' + P(posN) + ': no se acepta monto.'; cupoBg = '#fee2e6'; cupoColor = '#a4133c'; }
+      else if (disp < 300) { cupoTexto = 'Cupo bajo en el ' + P(posN) + ': disponible ' + this.fmt(disp) + '.'; cupoBg = '#fef3c7'; cupoColor = '#92400e'; }
+      else { cupoTexto = 'Disponible en el ' + P(posN) + ': ' + this.fmt(disp) + '.'; cupoBg = '#dcfce7'; cupoColor = '#065f46'; }
+    }
+    const puedeAgregar = disp != null && disp > 0 && montoNum > 0 && montoNum <= disp;
+    const teclas = ['1','2','3','4','5','6','7','8','9','C','0','←'].map(k => ({
+      label: k, color: k === 'C' || k === '←' ? '#e11d48' : '#0f172a',
+      tap: () => {
+        const f = this.state.posFoco, key = f === 'numero' ? 'posNumero' : 'posMonto', cur = this.state[key];
+        if (k === 'C') return this.setState({ [key]: '' });
+        if (k === '←') return this.setState({ [key]: cur.slice(0, -1) });
+        if (f === 'numero') {
+          const nv = (cur + k).slice(-2);
+          const libre = nv.length === 2 && this.disponible(vi3, parseInt(nv, 10)) > 0;
+          this.setState({ posNumero: nv, posMonto: '', posFoco: libre ? 'monto' : 'numero' });
+        } else if (cur.length < 5 && disp > 0) this.setState({ posMonto: cur + k });
+      }
+    }));
+    const enviarRapida = () => {
+      const m = this.state.rapidaTexto.trim().match(/^(\d{1,2})\s*[\s\-x,]\s*(\d{1,5})$/);
+      if (!m) return this.setState({ rapidaAviso: 'Formato: número espacio monto. Ejemplo: 47 50', rapidaOk: false });
+      const n = parseInt(m[1], 10), mo = parseInt(m[2], 10), dp = this.disponible(vi3, n);
+      if (dp <= 0) return this.setState({ rapidaAviso: 'Cupo agotado en el ' + P(n) + '.', rapidaOk: false });
+      if (mo > dp) return this.setState({ rapidaAviso: 'Máximo vendible en el ' + P(n) + ': ' + this.fmt(dp) + '.', rapidaOk: false });
+      this.addLinea(n, mo);
+      this.setState({ rapidaAviso: P(n) + ' × ' + this.fmt(mo) + ' agregado. Siga escribiendo.', rapidaOk: true });
+    };
+    const rejilla = [];
+    for (let n = 0; n < 100; n++) {
+      const dp = this.disponible(vi3, n), sel = posN === n;
+      rejilla.push({ label: P(n), bg: sel ? '#0f172a' : (dp <= 0 ? '#fee2e6' : (dp < 300 ? '#fef3c7' : '#fff')),
+        fg: sel ? '#fff' : (dp <= 0 ? '#a4133c' : '#0f172a'), borde: sel ? '#0f172a' : (dp <= 0 ? '#fbc4ce' : '#e8eef6'),
+        tap: () => this.setState({ posNumero: P(n), posMonto: '', posFoco: 'monto' }) });
+    }
+    const montos = [10, 20, 50, 100].map(m => {
+      const on = String(m) === st.posMonto;
+      return { label: String(m), bg: on ? '#2563eb' : '#fff', fg: on ? '#fff' : '#0f172a', borde: on ? '#2563eb' : '#e8eef6',
+        tap: () => { if (disp > 0) this.setState({ posMonto: String(m) }); } };
+    });
+
+    // ── resultados
+    const resRows = d.rows.filter(r => r.iso === '2026-08-17' && r.hora === '15:00');
+    const resAgg = this.agg(resRows);
+    const resN = st.resNumero.length === 2 ? parseInt(st.resNumero, 10) : null;
+    const resLineas = resN != null ? d.lineas.filter(l => l.sorteo === '15:00' && l.numero === resN) : [];
+    const resPago = resLineas.reduce((a, l) => a + l.monto * l.factor, 0);
+    const resUtil = resAgg.venta - resAgg.com - resPago;
+    const ultimos = [];
+    const isos = Array.from(new Set(d.rows.map(r => r.iso))).sort().reverse().slice(0, 2);
+    isos.forEach(iso => d.horas.slice().reverse().forEach(h => {
+      const rs = d.rows.filter(r => r.iso === iso && r.hora === h && r.liquidado);
+      if (!rs.length) return;
+      const a = this.agg(rs), p = iso.split('-');
+      ultimos.push({ numero: P(rs[0].ganador), fecha: (+p[2]) + ' ' + this.mesNombre(+p[1] - 1), franja: h,
+        venta: this.fmtK(a.venta), utilidad: (a.util > 0 ? '+' : '') + this.fmtK(a.util), color: a.util < 0 ? '#e11d48' : '#047857' });
+    }));
+
+    // ── OCR
+    const ocrV = d.vend[st.ocrVend], ocrCfg = cfg[st.ocrVend];
+    const ordenOcr = st.ocrLineas.map((l, i) => ({ l: l, i: i })).sort((a, b) => (a.l.conf - b.l.conf) || (a.i - b.i));
+    const sumaOcr = st.ocrLineas.reduce((a, l) => a + (parseInt(l.monto || '0', 10) || 0), 0);
+    const declarado = 375, difOcr = sumaOcr - declarado, cuadra = difOcr === 0;
+
+    return {
+      isTablero: st.screen === 'tablero', isPos: st.screen === 'pos', isResultados: st.screen === 'resultados',
+      isVendedores: st.screen === 'vendedores', isSimulador: st.screen === 'simulador', isOcr: st.screen === 'ocr',
+      isReportes: st.screen === 'reportes', isControl: st.screen === 'control', isGeo: st.screen === 'geo',
+      goTablero: S('tablero'), goPos: S('pos'), goResultados: S('resultados'), goVendedores: S('vendedores'),
+      goSimulador: S('simulador'), goOcr: S('ocr'), goReportes: S('reportes'), goControl: S('control'), goGeo: S('geo'),
+      nav: { tablero: this.navItem('tablero'), pos: this.navItem('pos'), resultados: this.navItem('resultados'),
+        vendedores: this.navItem('vendedores'), simulador: this.navItem('simulador'), ocr: this.navItem('ocr'),
+        reportes: this.navItem('reportes'), control: this.navItem('control'), geo: this.navItem('geo') },
+      opcionesVend: opcionesVend,
+      kpi: { countdown: this.countdown() },
+
+      dash: {
+        esGeneral: st.dashTab === 'general', esDia: st.dashTab === 'dia',
+        verGeneral: () => this.setState({ dashTab: 'general' }), verDia: () => this.setState({ dashTab: 'dia' }),
+        generalBg: this.tab(st.dashTab === 'general').bg, generalFg: this.tab(st.dashTab === 'general').fg, generalSombra: this.tab(st.dashTab === 'general').sombra,
+        diaBg: this.tab(st.dashTab === 'dia').bg, diaFg: this.tab(st.dashTab === 'dia').fg, diaSombra: this.tab(st.dashTab === 'dia').sombra,
+        subtitulo: st.dashTab === 'general' ? 'Enero a agosto de 2026 · 5 vendedores · 3 sorteos diarios' : 'Indicadores de un día, sorteo por sorteo',
+        periodo: 'ene – ago 2026', acento: acento,
+        venta: this.fmtK(tot.venta), comision: this.fmtK(tot.com), premios: this.fmtK(tot.premio), utilidad: this.fmtK(tot.util),
+        comisionPct: (tot.com / tot.venta * 100).toFixed(1) + '%', premiosPct: (tot.premio / tot.venta * 100).toFixed(1) + '%',
+        margen: tot.margen.toFixed(1) + '%',
+        promMes: this.fmtK(porMes.reduce((a, m) => a + m.util, 0) / porMes.length),
+        mejorMes: this.mesNombre(mejor.m) + ' · ' + this.fmtK(mejor.util),
+        grid: [0, 1, 2, 3].map(i => ({ y: (30 + i * 70).toFixed(0) })),
+        linea: linea, area: area,
+        puntos: mesesVis.map((m, i) => ({ x: X(i).toFixed(1), y: Y(m.util).toFixed(1), color: m.util < 0 ? '#e11d48' : acento })),
+        meses: mesesVis.map(m => ({ label: this.mesNombre(m.m), valor: this.fmtK(m.util), color: m.util < 0 ? '#e11d48' : '#0f172a' })),
+        barrasVenta: porVend.slice().sort((a, b) => b.venta - a.venta).map(v => ({ nombre: v.nombre, valor: this.fmtK(v.venta),
+          color: v.color, ancho: Math.round(v.venta / maxVenta * 100) + '%' })),
+        barrasUtil: porVend.slice().sort((a, b) => b.util - a.util).map(v => ({ nombre: v.nombre, valor: this.fmtK(v.util),
+          color: v.util < 0 ? '#e11d48' : v.color, ancho: Math.round(Math.abs(v.util) / maxUtilV * 100) + '%',
+          margen: v.margen.toFixed(1) + '%' }))
+      },
+
+      dia: {
+        fecha: st.diaFecha, onFecha: e => { if (e.target.value) this.setState({ diaFecha: e.target.value }); },
+        anterior: shiftDia(-1), siguiente: shiftDia(1),
+        vend: st.diaVend, onVend: e => this.setState({ diaVend: e.target.value }),
+        etiqueta: this.fechaLarga(st.diaFecha) + (st.diaVend === 'todos' ? ' · todos los vendedores' : ' · ' + d.vend[+st.diaVend].nombre),
+        sorteos: sorteosDia, filas: filasDia,
+        venta: this.fmt(diaTot.venta), comision: this.fmt(diaTot.com),
+        premios: horasLiq.length ? this.fmt(diaLiq.premio) : 'pendiente',
+        premiosNota: horasPend.length ? 'solo sorteos liquidados (' + horasLiq.join(', ') + ')' : 'los tres sorteos liquidados',
+        utilidad: this.fmt(diaLiq.util), utilColor: diaLiq.util < 0 ? '#fb7185' : '#6ee7b7',
+        utilNota: horasPend.length ? 'utilidad liquidada · margen ' + diaLiq.margen.toFixed(1) + '%' : 'margen ' + diaLiq.margen.toFixed(1) + '%',
+        margen: horasPend.length
+          ? 'Pendiente de liquidar: ' + horasPend.join(' y ') + ' · ' + this.fmt(diaTot.venta - diaLiq.venta) + ' vendidos sin premio calculado'
+          : 'Día cerrado y liquidado por completo',
+        pendiente: horasPend.length > 0
+      },
+
+      rep: {
+        presets: presetDef.map(p => ({ label: p.label,
+          bg: st.repPreset === p.id ? '#0f172a' : '#fff', fg: st.repPreset === p.id ? '#fff' : '#475569',
+          borde: st.repPreset === p.id ? '#0f172a' : '#e2e8f0',
+          tap: () => this.setState({ repPreset: p.id, repDesde: p.desde, repHasta: p.hasta }) })),
+        desde: st.repDesde, hasta: st.repHasta,
+        onDesde: e => { if (e.target.value) this.setState({ repDesde: e.target.value, repPreset: '' }); },
+        onHasta: e => { if (e.target.value) this.setState({ repHasta: e.target.value, repPreset: '' }); },
+        vend: st.repVend, onVend: e => this.setState({ repVend: e.target.value }),
+        hora: st.repHora, onHora: e => this.setState({ repHora: e.target.value }),
+        numero: st.repNumero, onNumero: e => this.setState({ repNumero: e.target.value.replace(/\D/g, '').slice(0, 2) }),
+        limpiar: () => this.setState({ repVend: 'todos', repHora: 'todos', repNumero: '', repPreset: 'mes', repDesde: '2026-08-01', repHasta: '2026-08-17' }),
+        conteo: repFiltro.length + ' registros · ' + new Set(repFiltro.map(r => r.iso)).size + ' días',
+        subVenta: this.fmt(repTot.venta), subComision: this.fmt(repTot.com), subPremios: this.fmt(repTot.premio),
+        subUtilidad: this.fmt(repTot.util), subUtilColor: repTot.util < 0 ? '#e11d48' : '#047857',
+        pad: pad,
+        filas: repOrden.slice(0, 80).map(r => {
+          const p = r.iso.split('-');
+          return { fecha: (+p[2]) + ' ' + this.mesNombre(+p[1] - 1), nombre: d.vend[r.vi].nombre, hora: r.hora,
+            ganador: r.liquidado ? P(r.ganador) : '—',
+            venta: this.fmt(r.venta, false), comision: this.fmt(r.com, false), premio: r.liquidado ? this.fmt(r.premio, false) : '—',
+            utilidad: this.fmt(r.util, false), utilColor: r.util < 0 ? '#e11d48' : '#047857' };
+        }),
+        pie: repOrden.length > 80 ? 'Mostrando 80 de ' + repOrden.length + ' registros. Los subtotales de arriba corresponden al filtro completo.' : 'Subtotales calculados sobre los ' + repOrden.length + ' registros del filtro.'
+      },
+
+      ctrl: {
+        vend: String(cv), onVend: e => this.setState({ ctrlVend: +e.target.value }),
+        hora: st.ctrlHora, onHora: e => this.setState({ ctrlHora: e.target.value }),
+        zona: cVend.codigo + ' · ' + cVend.zona + ' · comisión ' + cfg[cv].com.toFixed(2) + '% · factor ' + cfg[cv].factor.toFixed(2),
+        nombre: cVend.nombre, com: cfg[cv].com.toFixed(2) + '%',
+        resumenLineas: cLineas.length ? cLineas.length + ' líneas · ' + (cLineas.length ? Math.max(1, Math.round(cLineas.length / 2.3)) : 0) + ' tickets' : 'sin ventas registradas hoy',
+        etiqueta: cVend.nombre + ' · ' + this.fechaLarga('2026-08-17') + (st.ctrlHora === 'todas' ? ' · los tres sorteos' : ' · sorteo ' + st.ctrlHora),
+        venta: this.fmt(cVenta), comision: this.fmt(cCom), premios: this.fmt(cPremios), utilidad: this.fmt(cUtil),
+        utilColor: cUtil < 0 ? '#e11d48' : '#047857',
+        margen: cVentaLiq ? (cUtil / cVentaLiq * 100).toFixed(1) + '%' : '—',
+        alcance: cHorasLiq.length ? 'sobre sorteos liquidados (' + cHorasLiq.join(', ') + ')' : 'sin sorteos liquidados en el filtro',
+        pendiente: cPend > 0 ? this.fmt(cPend) + ' en sorteos aún sin liquidar' : 'todo el filtro está liquidado',
+        premiosAlcance: cHorasLiq.length ? 'calculados sobre ' + cHorasLiq.join(', ') : 'pendiente de liquidación',
+        conteo: cLineas.length, tickets: cLineas.length ? Math.max(1, Math.round(cLineas.length / 2.3)) : 0,
+        vacio: cLineas.length === 0,
+        ganadoras: cLiq.filter(l => l.gano).length,
+        actividad0: cLineas.length === 0,
+        lineas: cLineas.map(l => ({ hora: P(l.hora) + ':' + P(l.min), sorteo: l.sorteo, numero: P(l.numero),
+          monto: this.fmt(l.monto, false), premio: l.gano ? this.fmt(l.premio, false) : '—',
+          premioColor: l.gano ? '#e11d48' : '#94a3b8', bg: l.gano ? '#fff7ed' : 'transparent',
+          numBg: l.gano ? '#fed7aa' : '#f1f5f9', numFg: l.gano ? '#9a3412' : '#0f172a',
+          punto: cVend.zona + ' · ' + l.lat.toFixed(3) + ', ' + l.lng.toFixed(3) })),
+        actividad: act.map((v, i) => ({ alto: Math.max(3, Math.round(v / actMax * 100)) + '%',
+          color: v > actMax * 0.66 ? cVend.color : '#c7d7f0', titulo: (8 + i) + ':00 · ' + this.fmt(v) })),
+        horaPico: cLineas.length ? (8 + horaPicoIdx) + ':00 – ' + (9 + horaPicoIdx) + ':00 · ' + this.fmt(act[horaPicoIdx]) : 'sin ventas registradas',
+        porDia: ctrlDias.map(x => ({ alto: x.venta ? Math.max(3, Math.round(x.venta / ctrlDiaMax * 100)) + '%' : '2px',
+          color: x.venta ? (x.venta > ctrlDiaMax * 0.8 ? cVend.color : '#c7d7f0') : '#e6ecf4',
+          titulo: x.label + ' · ' + this.fmt(x.venta) })),
+        diaIni: ctrlDias[0].label, diaFin: ctrlDias[ctrlDias.length - 1].label,
+        promDia: ctrlDias.some(x => x.venta) ? this.fmt(ctrlDias.reduce((a, x) => a + x.venta, 0) / ctrlDias.length) : 'sin ventas'
+      },
+
+      geo: {
+        ref: el => this.mapaRef(el),
+        vend: st.geoVend, onVend: e => this.setState({ geoVend: e.target.value }),
+        color: st.geoVend === 'todos' ? '#64748b' : d.vend[+st.geoVend].color,
+        irSps: () => { if (this._map) this._map.setView([15.5045, -88.0250], 13); },
+        irCholoma: () => { if (this._map) this._map.setView([15.6136, -87.9525], 13); },
+        puntos: geoPts.length, montoTotal: this.fmt(geoPts.reduce((a, l) => a + l.monto, 0)),
+        etiqueta: st.geoVend === 'todos' ? 'red completa · 5 vendedores' : d.vend[+st.geoVend].zona,
+        zonas: zonas.map(z => ({ nombre: z.nombre, color: z.color, monto: this.fmtK(z.monto), puntos: z.puntos,
+          ancho: Math.round(z.monto / zonaMax * 100) + '%' }))
+      },
+
+      ven: {
+        filas: d.vend.map((v, vi) => {
+          const lim = parseFloat(draftVal(vi, 'limite')), fac = parseFloat(draftVal(vi, 'factor'));
+          const dif = f => { const p = parseFloat(draftVal(vi, f)); return isNaN(p) || p !== cfg[vi][f]; };
+          const expo = isNaN(lim) || isNaN(fac) ? 'valor no válido' : this.fmt(lim * fac);
+          return { nombre: v.nombre, codigo: v.codigo, zona: v.zona, iniciales: ini(v.nombre),
+            telefono: v.telefono, correo: v.correo, identidad: v.identidad,
+            etiqueta: v.nuevo ? 'nuevo' : '', etiquetaBg: v.nuevo ? '#dcfce7' : 'transparent', etiquetaFg: v.nuevo ? '#065f46' : 'transparent',
+            chipBg: '#f1f5f9', chipFg: v.color, bg: (dif('limite') || dif('com') || dif('factor')) ? '#fefce8' : '#fff',
+            limite: draftVal(vi, 'limite'), com: draftVal(vi, 'com'), factor: draftVal(vi, 'factor'),
+            bordeLimite: dif('limite') ? '#fbbf24' : '#e2e8f0', bordeCom: dif('com') ? '#fbbf24' : '#e2e8f0', bordeFactor: dif('factor') ? '#fbbf24' : '#e2e8f0',
+            onLimite: setDraft(vi, 'limite'), onCom: setDraft(vi, 'com'), onFactor: setDraft(vi, 'factor'),
+            exposicion: expo };
+        }),
+        aviso: st.venAviso, avisoColor: st.venAvisoTipo === 'error' ? '#e11d48' : st.venAvisoTipo === 'neutro' ? '#64748b' : '#047857',
+        guardarBg: sucio ? '#2563eb' : '#eef2f7', guardarColor: sucio ? '#fff' : '#94a3b8',
+        modal: st.venModal, error: st.venError,
+        abrirNuevo: () => this.setState({ venModal: true, venError: '' }),
+        cerrarNuevo: () => this.setState({ venModal: false, venError: '' }),
+        form: st.venForm,
+        onNombre: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, nombre: v }, venError: '' })); },
+        onTelefono: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, telefono: v }, venError: '' })); },
+        onCorreo: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, correo: v }, venError: '' })); },
+        onIdentidad: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, identidad: v }, venError: '' })); },
+        onCiudad: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, ciudad: v }, venError: '' })); },
+        onBarrio: e => { const v = e.target.value; this.setState(s => ({ venForm: { ...s.venForm, barrio: v }, venError: '' })); },
+        onComForm: e => { const v = e.target.value.replace(/[^\d.]/g, '').slice(0, 5); this.setState(s => ({ venForm: { ...s.venForm, com: v }, venError: '' })); },
+        onFactorForm: e => { const v = e.target.value.replace(/[^\d.]/g, '').slice(0, 6); this.setState(s => ({ venForm: { ...s.venForm, factor: v }, venError: '' })); },
+        onLimiteForm: e => { const v = e.target.value.replace(/[^\d]/g, '').slice(0, 7); this.setState(s => ({ venForm: { ...s.venForm, limite: v }, venError: '' })); },
+        ciudades: ['San Pedro Sula', 'Choloma', 'Villanueva', 'La Lima'].map(c => ({ value: c, label: c })),
+        crear: () => {
+          const f = st.venForm;
+          if (f.nombre.trim().length < 5) return this.setState({ venError: 'Escriba el nombre completo del vendedor.' });
+          if (!/^\d{4}-\d{4}$/.test(f.telefono.trim())) return this.setState({ venError: 'Teléfono en formato 9999-9999.' });
+          if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(f.correo.trim())) return this.setState({ venError: 'Correo electrónico no válido.' });
+          const com = parseFloat(f.com), factor = parseFloat(f.factor), limite = parseFloat(f.limite);
+          if (!(com >= 0 && com <= 60)) return this.setState({ venError: 'Comisión entre 0 y 60%.' });
+          if (!(factor >= 1)) return this.setState({ venError: 'El factor de pago debe ser mayor que 1.' });
+          if (!(limite >= 10)) return this.setState({ venError: 'El tope por número debe ser al menos L 10.' });
+          const ciudad = f.ciudad === 'San Pedro Sula' ? { pre: 'SPS', lat: 15.5045, lng: -88.0250 }
+            : f.ciudad === 'Choloma' ? { pre: 'Choloma', lat: 15.6136, lng: -87.9525 }
+            : f.ciudad === 'Villanueva' ? { pre: 'Villanueva', lat: 15.3167, lng: -88.0000 } : { pre: 'La Lima', lat: 15.4386, lng: -87.9161 };
+          const colores = ['#d97706', '#4f46e5', '#0d9488', '#be185d', '#65a30d'];
+          const nuevo = { codigo: 'V-' + P(d0.vend.length + st.venNuevos.length + 1).padStart(3, '0'),
+            nombre: f.nombre.trim(), telefono: f.telefono.trim(), correo: f.correo.trim(), identidad: f.identidad.trim() || '—',
+            zona: ciudad.pre + (f.barrio.trim() ? ' · ' + f.barrio.trim() : ' · sin barrio asignado'),
+            com: com, factor: factor, limite: limite, color: colores[st.venNuevos.length % colores.length],
+            peso: 0, lat: ciudad.lat, lng: ciudad.lng, nuevo: true };
+          this.setState(s => ({ venNuevos: s.venNuevos.concat([nuevo]), venModal: false, venError: '',
+            venAviso: nuevo.nombre + ' creado con código ' + nuevo.codigo + '. Puede vender desde el próximo sorteo.', venAvisoTipo: 'ok',
+            venForm: { nombre: '', telefono: '', correo: '', ciudad: 'San Pedro Sula', barrio: '', com: '12.5', factor: '70', limite: '1000', identidad: '' } }));
+        },
+        guardar: () => {
+          if (!sucio) return this.setState({ venAviso: 'No hay cambios sin guardar.', venAvisoTipo: 'neutro' });
+          const rangos = { com: [0, 60, 'la comisión debe estar entre 0 y 60%'], factor: [1, 200, 'el factor de pago debe estar entre 1 y 200'], limite: [10, 1000000, 'el tope por número debe ser al menos L 10'] };
+          const next = [];
+          for (let vi = 0; vi < cfg.length; vi++) {
+            const fila = {};
+            for (const f of ['limite', 'com', 'factor']) {
+              const v = parseFloat(draftVal(vi, f));
+              const [min, max, msg] = rangos[f];
+              if (isNaN(v) || v < min || v > max) {
+                return this.setState({ venAviso: d.vend[vi].nombre + ': ' + msg + '.', venAvisoTipo: 'error' });
+              }
+              fila[f] = v;
+            }
+            next.push(fila);
+          }
+          const nBase = d0.vend.length;
+          this.setState(s => ({ venCfg: next.slice(0, nBase), venDraft: {},
+            venNuevos: s.venNuevos.map((v, i) => ({ ...v, ...next[nBase + i] })),
+            venAviso: 'Cambios guardados y registrados en auditoría. Aplican a ventas futuras.', venAvisoTipo: 'ok' }));
+        },
+        descartar: () => this.setState({ venDraft: {}, venAviso: '' }),
+        limiteGlobal: this.fmt(d.limiteGlobal)
+      },
+
+      sim: {
+        desde: st.simDesde, hasta: st.simHasta,
+        onDesde: e => { if (e.target.value) this.setState({ simDesde: e.target.value }); },
+        onHasta: e => { if (e.target.value) this.setState({ simHasta: e.target.value }); },
+        com: st.simCom.toFixed(2), factor: st.simFactor.toFixed(2),
+        comInput: st.simComTxt != null ? st.simComTxt : st.simCom.toFixed(2),
+        factorInput: st.simFactorTxt != null ? st.simFactorTxt : st.simFactor.toFixed(2),
+        onCom: e => {
+          const t = e.target.value.replace(/[^\d.]/g, '').slice(0, 6), v = parseFloat(t);
+          this.setState({ simComTxt: t, simCom: isNaN(v) ? this.state.simCom : Math.max(0, Math.min(60, v)) });
+        },
+        onFactor: e => {
+          const t = e.target.value.replace(/[^\d.]/g, '').slice(0, 6), v = parseFloat(t);
+          this.setState({ simFactorTxt: t, simFactor: isNaN(v) ? this.state.simFactor : Math.max(1, Math.min(200, v)) });
+        },
+        blurCom: () => this.setState({ simComTxt: null }),
+        blurFactor: () => this.setState({ simFactorTxt: null }),
+        comReal: (simReal.com / (simReal.venta || 1) * 100).toFixed(2), factorReal: factorRealPond.toFixed(2),
+        comMenos: () => this.setState(s => ({ simCom: Math.max(0, +(s.simCom - 0.5).toFixed(2)), simComTxt: null })),
+        comMas: () => this.setState(s => ({ simCom: Math.min(60, +(s.simCom + 0.5).toFixed(2)), simComTxt: null })),
+        factorMenos: () => this.setState(s => ({ simFactor: Math.max(1, +(s.simFactor - 1).toFixed(2)), simFactorTxt: null })),
+        factorMas: () => this.setState(s => ({ simFactor: +(s.simFactor + 1).toFixed(2), simFactorTxt: null })),
+        reset: () => this.setState({ simCom: 13, simFactor: 70, simComTxt: null, simFactorTxt: null, simDesde: '2026-01-01', simHasta: '2026-08-17' }),
+        rango: this.fechaLarga(st.simDesde).replace(/^\w+ /, '') + ' → ' + this.fechaLarga(st.simHasta).replace(/^\w+ /, ''),
+        totalDif: (simTot.util - simReal.util > 0 ? '+' : '') + this.fmt(simTot.util - simReal.util),
+        totalDifPct: (simReal.util ? ((simTot.util - simReal.util) / Math.abs(simReal.util) * 100).toFixed(1) : '0') + '%',
+        difColor: simTot.util >= simReal.util ? '#6ee7b7' : '#fda4af',
+        totales: [
+          { metrica: 'Venta bruta', real: this.fmtK(simReal.venta), sim: this.fmtK(simTot.venta), dif: 'sin cambio', color: '#c3d4ee' },
+          { metrica: 'Comisiones', real: this.fmtK(simReal.com), sim: this.fmtK(simTot.com),
+            dif: (simTot.com - simReal.com > 0 ? '+' : '') + this.fmtK(simTot.com - simReal.com), color: simTot.com > simReal.com ? '#fda4af' : '#6ee7b7' },
+          { metrica: 'Premios', real: this.fmtK(simReal.premio), sim: this.fmtK(simTot.premio),
+            dif: (simTot.premio - simReal.premio > 0 ? '+' : '') + this.fmtK(simTot.premio - simReal.premio), color: simTot.premio > simReal.premio ? '#fda4af' : '#6ee7b7' },
+          { metrica: 'Utilidad neta', real: this.fmtK(simReal.util), sim: this.fmtK(simTot.util),
+            dif: (simTot.util - simReal.util > 0 ? '+' : '') + this.fmtK(simTot.util - simReal.util), color: simTot.util > simReal.util ? '#6ee7b7' : '#fda4af' },
+          { metrica: 'Margen', real: simReal.margen.toFixed(1) + '%', sim: simTot.margen.toFixed(1) + '%',
+            dif: (simTot.margen - simReal.margen > 0 ? '+' : '') + (simTot.margen - simReal.margen).toFixed(1) + ' pp',
+            color: simTot.margen > simReal.margen ? '#6ee7b7' : '#fda4af' }
+        ],
+        tarjetas: mesesSim.map(m => ({
+          mes: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m.m] + ' 2026',
+          dias: m.dias,
+          filas: [
+            filaCmp('Venta bruta', m.real.venta, m.sim.venta, true),
+            filaCmp('Comisiones', m.real.com, m.sim.com, true),
+            filaCmp('Premios', m.real.premio, m.sim.premio, true),
+            filaCmp('Utilidad neta', m.real.util, m.sim.util, true),
+            filaCmp('Margen', m.real.margen, m.sim.margen, false)
+          ],
+          dif: (m.sim.util - m.real.util > 0 ? '+' : '') + this.fmt(m.sim.util - m.real.util),
+          difColor: m.sim.util >= m.real.util ? '#047857' : '#e11d48'
+        }))
+      },
+
+      pos: {
+        esTeclado: st.posModo === 'teclado', esRapida: st.posModo === 'rapida', esRejilla: st.posModo === 'rejilla',
+        modoTeclado: () => this.setState({ posModo: 'teclado' }), modoRapida: () => this.setState({ posModo: 'rapida' }), modoRejilla: () => this.setState({ posModo: 'rejilla' }),
+        tecladoBg: this.tab(st.posModo === 'teclado').bg, tecladoFg: this.tab(st.posModo === 'teclado').fg, tecladoSombra: this.tab(st.posModo === 'teclado').sombra,
+        rapidaBg: this.tab(st.posModo === 'rapida').bg, rapidaFg: this.tab(st.posModo === 'rapida').fg, rapidaSombra: this.tab(st.posModo === 'rapida').sombra,
+        rejillaBg: this.tab(st.posModo === 'rejilla').bg, rejillaFg: this.tab(st.posModo === 'rejilla').fg, rejillaSombra: this.tab(st.posModo === 'rejilla').sombra,
+        factor: c3.factor.toFixed(2), com: c3.com.toFixed(2) + '%',
+        reloj: new Date(st.now).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' }),
+        numero: st.posNumero.padEnd(2, '–'), monto: st.posMonto ? st.posMonto : '0',
+        bordeNumero: st.posFoco === 'numero' ? '#2563eb' : '#e8eef6', bordeMonto: st.posFoco === 'monto' ? '#2563eb' : '#e8eef6',
+        colorNumero: disp === 0 ? '#e11d48' : '#0f172a', opacidadMonto: disp === 0 ? 0.45 : 1,
+        focoNumero: () => this.setState({ posFoco: 'numero' }), focoMonto: () => { if (disp !== 0) this.setState({ posFoco: 'monto' }); },
+        teclas: teclas, cupoTexto: cupoTexto, cupoBg: cupoBg, cupoColor: cupoColor, rejilla: rejilla, montos: montos,
+        rapidaTexto: st.rapidaTexto,
+        rapidaOnChange: e => this.setState({ rapidaTexto: e.target.value.replace(/[^\d\s\-x,]/g, '').slice(0, 10) }),
+        rapidaOnKey: e => { if (e.key === 'Enter') enviarRapida(); },
+        rapidaEnviar: enviarRapida,
+        rapidaBorde: st.rapidaOk === false ? '#e11d48' : (st.rapidaOk ? '#059669' : '#e8eef6'),
+        rapidaAviso: st.rapidaAviso || 'Acepta «47 50», «47-50» o «47x50». El cupo se valida al presionar Enter.',
+        rapidaAvisoBg: st.rapidaOk === false ? '#fee2e6' : (st.rapidaOk ? '#dcfce7' : '#f1f5f9'),
+        rapidaAvisoColor: st.rapidaOk === false ? '#a4133c' : (st.rapidaOk ? '#065f46' : '#475569'),
+        atajos: [[47, 50], [23, 20], [88, 100], [5, 10]].map(a => ({ label: a[0] + ' × ' + a[1], tap: () => this.setState({ rapidaTexto: a[0] + ' ' + a[1] }) })),
+        agregarBg: puedeAgregar ? '#0f172a' : '#eef2f7', agregarColor: puedeAgregar ? '#fff' : '#94a3b8',
+        agregar: () => { if (puedeAgregar) this.addLinea(posN, montoNum); },
+        lineas: st.posLineas.map((l, i) => ({ numero: P(l.numero), monto: this.fmt(l.monto, false), premio: this.fmt(l.monto * c3.factor),
+          quitar: () => this.setState(s => ({ posLineas: s.posLineas.filter((_, j) => j !== i) })) })),
+        vacio: st.posLineas.length === 0, conteo: st.posLineas.length, total: this.fmt(totalTicket),
+        confirmarBg: st.posLineas.length ? '#2563eb' : '#eef2f7', confirmarColor: st.posLineas.length ? '#fff' : '#94a3b8',
+        confirmar: () => {
+          if (!st.posLineas.length) return;
+          const folio = 'V003-20260817-' + String(340 + st.extra.length).padStart(4, '0');
+          this.setState(s => ({ posTicket: { folio: folio, lineas: s.posLineas },
+            extra: s.extra.concat(s.posLineas.map(l => ({ vi: vi3, numero: l.numero, monto: l.monto }))), posLineas: [] }));
+        },
+        mostrarTicket: !!st.posTicket, mostrarVenta: !st.posTicket,
+        folio: st.posTicket ? st.posTicket.folio : '',
+        ticketLineas: st.posTicket ? st.posTicket.lineas.map(l => ({ numero: P(l.numero), monto: this.fmt(l.monto, false), factor: c3.factor.toFixed(2) })) : [],
+        nueva: () => this.setState({ posTicket: null, posNumero: '', posMonto: '', posFoco: 'numero', rapidaAviso: '', rapidaOk: null })
+      },
+
+      res: {
+        numero: st.resNumero, onNumero: e => this.setState({ resNumero: e.target.value.replace(/\D/g, '').slice(0, 2) }),
+        tickets: Math.round(resAgg.venta / 260), venta: this.fmt(resAgg.venta),
+        btnBg: resN != null ? '#2563eb' : '#eef2f7', btnColor: resN != null ? '#fff' : '#94a3b8',
+        revisar: () => { if (resN != null) this.setState({ resModal: true, resConfirm: '', resAviso: '' }); },
+        modal: st.resModal, ganadores: resLineas.length, pago: this.fmt(resPago), comision: this.fmt(resAgg.com),
+        utilidad: this.fmt(resUtil), utilColor: resUtil < 0 ? '#e11d48' : '#047857',
+        confirmNumero: st.resConfirm, onConfirm: e => this.setState({ resConfirm: e.target.value.replace(/\D/g, '').slice(0, 2) }),
+        liquidarBg: st.resConfirm === st.resNumero ? '#0f172a' : '#eef2f7', liquidarColor: st.resConfirm === st.resNumero ? '#fff' : '#94a3b8',
+        liquidar: () => {
+          if (st.resConfirm !== st.resNumero) return this.setState({ resAviso: 'El número redigitado no coincide.' });
+          this.setState({ resAviso: 'Liquidado: ' + resLineas.length + ' líneas ganadoras, ' + this.fmt(resPago) + ' en premios. Sorteo bloqueado y auditoría registrada.' });
+        },
+        cerrar: () => this.setState({ resModal: false }),
+        aviso: st.resAviso, avisoColor: st.resAviso.indexOf('no coincide') >= 0 ? '#e11d48' : '#047857',
+        historicos: ultimos
+      },
+
+      ocr: {
+        vend: String(st.ocrVend), onVend: e => this.setState({ ocrVend: +e.target.value }),
+        vendNombre: ocrV.nombre, codigo: ocrV.codigo, factor: ocrCfg.factor.toFixed(2), com: ocrCfg.com.toFixed(2) + '%',
+        sorteo: st.ocrSorteo,
+        sorteos: d.horas.map(h => ({ label: h, bg: st.ocrSorteo === h ? '#fff' : 'transparent',
+          fg: st.ocrSorteo === h ? '#0f172a' : '#64748b', sombra: st.ocrSorteo === h ? '0 1px 2px rgba(15,23,42,.10)' : 'none',
+          tap: () => this.setState({ ocrSorteo: h }) })),
+        lineas: ordenOcr.map(o => {
+          const baja = o.l.conf < 0.85;
+          return { numero: o.l.numero, monto: o.l.monto, conf: o.l.conf.toFixed(2),
+            confColor: baja ? '#e11d48' : '#047857', bg: baja ? '#fff7f8' : '#fbfcfe', borde: baja ? '#fbc4ce' : '#eef2f7',
+            estado: o.l.corregido ? 'corregido por el operador' : (baja ? 'revisar: confianza baja' : 'leído con confianza'),
+            estadoColor: o.l.corregido ? '#047857' : (baja ? '#a4133c' : '#64748b'),
+            onNumero: e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); this.setState(s => { const L = s.ocrLineas.slice(); L[o.i] = { ...L[o.i], numero: v, corregido: true }; return { ocrLineas: L }; }); },
+            onMonto: e => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); this.setState(s => { const L = s.ocrLineas.slice(); L[o.i] = { ...L[o.i], monto: v, corregido: true }; return { ocrLineas: L }; }); },
+            descartar: () => this.setState(s => ({ ocrLineas: s.ocrLineas.filter((_, j) => j !== o.i) })) };
+        }),
+        suma: this.fmt(sumaOcr, false), declarado: this.fmt(declarado, false),
+        diferencia: (difOcr > 0 ? '+' : '') + this.fmt(difOcr, false),
+        confianzaGlobal: (st.ocrLineas.reduce((a, l) => a + l.conf, 0) / Math.max(1, st.ocrLineas.length)).toFixed(3),
+        cuadreTexto: cuadra ? 'Cuadre correcto: la suma coincide con el total declarado.' : 'Descuadre: revise renglones omitidos o montos mal leídos.',
+        cuadreBg: cuadra ? '#dcfce7' : '#fee2e6', cuadreBorde: cuadra ? '#a7f3cf' : '#fbc4ce', cuadreColor: cuadra ? '#065f46' : '#a4133c',
+        btnBg: cuadra ? '#2563eb' : '#eef2f7', btnColor: cuadra ? '#fff' : '#94a3b8',
+        agregar: () => this.setState(s => ({ ocrLineas: s.ocrLineas.concat([{ numero: '', monto: '', conf: 1, corregido: true }]) })),
+        confirmar: () => { if (!cuadra) return this.setState({ ocrAviso: 'Confirmación bloqueada mientras la suma no coincida con el total declarado.' });
+          this.setState({ ocrAviso: 'Lote validado: ' + st.ocrLineas.length + ' líneas registradas a ' + ocrV.nombre + ' en el sorteo de ' + st.ocrSorteo + ', canal ocr, imagen vinculada como respaldo.' }); },
+        aviso: st.ocrAviso || (cuadra ? 'Listo para crear tickets. Se validarán los cupos del vendedor igual que en una venta móvil.' : 'Falta ' + this.fmt(Math.abs(difOcr)) + ' para cuadrar con el total declarado.'),
+        avisoColor: st.ocrAviso.indexOf('bloqueada') >= 0 ? '#e11d48' : (cuadra ? '#047857' : '#92400e')
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
