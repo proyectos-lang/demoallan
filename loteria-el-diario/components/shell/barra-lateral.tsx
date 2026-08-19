@@ -101,6 +101,22 @@ export function BarraLateral({
                 <Link
                   key={href}
                   href={href}
+                  /*
+                   * Sin precarga, a propósito.
+                   *
+                   * Next precarga por omisión todo enlace que entre en pantalla.
+                   * Con nueve pantallas administrativas en la barra, cada
+                   * navegación disparaba nueve renderizados completos a la vez
+                   * —cada uno agregando cientos de miles de líneas— y varios
+                   * superaban el límite de tiempo de la base. El síntoma era un
+                   * «A server error occurred» al entrar, y la causa no estaba en
+                   * la pantalla que se pedía sino en las ocho que nadie pidió.
+                   *
+                   * El costo de quitarla es que la navegación empieza al hacer
+                   * clic en vez de estar ya empezada. Es un intercambio claro
+                   * mientras una pantalla cueste segundos y no milisegundos.
+                   */
+                  prefetch={false}
                   aria-current={activo ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-[11px] px-[10px] py-2 rounded-campo text-base font-medium",

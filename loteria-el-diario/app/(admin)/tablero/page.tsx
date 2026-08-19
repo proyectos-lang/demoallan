@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { ConsolidadoMensual, type MesConsolidado } from "@/components/tablero/consolidado-mensual";
 import { SeriesMensuales, type Mes } from "@/components/tablero/series-mensuales";
@@ -69,12 +70,27 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
   return (
     <Pagina>
       <EncabezadoPagina titulo="Tablero de control" subtitulo={subtitulo} acciones={tabs} />
+      {/*
+        Suspense alrededor de lo pesado.
+
+        Agregar el histórico completo cuesta segundos y no hay índice que lo
+        evite: son cientos de miles de líneas y hay que recorrerlas. Lo que sí
+        se evita es que la página entera espere por ellas. Con esto la cabecera
+        y las pestañas aparecen de inmediato y el contenido llega después, en
+        vez de dejar la pantalla en blanco hasta que la base termine.
+      */}
       {tab === "general" ? (
-        <ResumenGeneral desde={desde} hasta={hasta} />
+        <Suspense fallback={<Cargando que="el resumen general" />}>
+          <ResumenGeneral desde={desde} hasta={hasta} />
+        </Suspense>
       ) : tab === "consolidado" ? (
-        <Consolidado desde={desde} hasta={hasta} />
+        <Suspense fallback={<Cargando que="el consolidado mensual" />}>
+          <Consolidado desde={desde} hasta={hasta} />
+        </Suspense>
       ) : (
-        <ResumenDia fecha={fechaDia} />
+        <Suspense fallback={<Cargando que="el día" />}>
+          <ResumenDia fecha={fechaDia} />
+        </Suspense>
       )}
     </Pagina>
   );
@@ -506,4 +522,28 @@ async function Consolidado({ desde, hasta }: { desde: string; hasta: string }) {
     }));
 
   return <ConsolidadoMensual meses={meses} />;
+}
+
+/**
+ * Esqueleto mientras la base agrega.
+ *
+ * Se dibujan bloques con la forma aproximada de lo que va a llegar, no un
+ * girador: así el salto al contenido real no reacomoda la página entera.
+ */
+function Cargando({ que }: { que: string }) {
+  return (
+    <div className="flex flex-col gap-[18px]" aria-busy="true">
+      <p className="text-meta text-mudo m-0">Calculando {que}…</p>
+      <div className="grid gap-[26px] [grid-template-columns:repeat(auto-fit,minmax(216px,1fr))]">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-[104px] rounded-card bg-riel" />
+        ))}
+      </div>
+      <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(420px,1fr))]">
+        {[0, 1].map((i) => (
+          <div key={i} className="h-[280px] rounded-card bg-riel" />
+        ))}
+      </div>
+    </div>
+  );
 }
