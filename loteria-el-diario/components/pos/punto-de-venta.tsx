@@ -301,6 +301,17 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
             ) : (
               /* ---- Captura ---- */
               <div className="flex-1 flex flex-col min-h-0">
+                {/*
+                  Teclado y ticket comparten UNA zona desplazable.
+
+                  Antes cada uno peleaba por su espacio dentro del marco de
+                  780 px: el teclado tiene alto natural y no cede, así que
+                  empujaba el pie fuera del marco y el `overflow-hidden` se lo
+                  comía. El total del ticket y el botón de confirmar quedaban
+                  recortados justo en el borde inferior — la venta se podía
+                  teclear pero no cerrar.
+                */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                 {modo === "teclado" && (
                   <div className="pt-4">
                     <div className="flex gap-[10px] px-5 mb-3">
@@ -513,7 +524,7 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
                 )}
 
                 {/* Ticket en curso */}
-                <div className="flex-1 overflow-y-auto px-5 mt-4 min-h-0">
+                <div className="px-5 mt-4 pb-2">
                   <div className="text-eyebrow font-semibold tracking-ticket text-secundario mb-2">
                     TICKET EN CURSO · {carrito.length} {carrito.length === 1 ? "LÍNEA" : "LÍNEAS"}
                   </div>
@@ -546,8 +557,11 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
                   )}
                 </div>
 
-                {/* Pie */}
-                <div className="border-t border-riel bg-superficie px-5 pt-[13px] pb-4">
+                </div>
+
+                {/* Pie: `flex-none` para que nunca lo empujen fuera del marco.
+                    Es lo último que se recorta y lo primero que hace falta. */}
+                <div className="flex-none border-t border-riel bg-superficie px-5 pt-[13px] pb-4">
                   {errorVenta && (
                     <p className="text-meta text-negativo mt-0 mb-2">{errorVenta}</p>
                   )}
