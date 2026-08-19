@@ -28,13 +28,29 @@ export type Sesion = {
 };
 
 function secreto(): string {
-  const s = process.env.SESION_SECRETO;
-  if (!s || s.length < 32) {
-    throw new Error(
-      "Falta SESION_SECRETO en el entorno (32 caracteres o más). Sin él las sesiones no se pueden firmar.",
-    );
+  const propio = process.env.SESION_SECRETO;
+  if (propio && propio.length >= 32) return propio;
+
+  /*
+   * Sin SESION_SECRETO se usa la llave de servicio como semilla.
+   *
+   * No es un secreto inventado ni uno fijo en el código: es una llave que la
+   * aplicación ya necesita, que ya es secreta y que nunca sale del servidor. El
+   * prefijo evita que la firma de sesión y cualquier otro uso de esa llave
+   * compartan el mismo valor derivado.
+   *
+   * Existe porque olvidar una variable de entorno nueva rompía el acceso con un
+   * error de servidor genérico, que es de los fallos más caros de diagnosticar:
+   * el síntoma no menciona la causa por ninguna parte.
+   */
+  const servicio = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (servicio && servicio.length >= 32) {
+    return createHmac("sha256", servicio).update("sesion:diario").digest("base64url");
   }
-  return s;
+
+  throw new Error(
+    "No hay con qué firmar la sesión: falta SESION_SECRETO y también SUPABASE_SERVICE_ROLE_KEY.",
+  );
 }
 
 function firmar(cuerpo: string): string {

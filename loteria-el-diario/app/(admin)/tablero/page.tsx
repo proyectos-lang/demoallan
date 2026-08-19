@@ -31,14 +31,39 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
     supabase.from("sorteo").select("fecha").order("fecha", { ascending: false }).limit(1),
   ]);
 
-  const desde = extremos?.[0]?.fecha ?? fechaHonduras();
+  const primero = extremos?.[0]?.fecha ?? fechaHonduras();
   const hasta = extremosFin?.[0]?.fecha ?? fechaHonduras();
+
+  /*
+   * Por omisión, noventa días. NO el histórico completo.
+   *
+   * Agregar ocho meses son cientos de miles de líneas y roza el límite de
+   * tiempo de la base; cuando lo supera, la consulta se cancela y la pantalla
+   * no tiene nada que enseñar. Noventa días responden en menos de un segundo y
+   * contestan la pregunta que uno se hace al abrir el tablero. El histórico
+   * entero sigue a un clic, y el consolidado mensual lo trae siempre.
+   */
+  const rango = typeof params.rango === "string" ? params.rango : "90";
+  const desde =
+    rango === "todo"
+      ? primero
+      : rango === "anio"
+        ? `${hasta.slice(0, 4)}-01-01`
+        : iso(new Date(new Date(`${hasta}T12:00:00`).getTime() - 89 * 86_400_000));
+  // Nunca antes del primer sorteo registrado.
+  const desdeReal = desde < primero ? primero : desde;
   const fechaDia = typeof params.fecha === "string" ? params.fecha : hasta;
 
   const subtitulo =
-    tab === "general"
-      ? `${fechaLargaSinDia(desde)} — ${fechaLargaSinDia(hasta)}`
-      : "Indicadores de un día, sorteo por sorteo";
+    tab === "dia"
+      ? "Indicadores de un día, sorteo por sorteo"
+      : `${fechaLargaSinDia(desdeReal)} — ${fechaLargaSinDia(hasta)}`;
+
+  const rangos = [
+    { id: "90", etiqueta: "90 días" },
+    { id: "anio", etiqueta: "Este año" },
+    { id: "todo", etiqueta: "Todo" },
+  ];
 
   const tabs = (
     <div className="flex gap-[6px] bg-riel rounded-boton p-1">
@@ -67,9 +92,38 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
     </div>
   );
 
+  const selectorRango = tab === "general" && (
+    <div className="flex gap-[6px] flex-wrap">
+      {rangos.map((r) => (
+        <Link
+          key={r.id}
+          href={r.id === "90" ? "/tablero" : `/tablero?rango=${r.id}`}
+          prefetch={false}
+          className={cn(
+            "rounded-campo px-[13px] py-[6px] text-meta font-medium border",
+            rango === r.id
+              ? "bg-tinta text-white border-tinta"
+              : "bg-superficie text-cuerpo border-borde-campo hover:bg-panel",
+          )}
+        >
+          {r.etiqueta}
+        </Link>
+      ))}
+    </div>
+  );
+
   return (
     <Pagina>
-      <EncabezadoPagina titulo="Tablero de control" subtitulo={subtitulo} acciones={tabs} />
+      <EncabezadoPagina
+        titulo="Tablero de control"
+        subtitulo={subtitulo}
+        acciones={
+          <div className="flex items-center gap-[10px] flex-wrap">
+            {selectorRango}
+            {tabs}
+          </div>
+        }
+      />
       {/*
         Suspense alrededor de lo pesado.
 
@@ -81,11 +135,11 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
       */}
       {tab === "general" ? (
         <Suspense fallback={<Cargando que="el resumen general" />}>
-          <ResumenGeneral desde={desde} hasta={hasta} />
+          <ResumenGeneral desde={desdeReal} hasta={hasta} />
         </Suspense>
       ) : tab === "consolidado" ? (
         <Suspense fallback={<Cargando que="el consolidado mensual" />}>
-          <Consolidado desde={desde} hasta={hasta} />
+          <Consolidado desde={primero} hasta={hasta} />
         </Suspense>
       ) : (
         <Suspense fallback={<Cargando que="el día" />}>
@@ -101,18 +155,41 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
 async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }) {
   const supabase = await crearClienteServidor();
 
-  const [{ data: totalRows }, { data: mensual }, { data: porVendedor }] = await Promise.all([
+  const [periodo, serieMensual, vendedores_] = await Promise.all([
     supabase.rpc("fn_resumen_periodo", { p_desde: desde, p_hasta: hasta }),
     supabase.rpc("fn_resumen_mensual", { p_desde: desde, p_hasta: hasta }),
     supabase.rpc("fn_resumen_vendedor", { p_desde: desde, p_hasta: hasta }),
   ]);
 
+  // Un error NO es «no hay ventas». Confundirlos es peor que fallar: la
+  // pantalla afirmaba que no había datos cuando lo que había era una consulta
+  // cancelada por tiempo, y nadie sabía qué mirar.
+  const fallo = periodo.error ?? serieMensual.error ?? vendedores_.error;
+  if (fallo) {
+    return (
+      <TarjetaNota>
+        No se pudo calcular el resumen: {fallo.message}
+        {/expira|timeout|canceling/i.test(fallo.message) && (
+          <>
+            {" "}
+            El rango pedido abarca demasiados datos para el tiempo máximo de consulta. Pruebe con
+            un rango más corto.
+          </>
+        )}
+      </TarjetaNota>
+    );
+  }
+
+  const { data: totalRows } = periodo;
+  const { data: mensual } = serieMensual;
+  const { data: porVendedor } = vendedores_;
+
   const t = totalRows?.[0];
   if (!t || Number(t.venta) === 0) {
     return (
       <TarjetaNota>
-        Todavía no hay ventas registradas. El tablero se llena solo en cuanto empiecen a entrar
-        tickets: cada indicador de aquí es una agregación de líneas, no un total capturado.
+        No hay ventas registradas en este rango. El tablero se llena solo en cuanto empiecen a
+        entrar tickets: cada indicador de aquí es una agregación de líneas, no un total capturado.
       </TarjetaNota>
     );
   }
@@ -503,10 +580,14 @@ async function ResumenDia({ fecha }: { fecha: string }) {
 async function Consolidado({ desde, hasta }: { desde: string; hasta: string }) {
   const supabase = await crearClienteServidor();
 
-  const { data: mensual } = await supabase.rpc("fn_resumen_mensual", {
+  const { data: mensual, error } = await supabase.rpc("fn_resumen_mensual", {
     p_desde: desde,
     p_hasta: hasta,
   });
+
+  if (error) {
+    return <TarjetaNota>No se pudo calcular el consolidado: {error.message}</TarjetaNota>;
+  }
 
   const meses: MesConsolidado[] = (mensual ?? [])
     .filter((m) => Number(m.venta) !== 0)
