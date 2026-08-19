@@ -34,7 +34,14 @@ export function ModalNuevoVendedor({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  onCreado: (mensaje: string) => void;
+  /**
+   * El segundo argumento llega sólo cuando además se creó el acceso: son las
+   * credenciales, que se muestran una única vez.
+   */
+  onCreado: (
+    mensaje: string,
+    acceso?: { nombre: string; usuario: string; contrasena: string },
+  ) => void;
 }) {
   const [form, setForm] = useState(VACIO);
   const [error, setError] = useState("");
@@ -69,9 +76,14 @@ export function ModalNuevoVendedor({
         setError(r.mensaje);
         return;
       }
+      const nombre = form.nombre.trim();
+      const acceso =
+        r.usuario && r.contrasena
+          ? { nombre, usuario: r.usuario, contrasena: r.contrasena }
+          : undefined;
       setForm(VACIO);
       setError("");
-      onCreado(r.mensaje);
+      onCreado(r.mensaje, acceso);
     });
   };
 

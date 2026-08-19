@@ -188,6 +188,26 @@ export type Escenario = {
   creado_en: string;
 };
 
+/**
+ * Cuenta de acceso. Sustituye a `auth.users`: los usuarios se gestionan en el
+ * esquema `allan`, con la contraseña guardada como bcrypt (pgcrypto).
+ *
+ * El `hash` NO aparece aquí a propósito: ninguna consulta de la aplicación
+ * debe traerlo, y omitirlo del tipo hace que el compilador lo recuerde.
+ */
+export type Usuario = {
+  id: string;
+  usuario: string;
+  nombre: string;
+  rol: RolUsuario;
+  vendedor_id: string | null;
+  activo: boolean;
+  debe_cambiar: boolean;
+  ultimo_acceso: string | null;
+  creado_en: string;
+  creado_por: string | null;
+};
+
 /** Límite de la casa por número, por franja horaria (§13). */
 export type LimiteFranja = {
   hora: HoraSorteo;
@@ -235,6 +255,10 @@ export type Database = {
       auditoria: Tabla<Auditoria, "id" | "ocurrido_en">;
       usuario_perfil: Tabla<UsuarioPerfil, "creado_en" | "vendedor_id">;
       escenario: Tabla<Escenario, "id" | "creado_en" | "creado_por">;
+      usuario: Tabla<
+        Usuario,
+        "id" | "activo" | "debe_cambiar" | "ultimo_acceso" | "creado_en" | "creado_por" | "vendedor_id"
+      >;
       limite_franja: Tabla<LimiteFranja, "actualizado_en">;
     };
     Views: {
@@ -490,6 +514,140 @@ export type Database = {
        * Un punto por ticket para el mapa, con las líneas ya contadas en la
        * base. Sustituye a traer las líneas del día y contarlas en el cliente.
        */
+      /** Alta de cuenta. Devuelve el id del usuario creado. */
+      fn_crear_usuario: {
+        Args: {
+          p_usuario: string;
+          p_contrasena: string;
+          p_nombre: string;
+          p_rol: RolUsuario;
+          p_vendedor_id?: string | null;
+        };
+        Returns: string;
+      };
+      /** Verifica con bcrypt dentro de la base. Sin filas = credenciales malas. */
+      fn_autenticar: {
+        Args: { p_usuario: string; p_contrasena: string };
+        Returns: {
+          r_id: string;
+          r_nombre: string;
+          r_rol: RolUsuario;
+          r_vendedor_id: string | null;
+          r_debe_cambiar: boolean;
+        }[];
+      };
+      fn_cambiar_contrasena: {
+        Args: { p_usuario_id: string; p_actual: string; p_nueva: string };
+        Returns: undefined;
+      };
+      /** Por administración: no exige la actual y deja la nueva de un solo uso. */
+      fn_restablecer_contrasena: {
+        Args: { p_usuario_id: string; p_nueva: string };
+        Returns: undefined;
+      };
+      fn_usuario: {
+        Args: { p_id: string };
+        Returns: {
+          r_id: string;
+          r_usuario: string;
+          r_nombre: string;
+          r_rol: RolUsuario;
+          r_vendedor_id: string | null;
+          r_activo: boolean;
+          r_debe_cambiar: boolean;
+        }[];
+      };
+      /** Qué vendedores ya tienen cuenta, para no ofrecer el alta dos veces. */
+      fn_accesos_vendedor: {
+        Args: Record<string, never>;
+        Returns: { r_vendedor_id: string; r_usuario: string; r_activo: boolean }[];
+      };
+      /** El día de UN vendedor, sorteo por sorteo. El filtro va explícito. */
+      fn_mi_dia: {
+        Args: { p_vendedor_id: string; p_fecha: string };
+        Returns: {
+          r_sorteo_id: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo;
+          r_ganador: number | null;
+          r_tickets: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+        }[];
+      };
+      fn_mis_tickets: {
+        Args: { p_vendedor_id: string; p_fecha: string; p_limite?: number };
+        Returns: {
+          r_folio: string;
+          r_hora: HoraSorteo;
+          r_creado_en: string;
+          r_total: number;
+          r_lineas: number;
+          r_premio: number;
+          r_anulado: boolean;
+        }[];
+      };
+      /** Totales por vendedor en un rango. p_vendedores nulo = todos. */
+      fn_control_vendedores: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_vendedores?: string[] | null;
+          p_hora?: HoraSorteo | null;
+        };
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_nombre: string;
+          r_zona: string;
+          r_color: string;
+          r_tickets: number;
+          r_lineas: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_utilidad: number;
+          r_pendiente: number;
+        }[];
+      };
+      /** Venta por día del conjunto elegido. Incluye los días sin venta. */
+      fn_control_serie: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_vendedores?: string[] | null;
+          p_hora?: HoraSorteo | null;
+        };
+        Returns: { r_fecha: string; r_venta: number; r_tickets: number }[];
+      };
+      fn_control_actividad: {
+        Args: { p_desde: string; p_hasta: string; p_vendedores?: string[] | null };
+        Returns: { r_hora: number; r_monto: number }[];
+      };
+      /** La bitácora, por rango. Única vista que baja a la línea individual. */
+      fn_bitacora_rango: {
+        Args: {
+          p_vendedor_id: string;
+          p_desde: string;
+          p_hasta: string;
+          p_hora?: HoraSorteo | null;
+          p_limite?: number;
+        };
+        Returns: {
+          r_fecha: string;
+          r_creado_en: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo;
+          r_folio: string;
+          r_numero: number;
+          r_monto: number;
+          r_gana: boolean;
+          r_premio: number;
+          r_lat: number | null;
+          r_lng: number | null;
+        }[];
+      };
       fn_mapa_dia: {
         Args: { p_fecha: string; p_vendedor_id?: string | null };
         Returns: {

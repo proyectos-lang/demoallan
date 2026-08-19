@@ -28,12 +28,14 @@ export default function LoginPage() {
         </div>
 
         <label className="block text-label text-secundario font-medium mb-[6px]">
-          Correo
+          Usuario
         </label>
         <input
-          name="correo"
-          type="email"
+          name="usuario"
+          type="text"
           autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           autoFocus
           className="w-full px-3 py-[9px] border border-borde-campo rounded-campo text-base outline-none mb-4"
         />

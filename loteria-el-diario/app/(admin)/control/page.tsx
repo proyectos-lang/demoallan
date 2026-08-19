@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { FiltrosControl, type OpcionVendedor } from "@/components/control/filtros-control";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
@@ -7,17 +6,16 @@ import {
   fechaHonduras,
   fechaLargaSinDia,
   fmt,
+  fmtK,
   horaHonduras,
   iso,
-  mesNombre,
   pad2,
 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-/** Franja horaria de la bitácora: de 8 de la mañana a 8 de la noche. */
-const HORA_INICIAL = 8;
-const HORAS = 13;
-const DIAS_SERIE = 14;
+/** Franja de la rejilla de actividad: de 6 de la mañana a 9 de la noche. */
+const HORA_INICIAL = 6;
+const HORAS = 16;
 
 export default async function ControlPage(props: PageProps<"/control">) {
   const params = await props.searchParams;
@@ -38,193 +36,185 @@ export default async function ControlPage(props: PageProps<"/control">) {
     );
   }
 
-  const vendedorId =
-    (typeof params.vendedor === "string" && params.vendedor) || vendedores[0].id;
-  const vendedor = vendedores.find((v) => v.id === vendedorId) ?? vendedores[0];
-  const fecha = typeof params.fecha === "string" ? params.fecha : fechaHonduras();
+  const hoy = fechaHonduras();
+  const hasta = typeof params.hasta === "string" ? params.hasta : hoy;
+  const desde =
+    typeof params.desde === "string"
+      ? params.desde
+      : iso(new Date(new Date(`${hasta}T12:00:00`).getTime() - 13 * 86_400_000));
   const hora = typeof params.hora === "string" ? params.hora : "";
 
-  const enlace = (cambios: Record<string, string>) => {
-    const p = new URLSearchParams({ vendedor: vendedor.id, fecha, ...(hora ? { hora } : {}), ...cambios });
-    for (const [k, v] of [...p.entries()]) if (!v) p.delete(k);
-    return `/control?${p.toString()}`;
-  };
+  // Sin `vendedores` en la URL se entiende «todos»: es el caso normal y no
+  // tiene sentido arrastrar treinta identificadores para expresarlo.
+  const elegidos =
+    typeof params.vendedores === "string" && params.vendedores
+      ? params.vendedores.split(",").filter(Boolean)
+      : [];
+  const filtroVendedores = elegidos.length ? elegidos : null;
 
-  // Rango de la serie de 14 días.
-  const hastaSerie = fecha;
-  const desdeSerie = iso(new Date(new Date(`${fecha}T12:00:00`).getTime() - (DIAS_SERIE - 1) * 86_400_000));
-
-  const [{ data: bitacora }, { data: actividad }, { data: serie }] = await Promise.all([
-    supabase.rpc("fn_bitacora_vendedor", {
-      p_vendedor_id: vendedor.id,
-      p_fecha: fecha,
+  const [{ data: porVendedor }, { data: serie }, { data: actividad }] = await Promise.all([
+    supabase.rpc("fn_control_vendedores", {
+      p_desde: desde,
+      p_hasta: hasta,
+      p_vendedores: filtroVendedores,
       p_hora: (hora || null) as never,
     }),
-    supabase.rpc("fn_actividad_horaria", { p_vendedor_id: vendedor.id, p_fecha: fecha }),
-    supabase.rpc("fn_reporte_filas", {
-      p_desde: desdeSerie,
-      p_hasta: hastaSerie,
-      p_vendedor_id: vendedor.id,
-      p_limite: 500,
+    supabase.rpc("fn_control_serie", {
+      p_desde: desde,
+      p_hasta: hasta,
+      p_vendedores: filtroVendedores,
+      p_hora: (hora || null) as never,
+    }),
+    supabase.rpc("fn_control_actividad", {
+      p_desde: desde,
+      p_hasta: hasta,
+      p_vendedores: filtroVendedores,
     }),
   ]);
 
-  const lineas = bitacora ?? [];
+  const filas = (porVendedor ?? []).map((v) => ({
+    id: v.r_vendedor_id,
+    codigo: v.r_codigo,
+    nombre: v.r_nombre,
+    zona: v.r_zona,
+    color: v.r_color,
+    tickets: v.r_tickets,
+    lineas: v.r_lineas,
+    venta: Number(v.r_venta),
+    comision: Number(v.r_comision),
+    premios: Number(v.r_premios),
+    utilidad: Number(v.r_utilidad),
+    pendiente: Number(v.r_pendiente),
+  }));
 
-  // Los totales salen de las líneas, que es la unidad atómica. Los premios y la
-  // utilidad sólo cuentan sorteos liquidados.
-  const venta = lineas.reduce((a, l) => a + Number(l.monto), 0);
-  const liquidadas = lineas.filter((l) => l.estado === "liquidado");
-  const ventaLiquidada = liquidadas.reduce((a, l) => a + Number(l.monto), 0);
-  const premios = liquidadas.reduce((a, l) => a + Number(l.premio), 0);
-  const pendiente = venta - ventaLiquidada;
-  const ganadoras = liquidadas.filter((l) => l.gana).length;
+  const total = filas.reduce(
+    (a, f) => ({
+      venta: a.venta + f.venta,
+      comision: a.comision + f.comision,
+      premios: a.premios + f.premios,
+      utilidad: a.utilidad + f.utilidad,
+      tickets: a.tickets + f.tickets,
+      lineas: a.lineas + f.lineas,
+      pendiente: a.pendiente + f.pendiente,
+    }),
+    { venta: 0, comision: 0, premios: 0, utilidad: 0, tickets: 0, lineas: 0, pendiente: 0 },
+  );
 
-  // Actividad por hora, en la rejilla fija de 8:00 a 20:00.
+  const conVenta = filas.filter((f) => f.venta > 0);
+  const maxVenta = Math.max(1, ...filas.map((f) => f.venta));
+
+  const dias = (serie ?? []).map((d) => ({ fecha: d.r_fecha, venta: Number(d.r_venta) }));
+  const maxDia = Math.max(1, ...dias.map((d) => d.venta));
+
   const porHora = new Array(HORAS).fill(0);
   for (const a of actividad ?? []) {
-    const i = Math.max(0, Math.min(HORAS - 1, Number(a.hora_reloj) - HORA_INICIAL));
-    porHora[i] += Number(a.monto);
+    const i = Number(a.r_hora) - HORA_INICIAL;
+    if (i >= 0 && i < HORAS) porHora[i] += Number(a.r_monto);
   }
   const maxHora = Math.max(1, ...porHora);
-  const idxPico = porHora.indexOf(Math.max(...porHora));
 
-  // Serie de 14 días.
-  const porDia = new Map<string, number>();
-  for (let i = 0; i < DIAS_SERIE; i++) {
-    const d = iso(new Date(new Date(`${desdeSerie}T12:00:00`).getTime() + i * 86_400_000));
-    porDia.set(d, 0);
-  }
-  for (const f of serie ?? []) {
-    porDia.set(f.fecha, (porDia.get(f.fecha) ?? 0) + Number(f.venta));
-  }
-  const dias = [...porDia.entries()];
-  const maxDia = Math.max(1, ...dias.map(([, v]) => v));
+  const opciones: OpcionVendedor[] = vendedores.map((v) => ({
+    id: v.id,
+    codigo: v.codigo,
+    nombre: v.nombre,
+    zona: v.zona,
+    color: v.color,
+  }));
+
+  const unSoloDia = desde === hasta;
+  const unSoloVendedor = elegidos.length === 1;
 
   return (
     <Pagina>
       <EncabezadoPagina
         titulo="Control de vendedores"
-        subtitulo="Bitácora de líneas con hora exacta, número, monto y punto de venta."
+        subtitulo={
+          `${fechaLargaSinDia(desde)} → ${fechaLargaSinDia(hasta)}` +
+          (elegidos.length
+            ? ` · ${elegidos.length} ${elegidos.length === 1 ? "vendedor" : "vendedores"}`
+            : " · todo el padrón")
+        }
       />
 
       <div className="flex flex-col gap-[14px]">
-        <Tarjeta padding="14px 18px">
-          <div className="flex gap-4 flex-wrap items-end">
-            <div>
-              <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
-              <div className="flex gap-[6px] flex-wrap">
-                {vendedores.map((v) => (
-                  <Link
-                    key={v.id}
-                    href={enlace({ vendedor: v.id })}
-                    className={cn(
-                      "rounded-campo px-[13px] py-[7px] text-meta font-medium border",
-                      v.id === vendedor.id
-                        ? "bg-tinta text-white border-tinta"
-                        : "bg-superficie text-cuerpo border-borde-campo hover:bg-panel",
-                    )}
+        <FiltrosControl
+          valores={{ desde, hasta, hora, vendedores: elegidos }}
+          vendedores={opciones}
+        />
+
+        {total.venta === 0 ? (
+          <TarjetaNota>
+            No hay ventas en ese rango con esos filtros. Pruebe a ampliar las fechas o a quitar el
+            filtro de sorteo.
+          </TarjetaNota>
+        ) : (
+          <>
+            <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+              {[
+                { e: "VENTA", v: fmtK(total.venta), p: `${total.tickets} tickets` },
+                {
+                  e: "COMISIONES",
+                  v: fmtK(total.comision),
+                  p: `${((total.comision / total.venta) * 100).toFixed(1)}% de la venta`,
+                },
+                { e: "PREMIOS PAGADOS", v: fmtK(total.premios), p: "sólo liquidados" },
+                {
+                  e: "UTILIDAD",
+                  v: fmtK(total.utilidad),
+                  p: "de sorteos liquidados",
+                  color:
+                    total.utilidad >= 0 ? "var(--color-positivo)" : "var(--color-negativo)",
+                },
+                { e: "LÍNEAS", v: String(total.lineas), p: `${conVenta.length} con venta` },
+              ].map((k) => (
+                <div
+                  key={k.e}
+                  className="bg-superficie border border-borde rounded-card shadow-card px-[18px] py-[15px]"
+                >
+                  <span className="block text-eyebrow font-semibold tracking-seccion text-mudo">
+                    {k.e}
+                  </span>
+                  <span
+                    className="block text-h1 font-semibold tracking-titular mt-1"
+                    style={k.color ? { color: k.color } : undefined}
                   >
-                    {v.codigo}
-                  </Link>
-                ))}
-              </div>
+                    {k.v}
+                  </span>
+                  <span className="block text-label text-mudo mt-[3px]">{k.p}</span>
+                </div>
+              ))}
             </div>
 
-            <div>
-              <span className="block text-label text-secundario font-medium mb-[6px]">Sorteo</span>
-              <div className="flex gap-[6px]">
-                {[
-                  { v: "", e: "Todos" },
-                  { v: "11:00", e: "11:00" },
-                  { v: "15:00", e: "15:00" },
-                  { v: "20:00", e: "20:00" },
-                ].map((o) => (
-                  <Link
-                    key={o.v || "todos"}
-                    href={enlace({ hora: o.v })}
-                    className={cn(
-                      "rounded-campo px-[13px] py-[7px] text-meta font-medium border",
-                      hora === o.v
-                        ? "bg-tinta text-white border-tinta"
-                        : "bg-superficie text-cuerpo border-borde-campo hover:bg-panel",
-                    )}
-                  >
-                    {o.e}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {total.pendiente > 0 && (
+              <TarjetaNota>
+                {fmt(total.pendiente)} de venta corresponde a sorteos todavía sin liquidar. No entra
+                en premios ni en utilidad: mientras el sorteo no esté liquidado ambas cifras serían
+                proyección y no resultado.
+              </TarjetaNota>
+            )}
 
-            <span className="ml-auto text-meta text-secundario">
-              {vendedor.codigo} · {vendedor.zona} · {fechaLargaSinDia(fecha)}
-            </span>
-          </div>
-        </Tarjeta>
-
-        <div className="flex gap-[14px] flex-wrap">
-          {[
-            {
-              e: "Venta del día",
-              v: fmt(venta),
-              p: `${lineas.length} ${lineas.length === 1 ? "línea registrada" : "líneas registradas"}`,
-            },
-            {
-              e: "Premios pagados",
-              v: liquidadas.length ? fmt(premios) : "pendiente",
-              p: `${ganadoras} ${ganadoras === 1 ? "línea ganadora" : "líneas ganadoras"}`,
-            },
-            {
-              e: "Venta sin liquidar",
-              v: pendiente > 0 ? fmt(pendiente) : "—",
-              p: pendiente > 0 ? "sin premios calculados todavía" : "todo el día está liquidado",
-            },
-            {
-              e: "Hora pico",
-              v: porHora[idxPico] > 0 ? `${HORA_INICIAL + idxPico}:00` : "—",
-              p: porHora[idxPico] > 0 ? fmt(porHora[idxPico]) : "sin ventas registradas",
-            },
-          ].map((k) => (
-            <Tarjeta key={k.e} className="flex-1 min-w-[190px]" padding="16px 18px">
-              <span className="block text-meta font-medium text-cuerpo">{k.e}</span>
-              <span className="block text-h1 font-semibold tracking-titular mt-1">{k.v}</span>
-              <span className="block text-label text-secundario mt-1">{k.p}</span>
-            </Tarjeta>
-          ))}
-        </div>
-
-        <div className="flex gap-[18px] flex-wrap items-start">
-          {/* Bitácora: la única vista que baja a la línea individual. */}
-          <Tarjeta padding="0" className="flex-1 min-w-[560px] overflow-hidden">
-            <div className="flex justify-between items-baseline px-[18px] py-4">
-              <h2 className="text-h2 font-semibold tracking-sutil m-0">Bitácora de ventas</h2>
-              <span className="text-meta text-secundario">
-                {lineas.length} {lineas.length === 1 ? "línea" : "líneas"}
-              </span>
-            </div>
-
-            {lineas.length === 0 ? (
-              <div className="m-4 border border-dashed border-borde-punteado rounded-pos py-[30px] px-[18px] text-center">
-                <p className="text-base font-medium text-cuerpo m-0">
-                  Sin ventas registradas este día
-                </p>
-                <p className="text-meta text-mudo mt-1 mb-0">
-                  Aparecerán aquí en cuanto el vendedor registre su primer ticket.
+            {/* --- Comparación por vendedor, con el NOMBRE al frente --- */}
+            <Tarjeta padding="0">
+              <div className="px-[22px] py-4 border-b border-fondo">
+                <h2 className="text-h2 font-semibold tracking-sutil m-0">Por vendedor</h2>
+                <p className="text-meta text-secundario mt-[5px] mb-0">
+                  Ordenados por venta del rango. La utilidad es lo que dejó cada uno a la casa
+                  después de su comisión y de los premios que causó.
                 </p>
               </div>
-            ) : (
-              <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
-                <table className="w-full border-collapse text-tabla min-w-[600px]">
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-tabla min-w-[760px]">
                   <thead>
                     <tr className="bg-tinte">
-                      {["HORA", "SORTEO", "NÚMERO", "MONTO", "PREMIO", "PUNTO DE VENTA"].map(
+                      {["VENDEDOR", "VENTA", "TICKETS", "COMISIÓN", "PREMIOS", "UTILIDAD"].map(
                         (th, i) => (
                           <th
                             key={th}
                             className={cn(
-                              "text-th font-semibold tracking-th text-secundario border-b border-riel py-[10px]",
-                              i === 3 || i === 4 ? "text-right" : "text-left",
-                              i === 0 ? "pl-4 pr-3" : i === 5 ? "pl-3 pr-4" : "px-3",
+                              "text-th font-semibold tracking-seccion text-secundario border-b border-riel py-[10px]",
+                              i === 0 ? "text-left pl-4 pr-3" : "text-right px-3",
+                              i === 5 && "pr-4",
                             )}
                           >
                             {th}
@@ -234,116 +224,255 @@ export default async function ControlPage(props: PageProps<"/control">) {
                     </tr>
                   </thead>
                   <tbody>
-                    {lineas.map((l, i) => {
-                      return (
-                        <tr key={i} className={cn(l.gana && "bg-ambar-fila-ganadora")}>
-                          <td className="border-b border-fondo py-[11px] pl-4 pr-3">
-                            {horaHonduras(l.creado_en)}
-                          </td>
-                          <td className="border-b border-fondo py-[11px] px-3 text-secundario">
-                            {l.hora}
-                          </td>
-                          <td className="border-b border-fondo py-[11px] px-3">
+                    {filas.map((f) => (
+                      <tr key={f.id}>
+                        <td className="border-b border-fondo py-[11px] pl-4 pr-3">
+                          <div className="flex items-center gap-[10px]">
                             <span
-                              className={cn(
-                                "inline-block min-w-[30px] text-center px-[7px] py-[2px] rounded-celda text-meta font-semibold",
-                                l.gana
-                                  ? "bg-ambar-ganador text-ambar-ganador-texto"
-                                  : "bg-chip text-tinta",
-                              )}
-                            >
-                              {pad2(l.numero)}
+                              className="w-[3px] h-[30px] flex-none rounded-[2px]"
+                              style={{ background: f.color }}
+                            />
+                            <span className="block min-w-0">
+                              <span className="block font-medium">{f.nombre}</span>
+                              <span className="block text-label text-secundario">
+                                {f.codigo} · {f.zona}
+                              </span>
                             </span>
-                          </td>
-                          <td className="border-b border-fondo py-[11px] px-3 text-right">
-                            {fmt(Number(l.monto), false)}
-                          </td>
-                          <td
-                            className={cn(
-                              "border-b border-fondo py-[11px] px-3 text-right",
-                              l.gana ? "text-negativo font-semibold" : "text-mudo",
-                            )}
-                          >
-                            {l.gana ? fmt(Number(l.premio), false) : "—"}
-                          </td>
-                          <td className="border-b border-fondo py-[11px] pl-3 pr-4 text-secundario">
-                            {l.lat !== null && l.lng !== null
-                              ? `${vendedor.zona} · ${Number(l.lat).toFixed(3)}, ${Number(l.lng).toFixed(3)}`
-                              : vendedor.zona}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                          </div>
+                        </td>
+                        <td className="border-b border-fondo py-[11px] px-3 text-right">
+                          <span className="block font-medium">{fmt(f.venta)}</span>
+                          <span className="block mt-[3px] h-[3px] rounded-[2px] bg-chip">
+                            <span
+                              className="block h-full rounded-[2px]"
+                              style={{
+                                width: `${(f.venta / maxVenta) * 100}%`,
+                                background: f.color,
+                              }}
+                            />
+                          </span>
+                        </td>
+                        <td className="border-b border-fondo py-[11px] px-3 text-right text-secundario">
+                          {f.tickets}
+                        </td>
+                        <td className="border-b border-fondo py-[11px] px-3 text-right">
+                          {fmt(f.comision)}
+                        </td>
+                        <td className="border-b border-fondo py-[11px] px-3 text-right">
+                          {fmt(f.premios)}
+                        </td>
+                        <td
+                          className="border-b border-fondo py-[11px] px-3 pr-4 text-right font-semibold"
+                          style={{
+                            color:
+                              f.utilidad >= 0
+                                ? "var(--color-positivo)"
+                                : "var(--color-negativo)",
+                          }}
+                        >
+                          {fmt(f.utilidad)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
+            </Tarjeta>
+
+            <div className="flex flex-wrap gap-[14px]">
+              {/* --- Venta día a día --- */}
+              <Tarjeta className="flex-1 min-w-[420px]">
+                <h2 className="text-h2 font-semibold tracking-sutil m-0">Venta día a día</h2>
+                <p className="text-meta text-secundario mt-[5px] mb-3">
+                  {dias.length} {dias.length === 1 ? "día" : "días"}. Los días sin venta se dibujan
+                  igual: un hueco también es información.
+                </p>
+                <div className="flex items-end gap-[3px] h-[130px]">
+                  {dias.map((d) => (
+                    <span
+                      key={d.fecha}
+                      title={`${d.fecha} · ${fmt(d.venta)}`}
+                      className="flex-1 rounded-[5px_5px_2px_2px] bg-acento"
+                      style={{
+                        height: `${Math.max(2, (d.venta / maxDia) * 100)}%`,
+                        opacity: d.venta === 0 ? 0.15 : 1,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className="text-th text-mudo">{fechaLargaSinDia(desde)}</span>
+                  <span className="text-th text-mudo">{fechaLargaSinDia(hasta)}</span>
+                </div>
+              </Tarjeta>
+
+              {/* --- Actividad por hora --- */}
+              <Tarjeta className="flex-1 min-w-[420px]">
+                <h2 className="text-h2 font-semibold tracking-sutil m-0">Actividad por hora</h2>
+                <p className="text-meta text-secundario mt-[5px] mb-3">
+                  Hora de Honduras, acumulada de todo el rango.
+                </p>
+                <div className="flex items-end gap-[4px] h-[130px]">
+                  {porHora.map((m, i) => (
+                    <span
+                      key={i}
+                      title={`${pad2(HORA_INICIAL + i)}:00 · ${fmt(m)}`}
+                      className={cn(
+                        "flex-1 rounded-[5px_5px_2px_2px]",
+                        m / maxHora > 0.66 ? "bg-acento" : "bg-barra-baja",
+                      )}
+                      style={{ height: `${Math.max(2, (m / maxHora) * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className="text-th text-mudo">{pad2(HORA_INICIAL)}:00</span>
+                  <span className="text-th text-mudo">{pad2(HORA_INICIAL + HORAS - 1)}:00</span>
+                </div>
+              </Tarjeta>
+            </div>
+
+            {/* --- Bitácora: sólo con un vendedor elegido --- */}
+            {unSoloVendedor ? (
+              <Bitacora
+                vendedorId={elegidos[0]}
+                nombre={filas.find((f) => f.id === elegidos[0])?.nombre ?? ""}
+                desde={desde}
+                hasta={hasta}
+                hora={hora}
+                unSoloDia={unSoloDia}
+              />
+            ) : (
+              <TarjetaNota>
+                La bitácora línea por línea aparece al elegir un solo vendedor. Con varios a la vez
+                serían decenas de miles de líneas, y esa lista no se lee: se filtra.
+              </TarjetaNota>
             )}
-          </Tarjeta>
-
-          <div className="flex-1 min-w-[280px] max-w-[340px] flex flex-col gap-[14px]">
-            <Tarjeta padding="16px 18px">
-              <h2 className="text-card font-semibold m-0">Actividad por hora</h2>
-              <div className="flex items-end gap-[5px] h-[120px] mt-4">
-                {porHora.map((v, i) => (
-                  <span
-                    key={i}
-                    title={`${HORA_INICIAL + i}:00 · ${fmt(v)}`}
-                    className="flex-1 flex flex-col justify-end h-full"
-                  >
-                    <span
-                      className="block rounded-t-barra-geo"
-                      style={{
-                        height: v > 0 ? `${Math.max(3, Math.round((v / maxHora) * 100))}%` : "2px",
-                        background:
-                          v > maxHora * 0.66 ? vendedor.color : v > 0 ? "var(--color-barra-baja)" : "var(--color-borde)",
-                        borderRadius: "5px 5px 2px 2px",
-                      }}
-                    />
-                  </span>
-                ))}
-              </div>
-              <div className="flex justify-between text-th text-mudo mt-2">
-                <span>8am</span>
-                <span>2pm</span>
-                <span>8pm</span>
-              </div>
-            </Tarjeta>
-
-            <Tarjeta padding="16px 18px">
-              <h2 className="text-card font-semibold m-0">Actividad por día</h2>
-              <p className="text-label text-secundario mt-1 mb-0">últimos {DIAS_SERIE} días</p>
-              <div className="flex items-end gap-1 h-[120px] mt-4">
-                {dias.map(([d, v]) => (
-                  <span key={d} title={`${d} · ${fmt(v)}`} className="flex-1 flex flex-col justify-end h-full">
-                    <span
-                      style={{
-                        height: v > 0 ? `${Math.max(3, Math.round((v / maxDia) * 100))}%` : "2px",
-                        background:
-                          v > maxDia * 0.8 ? vendedor.color : v > 0 ? "var(--color-barra-baja)" : "var(--color-borde)",
-                        borderRadius: "5px 5px 2px 2px",
-                        display: "block",
-                      }}
-                    />
-                  </span>
-                ))}
-              </div>
-              <div className="flex justify-between text-th text-mudo mt-2">
-                <span>
-                  {Number(desdeSerie.split("-")[2])} {mesNombre(Number(desdeSerie.split("-")[1]) - 1)}
-                </span>
-                <span>
-                  {Number(fecha.split("-")[2])} {mesNombre(Number(fecha.split("-")[1]) - 1)}
-                </span>
-              </div>
-            </Tarjeta>
-
-            <TarjetaNota>
-              La coordenada de cada línea es dato operativo sensible: se guarda con el ticket y sólo
-              la ven perfiles administrativos. Nunca sale en la consulta pública.
-            </TarjetaNota>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </Pagina>
+  );
+}
+
+/**
+ * La única vista del sistema que baja a la línea individual: hora exacta,
+ * número, monto y punto de venta.
+ */
+async function Bitacora({
+  vendedorId,
+  nombre,
+  desde,
+  hasta,
+  hora,
+  unSoloDia,
+}: {
+  vendedorId: string;
+  nombre: string;
+  desde: string;
+  hasta: string;
+  hora: string;
+  unSoloDia: boolean;
+}) {
+  const supabase = await crearClienteServidor();
+
+  const { data } = await supabase.rpc("fn_bitacora_rango", {
+    p_vendedor_id: vendedorId,
+    p_desde: desde,
+    p_hasta: hasta,
+    p_hora: (hora || null) as never,
+    p_limite: 300,
+  });
+
+  const lineas = data ?? [];
+
+  if (lineas.length === 0) {
+    return <TarjetaNota>{nombre} no registró líneas en ese rango.</TarjetaNota>;
+  }
+
+  return (
+    <Tarjeta padding="0">
+      <div className="px-[22px] py-4 border-b border-fondo">
+        <h2 className="text-h2 font-semibold tracking-sutil m-0">Bitácora de {nombre}</h2>
+        <p className="text-meta text-secundario mt-[5px] mb-0">
+          Línea por línea, de la más reciente hacia atrás. Máximo 300; para ver más, acote el
+          rango.
+        </p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-tabla min-w-[720px]">
+          <thead>
+            <tr className="bg-tinte">
+              {[
+                ...(unSoloDia ? [] : ["FECHA"]),
+                "HORA",
+                "SORTEO",
+                "FOLIO",
+                "NÚMERO",
+                "MONTO",
+                "PREMIO",
+              ].map((th, i) => (
+                <th
+                  key={th}
+                  className={cn(
+                    "text-th font-semibold tracking-seccion text-secundario border-b border-riel py-[10px]",
+                    i === 0 ? "text-left pl-4 pr-3" : "px-3",
+                    th === "MONTO" || th === "PREMIO" || th === "NÚMERO"
+                      ? "text-right"
+                      : "text-left",
+                  )}
+                >
+                  {th}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lineas.map((l, i) => (
+              <tr
+                key={`${l.r_folio}-${l.r_numero}-${i}`}
+                className={cn(l.r_gana && "bg-ambar-fila-ganadora")}
+              >
+                {!unSoloDia && (
+                  <td className="border-b border-fondo py-[10px] pl-4 pr-3 text-secundario">
+                    {l.r_fecha}
+                  </td>
+                )}
+                <td
+                  className={cn(
+                    "border-b border-fondo py-[10px] px-3 text-secundario",
+                    unSoloDia && "pl-4",
+                  )}
+                >
+                  {horaHonduras(l.r_creado_en)}
+                </td>
+                <td className="border-b border-fondo py-[10px] px-3 text-secundario">
+                  {l.r_hora}
+                </td>
+                <td className="border-b border-fondo py-[10px] px-3 text-label">{l.r_folio}</td>
+                <td className="border-b border-fondo py-[10px] px-3 text-right font-medium">
+                  {pad2(l.r_numero)}
+                </td>
+                <td className="border-b border-fondo py-[10px] px-3 text-right">
+                  {fmt(Number(l.r_monto))}
+                </td>
+                <td className="border-b border-fondo py-[10px] px-3 pr-4 text-right">
+                  {l.r_gana ? (
+                    <span className="font-semibold text-ambar-ganador-texto">
+                      {fmt(Number(l.r_premio))}
+                    </span>
+                  ) : l.r_estado === "liquidado" ? (
+                    "—"
+                  ) : (
+                    <span className="text-mudo">pendiente</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Tarjeta>
   );
 }

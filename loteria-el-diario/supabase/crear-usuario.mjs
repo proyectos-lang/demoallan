@@ -1,17 +1,23 @@
 /**
- * Crea un usuario de acceso y su perfil en allan.usuario_perfil.
+ * Crea una cuenta de acceso en allan.usuario.
  *
- *     node supabase/crear-usuario.mjs <correo> <contraseña> <rol> [codigo-vendedor]
+ *     node supabase/crear-usuario.mjs <usuario> <contraseña> <rol> [codigo-vendedor]
  *
  * Roles: administrador | auditor | digitador | vendedor
  * El rol `vendedor` exige el código del vendedor al que queda enlazado.
  *
- * Usa la Admin API, así que el correo queda confirmado de una vez: este sistema
- * no manda correos de verificación, las cuentas las crea administración.
+ * Las cuentas de vendedor normalmente NO se crean con esto: se crean solas al
+ * dar de alta al vendedor desde la pantalla de vendedores. Este guion es para
+ * el primer administrador —cuando todavía no hay nadie que pueda entrar— y para
+ * los perfiles de auditor y digitador.
+ *
+ * La contraseña se pasa por argumento a propósito y no se guarda en ningún
+ * archivo: así no acaba en el repositorio.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { createClient } from "@supabase/supabase-js";
 
 const raiz = dirname(dirname(fileURLToPath(import.meta.url)));
 const env = Object.fromEntries(
@@ -21,10 +27,12 @@ const env = Object.fromEntries(
     .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim()]),
 );
 
-const [correo, contrasena, rol, codigoVendedor] = process.argv.slice(2);
+const [usuario, contrasena, rol, codigoVendedor] = process.argv.slice(2);
 
-if (!correo || !contrasena || !rol) {
-  console.error("Uso: node supabase/crear-usuario.mjs <correo> <contraseña> <rol> [codigo-vendedor]");
+if (!usuario || !contrasena || !rol) {
+  console.error(
+    "Uso: node supabase/crear-usuario.mjs <usuario> <contraseña> <rol> [codigo-vendedor]",
+  );
   process.exit(1);
 }
 
@@ -37,53 +45,46 @@ if (rol === "vendedor" && !codigoVendedor) {
   console.error("El rol vendedor necesita el código del vendedor (por ejemplo V-003).");
   process.exit(1);
 }
+if (contrasena.length < 8) {
+  console.error("La contraseña debe tener al menos 8 caracteres.");
+  process.exit(1);
+}
 
-const U = env.NEXT_PUBLIC_SUPABASE_URL;
-const K = env.SUPABASE_SERVICE_ROLE_KEY;
-const auth = { apikey: K, Authorization: `Bearer ${K}`, "Content-Type": "application/json" };
-const rest = { ...auth, "Accept-Profile": "allan", "Content-Profile": "allan" };
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  db: { schema: "allan" },
+  auth: { persistSession: false },
+});
 
 let vendedorId = null;
+let nombre = usuario;
+
 if (codigoVendedor) {
-  const r = await fetch(`${U}/rest/v1/vendedor?codigo=eq.${codigoVendedor}&select=id,nombre`, {
-    headers: rest,
-  });
-  const v = await r.json();
-  if (!v.length) {
+  const { data } = await sb
+    .from("vendedor")
+    .select("id, nombre")
+    .eq("codigo", codigoVendedor)
+    .maybeSingle();
+
+  if (!data) {
     console.error(`No existe el vendedor ${codigoVendedor}.`);
     process.exit(1);
   }
-  vendedorId = v[0].id;
+  vendedorId = data.id;
+  nombre = data.nombre;
 }
 
-const alta = await fetch(`${U}/auth/v1/admin/users`, {
-  method: "POST",
-  headers: auth,
-  body: JSON.stringify({ email: correo, password: contrasena, email_confirm: true }),
+const { error } = await sb.rpc("fn_crear_usuario", {
+  p_usuario: usuario,
+  p_contrasena: contrasena,
+  p_nombre: nombre,
+  p_rol: rol,
+  p_vendedor_id: vendedorId,
 });
-const usuario = await alta.json();
 
-if (!alta.ok) {
-  console.error("No se pudo crear el usuario:", JSON.stringify(usuario));
+if (error) {
+  console.error("No se pudo crear:", error.message);
   process.exit(1);
 }
 
-const perfil = await fetch(`${U}/rest/v1/usuario_perfil`, {
-  method: "POST",
-  headers: { ...rest, Prefer: "return=representation" },
-  body: JSON.stringify({
-    id: usuario.id,
-    rol,
-    vendedor_id: vendedorId,
-    nombre: correo.split("@")[0],
-  }),
-});
-
-if (!perfil.ok) {
-  console.error("Usuario creado pero falló el perfil:", await perfil.text());
-  console.error("Borrando el usuario para no dejarlo huérfano…");
-  await fetch(`${U}/auth/v1/admin/users/${usuario.id}`, { method: "DELETE", headers: auth });
-  process.exit(1);
-}
-
-console.log(`Usuario creado: ${correo}  ·  rol ${rol}${codigoVendedor ? `  ·  ${codigoVendedor}` : ""}`);
+console.log(`Usuario creado: ${usuario}  ·  rol ${rol}${codigoVendedor ? `  ·  ${codigoVendedor}` : ""}`);
+console.log("Tendrá que cambiar la contraseña la primera vez que entre.");

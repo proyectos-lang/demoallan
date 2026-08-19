@@ -13,6 +13,12 @@ export default async function VendedoresPage() {
 
   // `!inner` + vigente_hasta is null trae exactamente la fila de parámetros
   // vigente de cada vendedor; las versiones anteriores quedan fuera.
+  // Quién ya tiene cuenta, para ofrecer el alta sólo a quien le falta.
+  const { data: accesos } = await supabase.rpc("fn_accesos_vendedor");
+  const usuarioPorVendedor = new Map(
+    (accesos ?? []).map((a) => [a.r_vendedor_id, a.r_usuario]),
+  );
+
   const { data, error } = await supabase
     .from("vendedor")
     .select(
@@ -43,6 +49,7 @@ export default async function VendedoresPage() {
       correo: v.correo,
       zona: v.zona,
       color: v.color,
+      usuario: usuarioPorVendedor.get(v.id) ?? null,
       // La base guarda fracción; aquí se muestra porcentaje.
       comision: Number((Number(p.comision) * 100).toFixed(4)),
       factor_pago: Number(p.factor_pago),

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { BarraLateral } from "@/components/shell/barra-lateral";
 import { iniciales } from "@/lib/format";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { inicioSegunRol, sesionActual } from "@/lib/sesion";
 
 const ETIQUETA_ROL: Record<string, string> = {
   administrador: "Administrador",
@@ -17,34 +17,24 @@ const ETIQUETA_ROL: Record<string, string> = {
  * hacen scroll por separado.
  */
 export default async function AdminLayout({ children }: LayoutProps<"/">) {
-  const supabase = await crearClienteServidor();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const sesion = await sesionActual();
 
   // El proxy ya redirige sin sesión; esto cubre el caso de que alguien llegue
-  // por otra vía y evita renderizar el shell sin identidad.
-  if (!user) redirect("/login");
+  // por otra vía y evita renderizar el shell sin identidad. La comprobación se
+  // repite a propósito: desde que RLS no recorta por rol, un descuido aquí ya
+  // no lo ataja la base.
+  if (!sesion) redirect("/login");
 
-  const { data: perfil } = await supabase
-    .from("usuario_perfil")
-    .select("nombre, rol")
-    .eq("id", user.id)
-    .single();
-
-  // Usuario autenticado pero sin perfil: no tiene rol, así que no tiene
-  // permisos sobre nada. Mejor devolverlo al login que mostrar un shell vacío.
-  if (!perfil) redirect("/login");
-
-  const nombre = perfil.nombre ?? user.email ?? "";
+  // Un vendedor no tiene nada que hacer en las pantallas administrativas: están
+  // hechas para ver a todo el padrón.
+  if (sesion.rol === "vendedor") redirect(inicioSegunRol(sesion.rol));
 
   return (
     <div className="flex h-screen overflow-hidden">
       <BarraLateral
-        nombre={nombre}
-        rol={ETIQUETA_ROL[perfil.rol] ?? perfil.rol}
-        iniciales={iniciales(nombre) || nombre.slice(0, 2).toUpperCase()}
+        nombre={sesion.nombre}
+        rol={ETIQUETA_ROL[sesion.rol] ?? sesion.rol}
+        iniciales={iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}
       />
       <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
     </div>

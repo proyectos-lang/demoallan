@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
+import { Modal } from "@/components/ui/modal";
 import { ModalNuevoVendedor } from "@/components/vendedores/modal-nuevo-vendedor";
 import { fmt, iniciales } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { guardarParametros, type Cambio } from "@/app/(admin)/vendedores/acciones";
+import { crearAcceso, restablecerAcceso } from "@/app/(admin)/vendedores/acceso";
 
 export type FilaVendedor = {
   id: string;
@@ -18,6 +20,8 @@ export type FilaVendedor = {
   correo: string | null;
   zona: string;
   color: string;
+  /** Usuario de acceso, o `null` si todavía no tiene cuenta. */
+  usuario: string | null;
   /** Porcentaje ya convertido para mostrar: 12.5, no 0.125. */
   comision: number;
   factor_pago: number;
@@ -43,6 +47,29 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
   });
   const [guardando, iniciarGuardado] = useTransition();
   const [modalAbierto, setModalAbierto] = useState(false);
+  // Credenciales recién generadas. Se muestran UNA vez: la contraseña no se
+  // guarda en claro en ningún sitio, así que si se cierra sin anotarla hay que
+  // restablecerla.
+  const [credenciales, setCredenciales] = useState<{
+    nombre: string;
+    usuario: string;
+    contrasena: string;
+  } | null>(null);
+  const [dandoAcceso, iniciarAcceso] = useTransition();
+
+  const pedirAcceso = (fila: FilaVendedor) => {
+    iniciarAcceso(async () => {
+      const r = fila.usuario
+        ? await restablecerAcceso(fila.id)
+        : await crearAcceso(fila.id);
+      if (!r.ok) {
+        setAviso({ texto: r.mensaje, tipo: "error" });
+        return;
+      }
+      setCredenciales({ nombre: fila.nombre, usuario: r.usuario, contrasena: r.contrasena });
+      setAviso({ texto: "", tipo: "neutro" });
+    });
+  };
 
   const valor = (fila: FilaVendedor, campo: Campo) =>
     borrador[`${fila.id}:${campo}`] ?? String(fila[campo]);
@@ -100,11 +127,55 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
       <ModalNuevoVendedor
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
-        onCreado={(mensaje) => {
+        onCreado={(mensaje, acceso) => {
           setModalAbierto(false);
           setAviso({ texto: mensaje, tipo: "ok" });
+          if (acceso) setCredenciales(acceso);
         }}
       />
+
+      {/* Las credenciales se enseñan UNA vez. La contraseña no se guarda en
+          claro en ninguna parte —en la base sólo hay su bcrypt—, así que si se
+          cierra esto sin anotarla, la única salida es restablecerla. */}
+      <Modal
+        abierto={credenciales !== null}
+        titulo="Acceso del vendedor"
+        onCerrar={() => setCredenciales(null)}
+        pie={
+          <Boton onClick={() => setCredenciales(null)}>Ya la anoté</Boton>
+        }
+      >
+        {credenciales && (
+          <div className="flex flex-col gap-4">
+            <p className="text-base text-cuerpo leading-[1.6] m-0">
+              Entregue estos datos a <strong>{credenciales.nombre}</strong>. Al entrar por
+              primera vez tendrá que cambiar la contraseña, así que nadie más podrá usarla
+              después.
+            </p>
+
+            <div className="bg-panel border border-borde rounded-card px-[18px] py-4 flex flex-col gap-3">
+              {[
+                { etiqueta: "USUARIO", valor: credenciales.usuario },
+                { etiqueta: "CONTRASEÑA", valor: credenciales.contrasena },
+              ].map((c) => (
+                <div key={c.etiqueta}>
+                  <span className="block text-eyebrow font-semibold tracking-seccion text-mudo">
+                    {c.etiqueta}
+                  </span>
+                  <span className="block text-h1 font-semibold tracking-sutil mt-[2px]">
+                    {c.valor}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-meta text-secundario leading-[1.55] m-0">
+              Esta contraseña no se vuelve a mostrar: sólo se guarda su huella cifrada. Si se
+              pierde, use «restablecer clave» en la fila del vendedor.
+            </p>
+          </div>
+        )}
+      </Modal>
 
       <div className="flex items-end justify-between gap-5 flex-wrap mb-[18px]">
         <div>
@@ -160,13 +231,14 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
                   "COMISIÓN (%)",
                   "FACTOR DE PAGO",
                   "EXPOSICIÓN MÁX. POR NÚMERO",
+                  "ACCESO",
                 ].map((th, i) => (
                   <th
                     key={th}
                     className={cn(
                       "text-th font-semibold tracking-th text-secundario border-b border-riel py-[10px]",
-                      i >= 3 ? "text-right" : "text-left",
-                      i === 0 ? "pl-4 pr-3" : i === 6 ? "pl-3 pr-4" : "px-3",
+                      i >= 3 && i <= 6 ? "text-right" : "text-left",
+                      i === 0 ? "pl-4 pr-3" : i === 7 ? "pl-3 pr-4" : "px-3",
                     )}
                   >
                     {th}
@@ -227,9 +299,33 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
                       className={claseInput(fila, "factor_pago", "w-[88px]")}
                     />
                   </td>
-                  <td className="border-b border-fondo py-[11px] pl-3 pr-4 text-right">
+                  <td className="border-b border-fondo py-[11px] px-3 text-right">
                     <span className="block font-semibold">{exposicion(fila)}</span>
                     <span className="block text-label text-mudo">tope × factor</span>
+                  </td>
+                  <td className="border-b border-fondo py-[11px] pl-3 pr-4">
+                    {fila.usuario ? (
+                      <span className="block">
+                        <span className="block text-label font-medium">{fila.usuario}</span>
+                        <button
+                          type="button"
+                          onClick={() => pedirAcceso(fila)}
+                          disabled={dandoAcceso}
+                          className="text-label text-acento font-medium disabled:text-mudo"
+                        >
+                          restablecer clave
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => pedirAcceso(fila)}
+                        disabled={dandoAcceso}
+                        className="text-label font-medium px-[10px] py-[5px] rounded-campo border border-borde-campo bg-superficie hover:bg-panel disabled:bg-riel disabled:text-mudo"
+                      >
+                        crear acceso
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

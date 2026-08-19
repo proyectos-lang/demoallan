@@ -1,41 +1,32 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import "server-only";
 
-import type { Database } from "./tipos";
+import { crearClienteServicio } from "./admin";
 
 /**
- * Cliente para Server Components, Route Handlers y Server Actions.
+ * Cliente para Server Components, Server Actions y Route Handlers.
  *
- * Actúa siempre con la identidad del usuario autenticado, así que **toda**
- * consulta pasa por RLS. Es el cliente por defecto: si algo se puede hacer con
- * este, no se usa el de servicio.
+ * ANTES: hablaba con PostgREST llevando el JWT de Supabase Auth, y RLS
+ * recortaba las filas según el rol que ese token declaraba. La base era la que
+ * decidía quién veía qué.
  *
- * En Next 16 `cookies()` es asíncrono, de ahí el `await`.
+ * AHORA: los usuarios viven en `allan.usuario` y la sesión la firma este mismo
+ * servidor, así que no hay JWT que enviar y RLS no tiene de dónde leer el rol.
+ * Se habla con la base como servicio, y **el recorte por rol pasa a ser
+ * responsabilidad de quien consulta**.
+ *
+ * Lo que hace asumible el cambio es que el navegador nunca llega a PostgREST:
+ * todo pasa por componentes y acciones de servidor, y la llave de servicio no
+ * sale de aquí (`server-only` hace fallar el build si alguien la arrastra a un
+ * componente de cliente).
+ *
+ * En la práctica esto sólo afecta a las pantallas del vendedor, que son las
+ * únicas que muestran un subconjunto: usan `fn_mi_dia` y `fn_mis_tickets`, que
+ * reciben el `vendedor_id` de la sesión de forma explícita. Las pantallas
+ * administrativas ya veían todo.
+ *
+ * Se mantiene el nombre y la firma `async` para no tocar las dieciséis
+ * pantallas que ya lo usan; el `await` sobra pero es inofensivo.
  */
 export async function crearClienteServidor() {
-  const cookieStore = await cookies();
-
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      db: { schema: "allan" },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          } catch {
-            // Los Server Components no pueden escribir cookies. Se ignora
-            // porque el refresco de sesión lo hace `proxy.ts` en cada
-            // petición; aquí sólo se leería una cookie ya renovada.
-          }
-        },
-      },
-    },
-  );
+  return crearClienteServicio();
 }

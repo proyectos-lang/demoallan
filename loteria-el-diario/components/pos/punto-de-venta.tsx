@@ -23,6 +23,12 @@ export type DatosPos = {
   disponibleCasa: number[];
   /** Por vendedor y número: lo que ese vendedor ya vendió. */
   vendidoPropio: Record<string, number[]>;
+  /**
+   * Modo del propio vendedor: el selector desaparece porque el vendedor sale
+   * de la sesión, no de una lista. Quién vende de verdad lo decide el servidor
+   * en la acción de registro; esto es sólo la interfaz.
+   */
+  propio?: boolean;
 };
 
 type Modo = "teclado" | "rapida" | "rejilla";
@@ -581,6 +587,7 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
           </p>
         </div>
 
+        {!datos.propio && (
         <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5">
           <h2 className="text-h2 font-semibold tracking-sutil m-0">Vendedor</h2>
           <p className="text-meta text-secundario mt-[5px] mb-3">
@@ -604,6 +611,7 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
             ))}
           </select>
         </div>
+        )}
 
         <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5">
           <h2 className="text-h2 font-semibold tracking-sutil m-0">

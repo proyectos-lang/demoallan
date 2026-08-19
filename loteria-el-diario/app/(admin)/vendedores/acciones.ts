@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { crearClienteServidor } from "@/lib/supabase/server";
+import { crearClienteServicio } from "@/lib/supabase/admin";
+import { generarContrasena } from "@/lib/clave";
 
 export type Cambio = {
   vendedor_id: string;
@@ -13,6 +15,11 @@ export type Cambio = {
 };
 
 export type Resultado = { ok: true; mensaje: string } | { ok: false; mensaje: string };
+
+/** El alta de un vendedor devuelve además sus credenciales, una sola vez. */
+export type ResultadoAlta =
+  | { ok: true; mensaje: string; usuario?: string; contrasena?: string }
+  | { ok: false; mensaje: string };
 
 /**
  * Guarda los parámetros modificados. Cada uno va por `fn_guardar_parametros`,
@@ -98,7 +105,7 @@ export type NuevoVendedor = {
   tope_por_numero: number;
 };
 
-export async function crearVendedor(v: NuevoVendedor): Promise<Resultado> {
+export async function crearVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   // Mismo orden de validación y mismos mensajes que el prototipo.
   if (v.nombre.trim().length < 5) {
     return { ok: false, mensaje: "Escriba el nombre completo del vendedor." };
@@ -150,10 +157,45 @@ export async function crearVendedor(v: NuevoVendedor): Promise<Resultado> {
   }
 
   const codigo = data?.[0]?.vendedor_codigo ?? "";
+  const vendedorId = data?.[0]?.vendedor_id as string | undefined;
+
+  // El acceso se crea en el mismo gesto. Dejarlo para un segundo paso es cómo
+  // acaban existiendo vendedores dados de alta que no pueden entrar a vender.
+  //
+  // Si esto falla, el vendedor YA está creado: se informa y se deja el alta de
+  // acceso para la propia pantalla, en vez de fingir que no se creó nada o de
+  // borrar un vendedor que quizá ya tiene parámetros correctos.
+  let usuario: string | undefined;
+  let contrasena: string | undefined;
+  let aviso = "";
+
+  if (vendedorId) {
+    usuario = codigo.replace("-", "").toLowerCase();
+    contrasena = generarContrasena();
+
+    const servicio = crearClienteServicio();
+    const { error: eAcceso } = await servicio.rpc("fn_crear_usuario", {
+      p_usuario: usuario,
+      p_contrasena: contrasena,
+      p_nombre: v.nombre.trim(),
+      p_rol: "vendedor",
+      p_vendedor_id: vendedorId,
+    });
+
+    if (eAcceso) {
+      usuario = undefined;
+      contrasena = undefined;
+      aviso = " No se pudo crear su acceso; puede darlo de alta desde la tabla.";
+    }
+  }
 
   revalidatePath("/vendedores");
   return {
     ok: true,
-    mensaje: `${v.nombre.trim()} creado con código ${codigo}. Puede vender desde el próximo sorteo.`,
+    usuario,
+    contrasena,
+    mensaje:
+      `${v.nombre.trim()} creado con código ${codigo}. Puede vender desde el próximo sorteo.` +
+      aviso,
   };
 }

@@ -1,17 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+
+import { deserializar, inicioSegunRol, NOMBRE_COOKIE } from "@/lib/sesion";
 
 /**
- * Refresco de sesión en cada petición.
+ * Portero de cada petición.
  *
- * En Next 16 este archivo se llama `proxy.ts` y la función se llama `proxy`
- * (antes eran `middleware.ts` / `middleware`). Corre siempre en runtime
- * Node.js; el runtime edge no está soportado aquí.
+ * En Next 16 este archivo se llama `proxy.ts` y la función `proxy` (antes eran
+ * `middleware.ts` / `middleware`). Corre siempre en runtime Node.js, que es lo
+ * que permite verificar aquí la firma HMAC de la sesión.
  *
- * `getUser()` no es opcional ni decorativo: es lo que revalida el token contra
- * Supabase. Leer la sesión de la cookie sin más confiaría en un dato que el
- * navegador puede manipular.
+ * Desde que los usuarios viven en `allan.usuario` y no en Supabase Auth, no hay
+ * token que refrescar: la cookie la firma este mismo servidor y verificarla es
+ * puro cálculo local, sin viaje de red.
  */
+
 /**
  * Rutas que se sirven sin sesión: el acceso y la consulta pública de
  * resultados. `/r/<fecha>` ya queda fuera del matcher, pero `/r` a secas —la
@@ -22,64 +24,48 @@ function esPublica(ruta: string): boolean {
   return ruta === "/r" || ruta.startsWith("/r/") || ruta.startsWith("/login");
 }
 
+/** Lo que puede tocar cada rol. Un vendedor sólo ve lo suyo. */
+function permitida(ruta: string, rol: string): boolean {
+  if (rol === "vendedor") {
+    return ruta.startsWith("/mi-venta") || ruta.startsWith("/clave");
+  }
+  // El resto de perfiles no entra en la pantalla del vendedor, que está atada
+  // a un vendedor concreto y para ellos no significa nada.
+  return !ruta.startsWith("/mi-venta");
+}
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const ruta = request.nextUrl.pathname;
+  const sesion = deserializar(request.cookies.get(NOMBRE_COOKIE)?.value);
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      db: { schema: "allan" },
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet, headers) {
-          for (const { name, value } of cookiesToSet) {
-            request.cookies.set(name, value);
-          }
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
-          // Estas cabeceras impiden que un CDN cachee una respuesta que
-          // establece cookies de sesión: sin ellas, el token de un usuario
-          // puede acabar servido a otro.
-          for (const [clave, valor] of Object.entries(headers)) {
-            response.headers.set(clave, valor);
-          }
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Sin sesión sólo se llega al acceso y a la consulta pública de resultados.
-  if (!user && !esPublica(request.nextUrl.pathname)) {
+  if (!sesion) {
+    if (esPublica(ruta)) return NextResponse.next();
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";
     return NextResponse.redirect(destino);
   }
 
-  // Con sesión, el login no tiene sentido.
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
+  // Con sesión, el acceso no tiene sentido: se va a donde le toca a su rol.
+  if (ruta.startsWith("/login")) {
     const destino = request.nextUrl.clone();
-    destino.pathname = "/tablero";
+    destino.pathname = inicioSegunRol(sesion.rol);
     return NextResponse.redirect(destino);
   }
 
-  return response;
+  if (!esPublica(ruta) && !permitida(ruta, sesion.rol)) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = inicioSegunRol(sesion.rol);
+    return NextResponse.redirect(destino);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
-     * Todo salvo estáticos, imágenes y `/r/<fecha>`. Excluir aquí las páginas
-     * de resultados les ahorra la llamada a `getUser()`, que es un viaje de
-     * red por petición. `/r` a secas sí entra, y lo resuelve `esPublica`.
+     * Todo salvo estáticos, imágenes y `/r/<fecha>`. `/r` a secas sí entra, y
+     * lo resuelve `esPublica`.
      */
     "/((?!_next/static|_next/image|favicon.ico|r/|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],

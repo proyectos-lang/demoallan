@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { GraficoMensual } from "@/components/tablero/grafico-mensual";
+import { ConsolidadoMensual, type MesConsolidado } from "@/components/tablero/consolidado-mensual";
+import { SeriesMensuales, type Mes } from "@/components/tablero/series-mensuales";
 import { BarraVendedor, TarjetaKpi } from "@/components/tablero/piezas";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
@@ -17,7 +18,8 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 
 export default async function TableroPage(props: PageProps<"/tablero">) {
   const params = await props.searchParams;
-  const tab = params.tab === "dia" ? "dia" : "general";
+  const tab =
+    params.tab === "dia" ? "dia" : params.tab === "consolidado" ? "consolidado" : "general";
   const supabase = await crearClienteServidor();
 
   // Rango del histórico: desde el primer sorteo registrado hasta el último. Las
@@ -41,11 +43,18 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
     <div className="flex gap-[6px] bg-riel rounded-boton p-1">
       {[
         { id: "general", etiqueta: "Resumen general" },
+        { id: "consolidado", etiqueta: "Consolidado mensual" },
         { id: "dia", etiqueta: "Resumen del día" },
       ].map((t) => (
         <Link
           key={t.id}
-          href={t.id === "general" ? "/tablero" : `/tablero?tab=dia&fecha=${fechaDia}`}
+          href={
+            t.id === "general"
+              ? "/tablero"
+              : t.id === "consolidado"
+                ? "/tablero?tab=consolidado"
+                : `/tablero?tab=dia&fecha=${fechaDia}`
+          }
           className={cn(
             "rounded-celda px-[15px] py-2 text-tabla font-medium",
             tab === t.id ? "bg-superficie text-tinta shadow-tab" : "text-secundario",
@@ -62,6 +71,8 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
       <EncabezadoPagina titulo="Tablero de control" subtitulo={subtitulo} acciones={tabs} />
       {tab === "general" ? (
         <ResumenGeneral desde={desde} hasta={hasta} />
+      ) : tab === "consolidado" ? (
+        <Consolidado desde={desde} hasta={hasta} />
       ) : (
         <ResumenDia fecha={fechaDia} />
       )}
@@ -98,9 +109,15 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
   const ventaPendiente = Number(t.venta_pendiente);
   const margen = ventaLiquidada > 0 ? (utilidad / ventaLiquidada) * 100 : 0;
 
-  const meses = (mensual ?? [])
+  const meses: Mes[] = (mensual ?? [])
     .filter((m) => Number(m.utilidad) !== 0 || Number(m.venta) !== 0)
-    .map((m) => ({ mes: Number(m.mes), utilidad: Number(m.utilidad) }));
+    .map((m) => ({
+      mes: Number(m.mes),
+      venta: Number(m.venta),
+      comision: Number(m.comision),
+      premios: Number(m.premios),
+      utilidad: Number(m.utilidad),
+    }));
 
   const vendedores = (porVendedor ?? []).map((v) => ({
     ...v,
@@ -157,12 +174,14 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
         </TarjetaNota>
       )}
 
-      <Tarjeta padding="20px 22px 16px">
-        <div className="flex justify-between items-start flex-wrap gap-3">
+      <div>
+        <div className="flex justify-between items-start flex-wrap gap-3 mb-[14px]">
           <div>
-            <h2 className="text-h2 font-semibold tracking-sutil m-0">Utilidad mes por mes</h2>
-            <p className="text-meta text-secundario mt-[5px] mb-0">
-              Sólo sorteos liquidados. Cada punto es venta menos comisiones menos premios.
+            <h2 className="text-h2 font-semibold tracking-sutil m-0">Mes por mes</h2>
+            <p className="text-meta text-secundario mt-[5px] mb-0 max-w-[70ch]">
+              Cada serie con su propia escala: la venta es diez veces la comisión, y en un eje
+              común la comisión quedaría pegada al suelo. Lo que se compara entre gráficos es la
+              forma, no la altura.
             </p>
           </div>
           {mejorMes && (
@@ -171,10 +190,8 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
             </span>
           )}
         </div>
-        <div className="mt-4">
-          <GraficoMensual meses={meses} />
-        </div>
-      </Tarjeta>
+        <SeriesMensuales meses={meses} />
+      </div>
 
       <div className="flex flex-wrap gap-[18px]">
         <Tarjeta className="flex-1 min-w-[380px]">
@@ -459,4 +476,34 @@ async function ResumenDia({ fecha }: { fecha: string }) {
       )}
     </div>
   );
+}
+
+/**
+ * Consolidado mensual: las cinco cifras del negocio, mes a mes.
+ *
+ * Sale de `fn_resumen_mensual`, la misma fuente que alimenta los gráficos, para
+ * que ninguna pestaña pueda contradecir a la otra (§2).
+ */
+async function Consolidado({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await crearClienteServidor();
+
+  const { data: mensual } = await supabase.rpc("fn_resumen_mensual", {
+    p_desde: desde,
+    p_hasta: hasta,
+  });
+
+  const meses: MesConsolidado[] = (mensual ?? [])
+    .filter((m) => Number(m.venta) !== 0)
+    .map((m) => ({
+      anio: Number(m.anio),
+      // La base devuelve el mes en 0–11, como espera la interfaz.
+      mes: Number(m.mes),
+      venta: Number(m.venta),
+      comision: Number(m.comision),
+      premios: Number(m.premios),
+      utilidad: Number(m.utilidad),
+      venta_pendiente: Number(m.venta_pendiente),
+    }));
+
+  return <ConsolidadoMensual meses={meses} />;
 }
