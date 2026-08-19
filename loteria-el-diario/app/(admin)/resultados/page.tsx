@@ -5,36 +5,50 @@ import {
 } from "@/components/resultados/captura-resultado";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaLargaSinDia, mesNombre } from "@/lib/format";
+import { fechaLargaSinDia, horaHonduras, mesNombre } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export default async function ResultadosPage() {
   const supabase = await crearClienteServidor();
 
-  // El sorteo a capturar: el cerrado más antiguo sin liquidar. Si no hay
-  // ninguno, se ofrece cerrar el abierto cuya venta ya venció — porque hoy
-  // nada hace esa transición sola.
+  // El sorteo a capturar: el cerrado más antiguo sin liquidar.
   const { data: cerrado } = await supabase
     .from("sorteo")
-    .select("id, fecha, hora, estado")
+    .select("id, fecha, hora, estado, hora_cierre")
     .eq("estado", "cerrado")
     .order("fecha")
     .order("hora")
     .limit(1)
     .maybeSingle();
 
+  // Si no hay ninguno cerrado, se ofrece el abierto que cierra antes.
+  //
+  // Antes esto exigía que su hora de cierre ya hubiera pasado, y el resultado
+  // era que entre medianoche y las 11:50 la pantalla decía «no hay ningún
+  // sorteo pendiente» aunque hubiera tres sorteos del día esperando. Desde que
+  // el ciclo cierra solo los vencidos, un sorteo con la venta ya vencida dura
+  // como mucho cinco minutos en ese estado: la condición dejó fuera justamente
+  // el caso normal.
+  //
+  // Cerrar la venta antes de hora es una decisión de administración legítima
+  // —el prototipo ya tenía ese botón— y la pantalla explica qué implica: una
+  // vez cerrado no entra ningún ticket más.
   const { data: porCerrar } = cerrado
     ? { data: null }
     : await supabase
         .from("sorteo")
-        .select("id, fecha, hora, estado")
+        .select("id, fecha, hora, estado, hora_cierre")
         .eq("estado", "abierto")
-        .lte("hora_cierre", new Date().toISOString())
         .order("hora_cierre")
         .limit(1)
         .maybeSingle();
 
   const objetivo = cerrado ?? porCerrar;
+  // Si su venta sigue vigente, cerrarla es adelantarse, y eso hay que decirlo.
+  const ventaVigente =
+    !!objetivo &&
+    objetivo.estado === "abierto" &&
+    new Date(objetivo.hora_cierre).getTime() > Date.now();
 
   // Histórico: los últimos liquidados con su venta y utilidad, agregando desde
   // las liquidaciones por vendedor.
@@ -94,6 +108,7 @@ export default async function ResultadosPage() {
     estado: objetivo.estado as "abierto" | "cerrado",
     venta: Number(r?.venta ?? 0),
     tickets: Number(r?.tickets ?? 0),
+    cierraA: ventaVigente ? horaHonduras(objetivo.hora_cierre) : null,
   };
 
   return (

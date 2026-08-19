@@ -20,6 +20,8 @@ export type SorteoCaptura = {
   estado: "abierto" | "cerrado";
   venta: number;
   tickets: number;
+  /** Hora a la que cierra la venta, sólo si TODAVÍA está vigente. */
+  cierraA?: string | null;
 };
 
 export type ResultadoHistorico = {
@@ -113,6 +115,12 @@ export function CapturaResultado({
               número ganador: una vez cerrado no entra ningún ticket más, y sólo entonces la
               liquidación puede cuadrar contra un total que ya no cambia.
             </p>
+            {sorteo.cierraA && (
+              <p className="text-meta text-ambar-texto bg-ambar-fondo rounded-campo px-[13px] py-[9px] max-w-[60ch] mt-3 mb-0">
+                Su venta no vence hasta las {sorteo.cierraA}. Cerrarla ahora es adelantarse: los
+                vendedores dejarán de poder registrar tickets de este sorteo en el acto.
+              </p>
+            )}
             <Boton tamano="lg" onClick={cerrar} disabled={trabajando} className="mt-4">
               {trabajando ? "Cerrando…" : "Cerrar la venta"}
             </Boton>
