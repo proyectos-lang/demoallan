@@ -56,13 +56,8 @@ export default async function ResultadosPublicosPage(props: PageProps<"/r/[fecha
           >
             <AlignLeft size={20} color="#fff" strokeWidth={2} absoluteStrokeWidth />
           </span>
-          <span className="block">
-            <span className="block text-h2 font-semibold tracking-sutil">
-              Lotería El Diario
-            </span>
-            <span className="block text-label text-secundario mt-[2px]">
-              Cortés · Honduras
-            </span>
+          <span className="block text-h2 font-semibold tracking-sutil">
+            Lotería El Diario
           </span>
         </div>
 

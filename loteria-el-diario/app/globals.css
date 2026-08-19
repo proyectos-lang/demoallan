@@ -52,6 +52,34 @@
   --color-navy-tenue: #a9c2e8; /* etiquetas sobre el héroe del simulador */
   --color-navy-suave: #c3d4ee;
 
+  /* — Barra lateral, sobre el marino ------------------------------------ */
+  /* La barra era blanca con el elemento activo en azul pálido: los
+     encabezados de sección quedaban en 2.56 sobre blanco, muy por debajo del
+     mínimo de 4.5, y el estado activo apenas se separaba del fondo. Sobre el
+     marino —el mismo de las tarjetas héroe— todo sube de 6:1. */
+  --color-nav-fondo: #0f2547;
+  --color-nav-chip: #1a3563; /* portaicono en reposo */
+  --color-nav-hover: #17315c;
+  --color-nav-linea: #22406e; /* filetes y separadores */
+  --color-nav-titulo: #ffffff; /* marca y elemento activo — 15.26:1 */
+  --color-nav-item: #cbd8ea; /* etiqueta en reposo — 10.57:1 */
+  --color-nav-seccion: #9fb6d4; /* encabezado de sección — 7.35:1 */
+  --color-nav-activo: #2563eb; /* relleno del activo; blanco encima, 5.17:1 */
+
+  /* Los nueve colores de icono del prototipo se eligieron contra un chip
+     claro. Sobre el marino cuatro caían por debajo de 3:1, el mínimo para
+     objetos gráficos: tablero 2.34, digitalización 2.13, control 2.58 y
+     simulador 1.93. Estas variantes claras van de 4.45 para arriba. */
+  --color-nav-i-tablero: #7aa5f5;
+  --color-nav-i-pos: #2dd4bf;
+  --color-nav-i-sorteos: #fbbf24;
+  --color-nav-i-ocr: #a78bfa;
+  --color-nav-i-reportes: #38bdf8;
+  --color-nav-i-control: #fb7185;
+  --color-nav-i-geo: #34d399;
+  --color-nav-i-simulador: #8b95f6;
+  --color-nav-i-vendedores: #fb923c;
+
   /* — Positivo (esmeralda) ---------------------------------------------- */
   --color-positivo: #047857; /* cifras positivas — el de uso general */
   --color-positivo-vivo: #059669; /* puntos, "en línea", anillo de éxito */
@@ -178,13 +206,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a {
-  color: var(--color-acento);
-  text-decoration: none;
-}
+/* Dentro de @layer base a propósito. Tailwind v4 emite las utilidades en
+   @layer utilities, y el CSS SIN capa gana siempre al de una capa, por encima
+   de cualquier especificidad. Con estas reglas sueltas, un `text-…` sobre un
+   <Link> no tenía ningún efecto: la etiqueta del elemento activo de la barra
+   quedaba azul sobre azul, es decir, invisible. */
+@layer base {
+  a {
+    color: var(--color-acento);
+    text-decoration: none;
+  }
 
-a:hover {
-  color: var(--color-acento-fuerte);
+  a:hover {
+    color: var(--color-acento-fuerte);
+  }
 }
 
 button,
