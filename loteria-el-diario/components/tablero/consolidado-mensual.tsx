@@ -47,7 +47,7 @@ export function ConsolidadoMensual({ meses }: { meses: MesConsolidado[] }) {
       {/* Total del rango, con el mismo lenguaje del héroe del simulador. */}
       <div
         className="rounded-hero px-[22px] py-5 text-white"
-        style={{ background: "var(--gradiente-navy)" }}
+        style={{ background: "var(--gradiente-dia)" }}
       >
         <span className="block text-th font-semibold tracking-seccion text-navy-etiqueta">
           TOTAL DEL RANGO · {meses.length} {meses.length === 1 ? "MES" : "MESES"}

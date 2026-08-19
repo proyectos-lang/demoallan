@@ -54,10 +54,15 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
   const desdeReal = desde < primero ? primero : desde;
   const fechaDia = typeof params.fecha === "string" ? params.fecha : hasta;
 
+  // El consolidado siempre trae TODOS los meses, así que su subtítulo no puede
+  // anunciar el rango de noventa días del resumen general: decía "23 de mayo —
+  // 20 de agosto" sobre una tabla que empezaba en enero.
   const subtitulo =
     tab === "dia"
       ? "Indicadores de un día, sorteo por sorteo"
-      : `${fechaLargaSinDia(desdeReal)} — ${fechaLargaSinDia(hasta)}`;
+      : tab === "consolidado"
+        ? `${fechaLargaSinDia(primero)} — ${fechaLargaSinDia(hasta)} · todos los meses`
+        : `${fechaLargaSinDia(desdeReal)} — ${fechaLargaSinDia(hasta)}`;
 
   const rangos = [
     { id: "90", etiqueta: "90 días" },

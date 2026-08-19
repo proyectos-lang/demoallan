@@ -45,7 +45,7 @@ export default async function MiVentaPage() {
       {/* Lo que gana hoy, que es lo primero que quiere saber. */}
       <div
         className="rounded-card px-[22px] py-5 text-nav-titulo"
-        style={{ background: "var(--gradiente-navy)" }}
+        style={{ background: "var(--gradiente-dia)" }}
       >
         <span className="block text-eyebrow font-semibold tracking-seccion text-navy-etiqueta">
           MI COMISIÓN DE HOY
