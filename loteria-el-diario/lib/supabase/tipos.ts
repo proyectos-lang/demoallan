@@ -486,6 +486,41 @@ export type Database = {
           utilidad: number;
         }[];
       };
+      /**
+       * Un punto por ticket para el mapa, con las líneas ya contadas en la
+       * base. Sustituye a traer las líneas del día y contarlas en el cliente.
+       */
+      fn_mapa_dia: {
+        Args: { p_fecha: string; p_vendedor_id?: string | null };
+        Returns: {
+          r_folio: string;
+          r_lat: number;
+          r_lng: number;
+          r_total: number;
+          r_creado_en: string;
+          r_vendedor_id: string;
+          r_hora: HoraSorteo;
+          r_lineas: number;
+        }[];
+      };
+      /**
+       * Lo vendido por cada vendedor en cada número de un sorteo. Dato de
+       * conveniencia para el POS; NO es autoritativo (§3).
+       */
+      fn_vendido_por_vendedor: {
+        Args: { p_sorteo_id: string };
+        Returns: { r_vendedor_id: string; r_numero: number; r_vendido: number }[];
+      };
+      /** Utilidad del sorteo para cada uno de los 100 números posibles. */
+      fn_utilidad_por_numero: {
+        Args: { p_sorteo_id: string };
+        Returns: { r_numero: number; r_pago: number; r_utilidad: number }[];
+      };
+      /** Repone las filas de cupo que falten, reconstruyendo lo vendido. */
+      fn_reparar_cupo: {
+        Args: { p_sorteo_id: string };
+        Returns: number;
+      };
       fn_desglose_dia: {
         Args: { p_fecha: string };
         Returns: {

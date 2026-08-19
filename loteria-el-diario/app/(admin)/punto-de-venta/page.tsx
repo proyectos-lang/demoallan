@@ -71,20 +71,18 @@ export default async function PuntoDeVentaPage() {
   }
 
   // Lo ya vendido por cada vendedor en cada número, para el segundo nivel de
-  // tope. TODO(escala): con volumen alto esto debe ser una vista agregada, no
-  // traer las líneas y sumarlas aquí.
-  const { data: lineas } = await supabase
-    .from("linea")
-    .select("numero, monto, ticket!inner(vendedor_id, sorteo_id, anulado_en)")
-    .eq("ticket.sorteo_id", sorteo.id)
-    .is("ticket.anulado_en", null);
+  // tope. Agregado en la base: son a lo sumo 30 x 100 filas. Antes se traían las
+  // ~10.000 líneas del sorteo para sumarlas aquí, y con el histórico completo
+  // la pantalla tardaba casi nueve segundos en abrir.
+  const { data: lineas } = await supabase.rpc("fn_vendido_por_vendedor", {
+    p_sorteo_id: sorteo.id,
+  });
 
   const vendidoPropio: Record<string, number[]> = {};
   for (const v of vendedores) vendidoPropio[v.id] = new Array(100).fill(0);
   for (const l of lineas ?? []) {
-    const t = Array.isArray(l.ticket) ? l.ticket[0] : l.ticket;
-    const porNumero = vendidoPropio[t.vendedor_id];
-    if (porNumero) porNumero[l.numero] += Number(l.monto);
+    const porNumero = vendidoPropio[l.r_vendedor_id];
+    if (porNumero) porNumero[l.r_numero] += Number(l.r_vendido);
   }
 
   const datos: DatosPos = {

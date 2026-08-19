@@ -101,6 +101,42 @@ Conviene volver a correrlas después de cualquier migración que toque funciones
 o permisos: los dos huecos de seguridad que aparecieron hasta ahora los
 encontraron ellas, no la lectura del código.
 
+### Histórico de demostración
+
+Datos **inventados** con la forma de los reales, para enseñar el sistema con
+volumen. Del 1 de enero al 18 de agosto de 2026: 30 vendedores, ~690 sorteos,
+~200 mil tickets y ~745 mil líneas.
+
+```bash
+node supabase/demo/sembrar-historico.mjs           # siembra y liquida
+node supabase/demo/sembrar-historico.mjs resumen   # venta y utilidad por mes
+node supabase/demo/sembrar-historico.mjs borrar    # lo retira entero
+```
+
+Todo lo que crea queda marcado en el **folio**, que empieza por `D` y la fecha
+(`D260115 11V-101-003`); los que emite `fn_registrar_ticket` empiezan por el
+código del vendedor (`V001-20260819-0001`), así que los dos espacios de nombres
+no se solapan. El histórico incluye también a los cinco vendedores originales:
+un padrón donde cinco de treinta no tienen historia se ve raro en el mapa y en
+los reportes.
+
+Tres cosas que conviene saber antes de enseñarlo:
+
+- **Los montos salen de las hojas manuscritas reales** de `muestras/`: moda
+  entre 5 y 30 L, cola hasta 500, y la concentración en unos pocos números que
+  se ve en la hoja de Cecilia. Esa concentración es lo que hace que el negocio
+  pueda perder; sin ella el resultado mensual sería casi constante.
+- **Se genera sin tope por número**, por decisión de negocio: interesa ver el
+  movimiento, no cuánto se habría rechazado.
+- **Los ganadores se eligen por muestreo por rechazo mensual.** Ningún sorteo
+  suelto se amaña: cada mes es una secuencia de ganadores enteramente aleatoria
+  y sólo se conserva una de las historias posibles cuya utilidad cae entre −2 y
+  +4 millones. Con noventa sorteos al mes, dejarlo al azar puro aplana el
+  resultado cerca de la media y nunca se vería un mes en pérdida.
+
+La semilla es fija: dos corridas dan el mismo histórico. Si el gerente pregunta
+por una cifra, mañana sigue ahí.
+
 ### Convenciones de datos
 
 - **Comisión: fracción, no porcentaje.** 12.5 % se guarda `0.12500`, para que la

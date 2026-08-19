@@ -20,17 +20,13 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
   const tab = params.tab === "dia" ? "dia" : "general";
   const supabase = await crearClienteServidor();
 
-  // Rango del histórico: desde el primer sorteo registrado hasta el último.
-  const { data: extremos } = await supabase
-    .from("sorteo")
-    .select("fecha")
-    .order("fecha")
-    .limit(1);
-  const { data: extremosFin } = await supabase
-    .from("sorteo")
-    .select("fecha")
-    .order("fecha", { ascending: false })
-    .limit(1);
+  // Rango del histórico: desde el primer sorteo registrado hasta el último. Las
+  // dos consultas son independientes, así que van a la vez: encadenarlas con
+  // await sumaba dos viajes de red antes de poder empezar nada.
+  const [{ data: extremos }, { data: extremosFin }] = await Promise.all([
+    supabase.from("sorteo").select("fecha").order("fecha").limit(1),
+    supabase.from("sorteo").select("fecha").order("fecha", { ascending: false }).limit(1),
+  ]);
 
   const desde = extremos?.[0]?.fecha ?? fechaHonduras();
   const hasta = extremosFin?.[0]?.fecha ?? fechaHonduras();

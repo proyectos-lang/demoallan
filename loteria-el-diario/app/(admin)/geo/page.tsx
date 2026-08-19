@@ -24,45 +24,28 @@ export default async function GeoPage(props: PageProps<"/geo">) {
   // la misma coordenada y se dibujarían una encima de otra. El prototipo pinta
   // por línea porque sus datos eran inventados; con datos reales el ticket es
   // la unidad que corresponde a un acto de venta en un lugar.
-  let consulta = supabase
-    .from("ticket")
-    .select("folio, lat, lng, total, creado_en, vendedor_id, sorteo!inner(fecha, hora)")
-    .eq("sorteo.fecha", fecha)
-    .is("anulado_en", null)
-    .not("lat", "is", null);
-
-  if (vendedorActivo) consulta = consulta.eq("vendedor_id", vendedorActivo);
-
-  const { data: tickets } = await consulta;
-
-  // Cuántas líneas trae cada ticket, para el popup.
-  const ids = (tickets ?? []).map((t) => t.folio);
-  const { data: conteos } = ids.length
-    ? await supabase
-        .from("linea")
-        .select("ticket_id, ticket!inner(folio)")
-        .in("ticket.folio", ids)
-    : { data: [] };
-
-  const lineasPorFolio = new Map<string, number>();
-  for (const l of conteos ?? []) {
-    const t = Array.isArray(l.ticket) ? l.ticket[0] : l.ticket;
-    lineasPorFolio.set(t.folio, (lineasPorFolio.get(t.folio) ?? 0) + 1);
-  }
+  //
+  // El conteo de líneas viene ya hecho de la base. Antes se pedían TODAS las
+  // líneas de los ~700 tickets del día sólo para contarlas aquí: tres mil filas
+  // por la red y un recorrido de `linea` en cada carga, dieciséis segundos con
+  // el histórico completo.
+  const { data: tickets } = await supabase.rpc("fn_mapa_dia", {
+    p_fecha: fecha,
+    p_vendedor_id: vendedorActivo || null,
+  });
 
   const porId = new Map((vendedores ?? []).map((v) => [v.id, v]));
 
   const puntos: Punto[] = (tickets ?? []).map((t) => {
-    const v = porId.get(t.vendedor_id);
-    const s = Array.isArray(t.sorteo) ? t.sorteo[0] : t.sorteo;
+    const v = porId.get(t.r_vendedor_id);
     return {
-      folio: t.folio,
-      lat: Number(t.lat),
-      lng: Number(t.lng),
-      total: Number(t.total),
-      lineas: lineasPorFolio.get(t.folio) ?? 0,
-      hora: s.hora,
-      reloj: horaHonduras(t.creado_en),
+      folio: t.r_folio,
+      lat: Number(t.r_lat),
+      lng: Number(t.r_lng),
+      total: Number(t.r_total),
+      lineas: t.r_lineas,
+      hora: t.r_hora,
+      reloj: horaHonduras(t.r_creado_en),
       vendedor: v?.nombre ?? "—",
       zona: v?.zona ?? "—",
       color: v?.color ?? "#2563eb",
