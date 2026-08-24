@@ -124,7 +124,10 @@ export function TicketImpreso({
 
           {t.lineas.map((l, i) => (
             <div key={i} className="ticket-fila ticket-numero">
-              <span>N.º {pad2(l.numero)}</span>
+              {/* Sólo el número, sin «N.º»: en la tirilla esas tres letras se
+                  repiten en cada línea y no dicen nada que la columna no diga
+                  ya. El comprador busca la cifra. */}
+              <span>{pad2(l.numero)}</span>
               <span>{fmt(l.monto)}</span>
             </div>
           ))}

@@ -8,8 +8,8 @@ import {
   TicketEnCurso,
 } from "@/components/pos/piezas";
 import { cn } from "@/lib/cn";
-import { countdownHasta, fmt, hora12 } from "@/lib/format";
-import { MONTOS_RAPIDOS, TECLAS, type Pos } from "@/lib/pos/use-pos";
+import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
+import { CUPO_BAJO, MONTOS_RAPIDOS, TECLAS, type Pos } from "@/lib/pos/use-pos";
 
 /**
  * Punto de venta en un teléfono de verdad.
@@ -95,34 +95,14 @@ export function VistaMovil({ pos }: { pos: Pos }) {
           <div className="px-4 pt-4 pb-2">
             <AvisoFueraDeHora pos={pos} />
 
-            <div className="flex gap-[10px] mt-3">
-              <button
-                onClick={() => pos.setFoco("numero")}
-                className={cn(
-                  "flex-1 text-left bg-superficie rounded-pos px-[14px] py-[11px] border-2 cursor-pointer",
-                  pos.foco === "numero" ? "border-acento" : "border-borde-pos",
-                )}
-              >
-                <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario">
-                  NÚMERO
-                </span>
-                <span className="block text-display font-semibold">
-                  {pos.numero.padEnd(2, "–")}
-                </span>
-              </button>
-              <button
-                onClick={() => (pos.disp ?? 0) > 0 && pos.setFoco("monto")}
-                className={cn(
-                  "flex-[1.2] text-left bg-superficie rounded-pos px-[14px] py-[11px] border-2 cursor-pointer",
-                  pos.foco === "monto" ? "border-acento" : "border-borde-pos",
-                  (pos.disp ?? 0) <= 0 && "opacity-50",
-                )}
-              >
-                <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario">
-                  MONTO (L)
-                </span>
-                <span className="block text-display font-semibold">{pos.monto || "0"}</span>
-              </button>
+            <Rejilla pos={pos} />
+
+            {/* El monto, que se aplica a TODO lo seleccionado. */}
+            <div className="mt-3 bg-superficie rounded-pos px-[14px] py-[11px] border-2 border-acento">
+              <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario">
+                MONTO (L) {pos.seleccion.length > 1 && "· A CADA NÚMERO"}
+              </span>
+              <span className="block text-display font-semibold">{pos.monto || "0"}</span>
             </div>
 
             <BannerCupo pos={pos} className="mt-3" />
@@ -161,7 +141,7 @@ export function VistaMovil({ pos }: { pos: Pos }) {
 
             <button
               disabled={!pos.puedeAgregar}
-              onClick={() => pos.agregar(pos.numeroActual!, pos.montoNum)}
+              onClick={pos.agregarSeleccion}
               className={cn(
                 "w-full mt-3 rounded-pos py-4 text-pos font-semibold border-0",
                 pos.puedeAgregar
@@ -169,7 +149,9 @@ export function VistaMovil({ pos }: { pos: Pos }) {
                   : "bg-riel text-mudo cursor-not-allowed",
               )}
             >
-              Agregar al ticket
+              {pos.seleccion.length > 1
+                ? `Agregar ${pos.seleccion.length} números al ticket`
+                : "Agregar al ticket"}
             </button>
 
             <div className="mt-4">
@@ -251,6 +233,103 @@ export function VistaMovil({ pos }: { pos: Pos }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * La rejilla 00–99, en diez filas de diez.
+ *
+ * ANTES EL NÚMERO SE TECLEABA CIFRA A CIFRA: para vender el 01 había que
+ * pulsar el 0 y luego el 1, y encima acertar en qué campo estaba el foco. El
+ * vendedor pidió tocarlo de una, y tocándolo sale gratis lo demás: tocar
+ * varios, y tomar una fila entera con un gesto.
+ *
+ * La primera columna de cada fila es el botón de la decena. Va ahí y no debajo
+ * de la fila con el texto completo porque en un teléfono de 375 px eso casi
+ * duplicaba la altura de la rejilla —de unos 380 a 700 px— y obligaba a
+ * recorrerla con el pulgar. Estrecho y al principio de la fila, el gesto queda
+ * al lado de lo que afecta.
+ */
+function Rejilla({ pos }: { pos: Pos }) {
+  const decenas = Array.from({ length: 10 }, (_, d) => d);
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-baseline justify-between mb-2">
+        <span className="text-micro text-secundario">
+          Toque los números; el rango toma la fila entera.
+        </span>
+        {pos.seleccion.length > 0 && (
+          <button
+            onClick={pos.limpiarEntrada}
+            className="text-label text-acento font-medium"
+          >
+            quitar {pos.seleccion.length}
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-[3px]">
+        {decenas.map((d) => {
+          const fila = Array.from({ length: 10 }, (_, i) => d * 10 + i);
+          const conCupo = fila.filter((n) => pos.disponible[n] > 0);
+          const completa = conCupo.length > 0 && conCupo.every((n) => pos.seleccion.includes(n));
+
+          return (
+            /*
+              Las casillas NO son cuadradas.
+
+              Con el botón de la fila ocupando 38 px, a lo ancho quedan 28 por
+              número y eso no se puede estirar: son diez columnas en 375 px. Lo
+              que sí se puede es darles alto. Un objetivo de 28×38 se acierta
+              con el pulgar bastante mejor que uno de 28×28, y aquí un toque
+              errado no es un inconveniente: es vender otro número.
+            */
+            <div key={d} className="grid grid-cols-[38px_repeat(10,1fr)] gap-[2px]">
+              <button
+                onClick={() => pos.alternarDecena(d)}
+                disabled={conCupo.length === 0}
+                aria-label={`Seleccionar toda la línea del ${pad2(d * 10)} al ${pad2(d * 10 + 9)}`}
+                className={cn(
+                  "h-[38px] rounded-celda text-badge font-semibold border-[1.5px] leading-tight",
+                  conCupo.length === 0
+                    ? "bg-riel text-mudo border-riel"
+                    : completa
+                      ? "bg-tinta text-white border-tinta"
+                      : "bg-panel text-cuerpo border-borde-pos",
+                )}
+              >
+                {pad2(d * 10)}–{pad2(d * 10 + 9)}
+              </button>
+
+              {fila.map((n) => {
+                const dp = pos.disponible[n];
+                const elegido = pos.seleccion.includes(n);
+                return (
+                  <button
+                    key={n}
+                    onClick={() => dp > 0 && pos.alternarNumero(n)}
+                    disabled={dp <= 0}
+                    className={cn(
+                      "h-[38px] rounded-celda text-th font-semibold border-[1.5px] p-0",
+                      elegido
+                        ? "bg-acento text-white border-acento"
+                        : dp <= 0
+                          ? "bg-negativo-fondo text-negativo-texto border-negativo-borde"
+                          : dp < CUPO_BAJO
+                            ? "bg-ambar-fondo text-tinta border-borde-pos"
+                            : "bg-superficie text-tinta border-borde-pos",
+                    )}
+                  >
+                    {pad2(n)}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

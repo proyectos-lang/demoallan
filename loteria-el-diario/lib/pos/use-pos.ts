@@ -91,8 +91,25 @@ export const CUPO_BAJO = 300;
 export function usePos(datos: DatosPos) {
   const [vendedorId, setVendedorId] = useState(datos.vendedores[0]?.id ?? "");
   const [modo, setModo] = useState<Modo>("teclado");
+  /**
+   * Buffer de tecleo del escritorio. En móvil no se usa: allí el número se
+   * toca en la rejilla y nunca se escribe dígito a dígito.
+   */
   const [numero, setNumero] = useState("");
   const [monto, setMonto] = useState("");
+
+  /**
+   * Los números elegidos para la línea que se está armando.
+   *
+   * Antes era UNO, tecleado cifra a cifra: para vender el 01 había que pulsar
+   * el 0 y luego el 1. El vendedor pidió tocarlo de una, y de ahí salió lo
+   * demás: si se toca en una rejilla, tocar varios sale gratis, y tomar una
+   * fila entera de diez con un solo gesto también.
+   *
+   * Va ordenado y sin repetidos. El monto que se teclee se aplica a CADA uno,
+   * así que una fila entera a 50 son diez líneas de 50, no una de 500.
+   */
+  const [seleccion, setSeleccion] = useState<number[]>([]);
   const [foco, setFoco] = useState<Foco>("numero");
 
   /** El ticket que se está tecleando. */
@@ -187,12 +204,23 @@ export function usePos(datos: DatosPos) {
     );
   }, [datos, vendedorId, carrito, tanda, vendedor]);
 
-  const numeroActual = numero.length === 2 ? parseInt(numero, 10) : null;
-  const disp = numeroActual != null ? disponible[numeroActual] : null;
   const montoNum = parseInt(monto || "0", 10);
+
+  /*
+   * Con varios números elegidos manda el MÁS APRETADO: el monto se repite en
+   * todos, así que el que menos cupo tiene decide cuánto se puede vender. Y se
+   * guarda cuál es, porque el aviso tiene que nombrarlo — «no cabe» sin decir
+   * dónde obliga a ir probando de uno en uno.
+   */
+  const numeroApretado =
+    seleccion.length > 0
+      ? seleccion.reduce((a, n) => (disponible[n] < disponible[a] ? n : a))
+      : null;
+  const disp = numeroApretado != null ? disponible[numeroApretado] : null;
   const totalTicket = carrito.reduce((a, l) => a + l.monto, 0);
   const totalTanda = tanda.reduce((a, t) => a + t.total, 0) + totalTicket;
-  const puedeAgregar = disp != null && disp > 0 && montoNum > 0 && montoNum <= disp;
+  const puedeAgregar =
+    seleccion.length > 0 && disp != null && disp > 0 && montoNum > 0 && montoNum <= disp;
 
   /** Cuántos tickets se registrarían ahora mismo. */
   const ticketsPorRegistrar = tanda.length + (carrito.length > 0 ? 1 : 0);
@@ -210,38 +238,125 @@ export function usePos(datos: DatosPos) {
 
   const bloqueada = cerrada && !datos.puedeForzar;
 
-  const banner =
-    disp == null
-      ? {
-          texto: "Ingrese un número de dos dígitos para ver el cupo disponible.",
-          clase: "bg-chip text-cuerpo",
-        }
-      : disp <= 0
-        ? {
-            texto: `Cupo agotado en el ${pad2(numeroActual!)}: no se acepta monto.`,
-            clase: "bg-negativo-fondo text-negativo-texto",
-          }
-        : disp < CUPO_BAJO
-          ? {
-              texto: `Cupo bajo en el ${pad2(numeroActual!)}: disponible ${fmt(disp)}.`,
-              clase: "bg-ambar-fondo text-ambar-texto",
-            }
-          : {
-              texto: `Disponible en el ${pad2(numeroActual!)}: ${fmt(disp)}.`,
-              clase: "bg-positivo-fondo text-positivo-texto",
-            };
+  /*
+   * El semáforo del cupo.
+   *
+   * Con varios números elegidos, el aviso que importa es el del que menos
+   * admite: es el que va a tumbar la venta entera al confirmar. Por eso todos
+   * los mensajes lo nombran.
+   */
+  const banner = (() => {
+    if (seleccion.length === 0) {
+      return {
+        texto: "Toque uno o varios números para vender.",
+        clase: "bg-chip text-cuerpo",
+      };
+    }
+
+    const cuantos =
+      seleccion.length === 1
+        ? `el ${pad2(seleccion[0])}`
+        : `${seleccion.length} números`;
+
+    if (disp == null || disp <= 0) {
+      return {
+        texto: `Cupo agotado en el ${pad2(numeroApretado!)}: no se acepta monto.`,
+        clase: "bg-negativo-fondo text-negativo-texto",
+      };
+    }
+
+    // El monto ya escrito no cabe: se dice DÓNDE, para no tener que probar de
+    // uno en uno cuál de los diez estorba.
+    if (montoNum > disp) {
+      return {
+        texto: `El ${pad2(numeroApretado!)} sólo admite ${fmt(disp)}. Baje el monto o quítelo de la selección.`,
+        clase: "bg-negativo-fondo text-negativo-texto",
+      };
+    }
+
+    if (disp < CUPO_BAJO) {
+      return {
+        texto: `Cupo bajo: el ${pad2(numeroApretado!)} admite ${fmt(disp)}.`,
+        clase: "bg-ambar-fondo text-ambar-texto",
+      };
+    }
+
+    return {
+      texto:
+        seleccion.length === 1
+          ? `Disponible en ${cuantos}: ${fmt(disp)}.`
+          : `${cuantos} elegidos. El más justo es el ${pad2(numeroApretado!)}, con ${fmt(disp)}.`,
+      clase: "bg-positivo-fondo text-positivo-texto",
+    };
+  })();
 
   const limpiarEntrada = () => {
     setNumero("");
     setMonto("");
+    setSeleccion([]);
     setFoco("numero");
     setRapidaTexto("");
   };
 
+  /** Una línea suelta, sin pasar por la selección. La usa la línea rápida. */
   const agregar = (n: number, m: number) => {
     setCarrito((c) => [...c, { numero: n, monto: m }]);
     limpiarEntrada();
     setErrorVenta("");
+  };
+
+  /**
+   * Vuelca la selección al ticket: UNA LÍNEA POR NÚMERO, todas con el mismo
+   * monto. Diez números a 50 son diez líneas de 50, no una de 500.
+   */
+  const agregarSeleccion = () => {
+    if (!puedeAgregar) return;
+    setCarrito((c) => [...c, ...seleccion.map((n) => ({ numero: n, monto: montoNum }))]);
+    limpiarEntrada();
+    setErrorVenta("");
+  };
+
+  /** Toca un número: entra o sale de la selección. */
+  const alternarNumero = (n: number) => {
+    setNumero("");
+    setSeleccion((s) =>
+      s.includes(n) ? s.filter((x) => x !== n) : [...s, n].sort((a, b) => a - b),
+    );
+    setErrorVenta("");
+  };
+
+  /**
+   * Toma o suelta una fila entera de diez —la decena `d`: 00–09, 10–19…
+   *
+   * Los números sin cupo se quedan fuera: meterlos sólo serviría para que el
+   * aviso dijera enseguida que no caben. Si la fila ya está tomada al
+   * completo, el mismo gesto la suelta.
+   */
+  const alternarDecena = (d: number) => {
+    const fila = Array.from({ length: 10 }, (_, i) => d * 10 + i).filter(
+      (n) => disponible[n] > 0,
+    );
+    if (fila.length === 0) return;
+
+    setNumero("");
+    setSeleccion((s) => {
+      const completa = fila.every((n) => s.includes(n));
+      return completa
+        ? s.filter((n) => !fila.includes(n))
+        : [...new Set([...s, ...fila])].sort((a, b) => a - b);
+    });
+    setErrorVenta("");
+  };
+
+  /**
+   * Escribir el número en el escritorio, que sigue teniendo campo de texto.
+   * Con dos cifras completas equivale a tocar esa casilla de la rejilla.
+   */
+  const escribirNumero = (texto: string) => {
+    const limpio = texto.replace(/\D/g, "").slice(0, 2);
+    setNumero(limpio);
+    setSeleccion(limpio.length === 2 ? [parseInt(limpio, 10)] : []);
+    setMonto("");
   };
 
   const quitarLinea = (i: number) => setCarrito((c) => c.filter((_, j) => j !== i));
@@ -257,25 +372,16 @@ export function usePos(datos: DatosPos) {
 
   const quitarTicket = (i: number) => setTanda((t) => t.filter((_, j) => j !== i));
 
+  /**
+   * El teclado del móvil, que ahora SÓLO escribe el monto.
+   *
+   * Antes servía para las dos cosas y había que saber en cuál de los dos
+   * campos estaba el foco. Desde que el número se toca en la rejilla, el
+   * teclado tiene un solo trabajo y no hay foco que perder.
+   */
   const tecla = (k: string) => {
-    const actual = foco === "numero" ? numero : monto;
-    const set = foco === "numero" ? setNumero : setMonto;
-
-    if (k === "C") return set("");
-    if (k === "←") return set(actual.slice(0, -1));
-
-    if (foco === "numero") {
-      // Ventana deslizante de dos dígitos: teclear un tercero corre el número.
-      const nuevo = (numero + k).slice(-2);
-      setNumero(nuevo);
-      setMonto("");
-      // Sólo salta al monto si ese número tiene cupo; si no, se queda para
-      // que el vendedor corrija sin descubrir el rechazo al final.
-      const libre = nuevo.length === 2 && disponible[parseInt(nuevo, 10)] > 0;
-      setFoco(libre ? "monto" : "numero");
-      return;
-    }
-
+    if (k === "C") return setMonto("");
+    if (k === "←") return setMonto(monto.slice(0, -1));
     if (monto.length < 5 && (disp ?? 0) > 0) setMonto(monto + k);
   };
 
@@ -371,7 +477,8 @@ export function usePos(datos: DatosPos) {
     enviando,
 
     // derivados
-    numeroActual,
+    seleccion,
+    numeroApretado,
     disp,
     montoNum,
     totalTicket,
@@ -396,6 +503,11 @@ export function usePos(datos: DatosPos) {
     setRecibo,
     cambiarVendedor,
     agregar,
+    agregarSeleccion,
+    limpiarEntrada,
+    alternarNumero,
+    alternarDecena,
+    escribirNumero,
     quitarLinea,
     cerrarTicket,
     quitarTicket,

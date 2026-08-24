@@ -153,7 +153,7 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
 
             <button
               disabled={!pos.puedeAgregar}
-              onClick={() => pos.agregar(pos.numeroActual!, pos.montoNum)}
+              onClick={pos.agregarSeleccion}
               className={cn(
                 "rounded-pos py-[14px] text-pos font-semibold border-0",
                 pos.puedeAgregar
@@ -245,7 +245,7 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
         </span>
         <input
           value={pos.numero}
-          onChange={(e) => pos.setNumero(e.target.value.replace(/\D/g, "").slice(0, 2))}
+          onChange={(e) => pos.escribirNumero(e.target.value)}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
@@ -272,7 +272,7 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-            if (pos.puedeAgregar) pos.agregar(pos.numeroActual!, pos.montoNum);
+            if (pos.puedeAgregar) pos.agregarSeleccion();
           }}
           onFocus={() => pos.setFoco("monto")}
           inputMode="numeric"
@@ -375,18 +375,23 @@ function Rejilla({ pos }: { pos: Pos }) {
         <span className="text-micro text-secundario">
           Toque el número y luego el monto. El color es el cupo que le queda.
         </span>
-        <span className="text-ganador font-semibold">{pos.numero.padEnd(2, "–")}</span>
+        <span className="text-ganador font-semibold">
+          {pos.seleccion.length === 0
+            ? "––"
+            : pos.seleccion.length === 1
+              ? pad2(pos.seleccion[0])
+              : `${pos.seleccion.length} elegidos`}
+        </span>
       </div>
       <div className="grid grid-cols-10 gap-[3px]">
         {Array.from({ length: 100 }, (_, n) => {
           const dp = pos.disponible[n];
-          const sel = pos.numeroActual === n;
+          const sel = pos.seleccion.includes(n);
           return (
             <button
               key={n}
               onClick={() => {
-                pos.setNumero(pad2(n));
-                pos.setMonto("");
+                pos.alternarNumero(n);
                 pos.setFoco("monto");
               }}
               title={`${pad2(n)} · disponible ${fmt(dp)}`}
