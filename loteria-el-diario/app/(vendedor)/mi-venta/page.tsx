@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { PuntoDeVenta, type DatosPos, type VendedorPos } from "@/components/pos/punto-de-venta";
+import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras, fechaLarga, fmt, horaHonduras, pad2 } from "@/lib/format";
+import { fechaHonduras, fechaLarga, fmt, hora12, horaHonduras12, pad2 } from "@/lib/format";
+import type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
@@ -36,6 +37,18 @@ export default async function MiVentaPage() {
   const nTickets = filas.reduce((a, f) => a + f.r_tickets, 0);
 
   return (
+    <>
+      {/*
+        Vender va PRIMERO.
+        Antes esta pantalla abría con el resumen del día —héroe de comisión,
+        tres indicadores y una tabla— y el punto de venta quedaba a más de mil
+        píxeles de desplazamiento. Para quien trabaja de pie y con una cola
+        delante, lo urgente es registrar; el resumen se consulta después.
+      */}
+      <div className="max-w-[820px] mx-auto w-full">
+        <Vender vendedorFila={vendedorFila} vendedorId={vendedorId} />
+      </div>
+
     <div className="px-4 py-5 flex flex-col gap-4 max-w-[820px] mx-auto">
       <div>
         <h1 className="text-h1 font-semibold tracking-titular m-0">Mi venta</h1>
@@ -80,7 +93,9 @@ export default async function MiVentaPage() {
           de eso el sorteo no tiene número ganador y decir otra cosa sería
           inventar. */}
       <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
-        <table className="w-full border-collapse">
+        {/* El desplazamiento horizontal vive en la tabla, no en la página. */}
+        <div className="overflow-x-auto">
+        <table className="w-full border-collapse min-w-[420px]">
           <thead>
             <tr className="bg-tinte">
               {["SORTEO", "ESTADO", "VENDIDO", "COMISIÓN", "PREMIOS"].map((h, i) => (
@@ -96,7 +111,7 @@ export default async function MiVentaPage() {
           <tbody>
             {filas.map((f) => (
               <tr key={f.r_sorteo_id} className="border-t border-fondo">
-                <td className="px-4 py-[11px] text-tabla font-medium">{f.r_hora}</td>
+                <td className="px-4 py-[11px] text-tabla font-medium">{hora12(f.r_hora)}</td>
                 <td className="px-4 py-[11px] text-meta text-secundario">
                   {f.r_estado === "liquidado"
                     ? `ganó el ${pad2(f.r_ganador ?? 0)}`
@@ -113,9 +128,8 @@ export default async function MiVentaPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
-
-      <Vender vendedorFila={vendedorFila} vendedorId={vendedorId} />
 
       {/* Sus tickets del día, para poder responder «¿me registró usted esto?». */}
       {(tickets?.length ?? 0) > 0 && (
@@ -123,7 +137,8 @@ export default async function MiVentaPage() {
           <div className="px-[22px] py-4 border-b border-fondo">
             <h2 className="text-h2 font-semibold tracking-sutil m-0">Mis tickets de hoy</h2>
           </div>
-          <table className="w-full border-collapse">
+          <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[560px]">
             <thead>
               <tr className="bg-tinte">
                 {["HORA", "FOLIO", "SORTEO", "LÍNEAS", "TOTAL", "PREMIO"].map((h, i) => (
@@ -140,10 +155,10 @@ export default async function MiVentaPage() {
               {(tickets ?? []).map((t) => (
                 <tr key={t.r_folio} className="border-t border-fondo">
                   <td className="px-4 py-[10px] text-meta text-secundario">
-                    {horaHonduras(t.r_creado_en)}
+                    {horaHonduras12(t.r_creado_en)}
                   </td>
                   <td className="px-4 py-[10px] text-meta">{t.r_folio}</td>
-                  <td className="px-4 py-[10px] text-meta text-secundario">{t.r_hora}</td>
+                  <td className="px-4 py-[10px] text-meta text-secundario">{hora12(t.r_hora)}</td>
                   <td className="px-4 py-[10px] text-tabla text-right">{t.r_lineas}</td>
                   <td className="px-4 py-[10px] text-tabla text-right">
                     {t.r_anulado ? <s>{fmt(Number(t.r_total))}</s> : fmt(Number(t.r_total))}
@@ -155,9 +170,11 @@ export default async function MiVentaPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -173,7 +190,7 @@ async function Vender({
 
   const { data: sorteo } = await supabase
     .from("sorteo")
-    .select("id, hora, hora_cierre")
+    .select("id, fecha, hora, hora_cierre, estado")
     .eq("estado", "abierto")
     .gt("hora_cierre", new Date().toISOString())
     .order("hora_cierre")
@@ -245,8 +262,17 @@ async function Vender({
     }
   }
 
+  const sorteoPos: SorteoPos = {
+    id: sorteo.id,
+    fecha: sorteo.fecha,
+    hora: sorteo.hora,
+    hora_cierre: sorteo.hora_cierre,
+    estado: sorteo.estado,
+  };
+
   const datos: DatosPos = {
-    sorteo: { id: sorteo.id, hora: sorteo.hora, hora_cierre: sorteo.hora_cierre },
+    sorteo: sorteoPos,
+    sorteos: [sorteoPos],
     vendedores,
     disponibleCasa,
     vendidoPropio,

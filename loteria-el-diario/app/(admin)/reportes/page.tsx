@@ -2,7 +2,7 @@ import { FiltrosReporte, type Preset } from "@/components/reportes/filtros";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fmt, hoyHonduras, iso, mesNombre, pad2 } from "@/lib/format";
+import { fmt, hora12, hoyHonduras, iso, mesNombre, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 /** El prototipo enseña 80 filas y calcula los subtotales sobre todo el filtro. */
@@ -148,7 +148,7 @@ export default async function ReportesPage(props: PageProps<"/reportes">) {
                           {f.vendedor}
                         </td>
                         <td className="border-b border-fondo py-[11px] px-3 text-secundario">
-                          {f.hora}
+                          {hora12(f.hora)}
                         </td>
                         <td className="border-b border-fondo py-[11px] px-3">
                           {liq && f.numero_ganador !== null ? (

@@ -2,14 +2,8 @@ import { redirect } from "next/navigation";
 
 import { BarraLateral } from "@/components/shell/barra-lateral";
 import { iniciales } from "@/lib/format";
-import { inicioSegunRol, sesionActual } from "@/lib/sesion";
-
-const ETIQUETA_ROL: Record<string, string> = {
-  administrador: "Administrador",
-  auditor: "Auditor",
-  digitador: "Digitador",
-  vendedor: "Vendedor",
-};
+import { inicioSegunRol } from "@/lib/sesion";
+import { sesionVigente } from "@/lib/sesion-vigente";
 
 /**
  * Shell administrativo: barra lateral fija de 262px y contenido con su propio
@@ -17,7 +11,9 @@ const ETIQUETA_ROL: Record<string, string> = {
  * hacen scroll por separado.
  */
 export default async function AdminLayout({ children }: LayoutProps<"/">) {
-  const sesion = await sesionActual();
+  // `sesionVigente` y no `sesionActual`: la cookie va firmada pero no se puede
+  // revocar, así que una cuenta desactivada seguiría entrando hasta doce horas.
+  const sesion = await sesionVigente();
 
   // El proxy ya redirige sin sesión; esto cubre el caso de que alguien llegue
   // por otra vía y evita renderizar el shell sin identidad. La comprobación se
@@ -33,7 +29,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/">) {
     <div className="flex h-screen overflow-hidden">
       <BarraLateral
         nombre={sesion.nombre}
-        rol={ETIQUETA_ROL[sesion.rol] ?? sesion.rol}
+        rol={sesion.rol}
         iniciales={iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}
       />
       <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>

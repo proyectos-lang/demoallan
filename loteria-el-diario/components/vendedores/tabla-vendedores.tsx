@@ -1,15 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
-import { Modal } from "@/components/ui/modal";
+import { Modal, CampoModal, CLASE_CONTROL_MODAL } from "@/components/ui/modal";
 import { ModalNuevoVendedor } from "@/components/vendedores/modal-nuevo-vendedor";
 import { fmt, iniciales } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { guardarParametros, type Cambio } from "@/app/(admin)/vendedores/acciones";
 import { crearAcceso, restablecerAcceso } from "@/app/(admin)/vendedores/acceso";
+import {
+  eliminarVendedor,
+  inactivarVendedor,
+  reactivarVendedor,
+} from "@/app/(admin)/vendedores/estado";
 
 export type FilaVendedor = {
   id: string;
@@ -20,6 +26,9 @@ export type FilaVendedor = {
   correo: string | null;
   zona: string;
   color: string;
+  activo: boolean;
+  /** Baja definitiva. Sigue en el histórico; sale del padrón. */
+  eliminado: boolean;
   /** Usuario de acceso, o `null` si todavía no tiene cuenta. */
   usuario: string | null;
   /** Porcentaje ya convertido para mostrar: 12.5, no 0.125. */
@@ -27,6 +36,9 @@ export type FilaVendedor = {
   factor_pago: number;
   tope_por_numero: number;
 };
+
+/** Qué se le puede pedir a una fila según cómo esté. */
+type Baja = { fila: FilaVendedor; accion: "inactivar" | "eliminar" | "reactivar" };
 
 type Campo = "tope_por_numero" | "comision" | "factor_pago";
 
@@ -37,7 +49,23 @@ function sanear(valor: string): string {
   return partes.length > 2 ? `${partes[0]}.${partes.slice(1).join("")}` : limpio;
 }
 
-export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]; limiteGlobal: number }) {
+export function TablaVendedores({
+  filas,
+  limiteGlobal,
+  verBajas,
+}: {
+  filas: FilaVendedor[];
+  limiteGlobal: number;
+  verBajas: boolean;
+}) {
+  const router = useRouter();
+  // La confirmación de baja va en modal y no en `confirm()`: eliminar es
+  // irreversible y hay que poder explicar qué se conserva antes de pedirla.
+  const [baja, setBaja] = useState<Baja | null>(null);
+  const [codigoTecleado, setCodigoTecleado] = useState("");
+  const [errorBaja, setErrorBaja] = useState("");
+  const [cambiandoEstado, iniciarEstado] = useTransition();
+
   // Buffer de edición: sólo guarda lo que el usuario tocó, indexado por
   // `${id}:${campo}`. Lo que no está aquí se lee de la fila original.
   const [borrador, setBorrador] = useState<Record<string, string>>({});
@@ -68,6 +96,37 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
       }
       setCredenciales({ nombre: fila.nombre, usuario: r.usuario, contrasena: r.contrasena });
       setAviso({ texto: "", tipo: "neutro" });
+    });
+  };
+
+  const abrirBaja = (fila: FilaVendedor, accion: Baja["accion"]) => {
+    setBaja({ fila, accion });
+    setCodigoTecleado("");
+    setErrorBaja("");
+  };
+
+  const confirmarBaja = () => {
+    if (!baja) return;
+    setErrorBaja("");
+
+    iniciarEstado(async () => {
+      const r =
+        baja.accion === "inactivar"
+          ? await inactivarVendedor(baja.fila.id)
+          : baja.accion === "reactivar"
+            ? await reactivarVendedor(baja.fila.id)
+            : await eliminarVendedor(baja.fila.id, codigoTecleado);
+
+      if (!r.ok) {
+        setErrorBaja(r.mensaje);
+        return;
+      }
+
+      setBaja(null);
+      setAviso({ texto: r.mensaje, tipo: "ok" });
+      // La fila pudo salir del padrón visible: se recarga desde el servidor en
+      // vez de adivinar aquí cómo queda la lista.
+      router.refresh();
     });
   };
 
@@ -133,6 +192,90 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
           if (acceso) setCredenciales(acceso);
         }}
       />
+
+      {/* Baja, alta y borrado. Eliminar pide redigitar el código, como la
+          captura del número ganador pide redigitar el número: es irreversible
+          y no debe salir de un clic descuidado. */}
+      <Modal
+        abierto={baja !== null}
+        eyebrow={baja?.fila.codigo}
+        titulo={
+          baja?.accion === "eliminar"
+            ? "Eliminar vendedor"
+            : baja?.accion === "reactivar"
+              ? "Reactivar vendedor"
+              : "Inactivar vendedor"
+        }
+        onCerrar={() => setBaja(null)}
+        error={errorBaja}
+        ancho={520}
+        pie={
+          <>
+            <Boton variante="ghost" onClick={() => setBaja(null)} disabled={cambiandoEstado}>
+              Cancelar
+            </Boton>
+            <Boton
+              variante={baja?.accion === "eliminar" ? "destructivo" : "primario"}
+              onClick={confirmarBaja}
+              disabled={
+                cambiandoEstado ||
+                (baja?.accion === "eliminar" &&
+                  codigoTecleado.trim().toUpperCase() !== baja.fila.codigo.toUpperCase())
+              }
+            >
+              {cambiandoEstado
+                ? "Aplicando…"
+                : baja?.accion === "eliminar"
+                  ? "Eliminar"
+                  : baja?.accion === "reactivar"
+                    ? "Reactivar"
+                    : "Inactivar"}
+            </Boton>
+          </>
+        }
+      >
+        {baja && (
+          <div className="flex flex-col gap-4">
+            <p className="text-base text-cuerpo leading-[1.6] m-0">
+              {baja.accion === "reactivar" ? (
+                <>
+                  <strong>{baja.fila.nombre}</strong> vuelve al padrón: podrá entrar y
+                  registrar ventas otra vez.
+                </>
+              ) : baja.accion === "inactivar" ? (
+                <>
+                  <strong>{baja.fila.nombre}</strong> deja de vender y su sesión se cierra en
+                  la siguiente pantalla que abra. Es reversible: se puede reactivar cuando
+                  haga falta.
+                </>
+              ) : (
+                <>
+                  <strong>{baja.fila.nombre}</strong> sale del padrón para siempre y no se
+                  puede reactivar.
+                </>
+              )}
+            </p>
+
+            <p className="text-meta text-secundario leading-[1.55] m-0 bg-panel border border-borde rounded-card px-4 py-3">
+              No se borra nada del histórico: sus tickets, sus líneas y sus liquidaciones
+              siguen contando en reportes y en el tablero. Si tiene semanas sin pagar,
+              seguirá apareciendo en la liquidación semanal hasta que se le liquiden.
+            </p>
+
+            {baja.accion === "eliminar" && (
+              <CampoModal etiqueta={`Escriba ${baja.fila.codigo} para confirmar`} anchoCompleto>
+                <input
+                  value={codigoTecleado}
+                  onChange={(e) => setCodigoTecleado(e.target.value)}
+                  placeholder={baja.fila.codigo}
+                  autoFocus
+                  className={CLASE_CONTROL_MODAL}
+                />
+              </CampoModal>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Las credenciales se enseñan UNA vez. La contraseña no se guarda en
           claro en ninguna parte —en la base sólo hay su bcrypt—, así que si se
@@ -209,6 +352,12 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
             <Plus size={15} strokeWidth={2.2} absoluteStrokeWidth />
             Nuevo vendedor
           </Boton>
+          <Boton
+            variante="ghost"
+            onClick={() => router.push(verBajas ? "/vendedores" : "/vendedores?bajas=1")}
+          >
+            {verBajas ? "Ocultar bajas" : "Ver bajas"}
+          </Boton>
           <Boton variante="ghost" onClick={descartar} disabled={!sucio || guardando}>
             Descartar
           </Boton>
@@ -232,13 +381,14 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
                   "FACTOR DE PAGO",
                   "EXPOSICIÓN MÁX. POR NÚMERO",
                   "ACCESO",
+                  "ESTADO",
                 ].map((th, i) => (
                   <th
                     key={th}
                     className={cn(
                       "text-th font-semibold tracking-th text-secundario border-b border-riel py-[10px]",
                       i >= 3 && i <= 6 ? "text-right" : "text-left",
-                      i === 0 ? "pl-4 pr-3" : i === 7 ? "pl-3 pr-4" : "px-3",
+                      i === 0 ? "pl-4 pr-3" : i === 8 ? "pl-3 pr-4" : "px-3",
                     )}
                   >
                     {th}
@@ -303,7 +453,7 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
                     <span className="block font-semibold">{exposicion(fila)}</span>
                     <span className="block text-label text-mudo">tope × factor</span>
                   </td>
-                  <td className="border-b border-fondo py-[11px] pl-3 pr-4">
+                  <td className="border-b border-fondo py-[11px] px-3">
                     {fila.usuario ? (
                       <span className="block">
                         <span className="block text-label font-medium">{fila.usuario}</span>
@@ -325,6 +475,40 @@ export function TablaVendedores({ filas, limiteGlobal }: { filas: FilaVendedor[]
                       >
                         crear acceso
                       </button>
+                    )}
+                  </td>
+                  <td className="border-b border-fondo py-[11px] pl-3 pr-4">
+                    <span
+                      className={cn(
+                        "inline-block px-[9px] py-[2px] rounded-chip text-th font-semibold",
+                        fila.eliminado
+                          ? "bg-negativo-fondo text-negativo"
+                          : fila.activo
+                            ? "bg-positivo-fondo text-positivo-texto"
+                            : "bg-chip text-cuerpo",
+                      )}
+                    >
+                      {fila.eliminado ? "ELIMINADO" : fila.activo ? "ACTIVO" : "INACTIVO"}
+                    </span>
+                    {!fila.eliminado && (
+                      <span className="flex gap-[10px] mt-[5px]">
+                        <button
+                          type="button"
+                          onClick={() => abrirBaja(fila, fila.activo ? "inactivar" : "reactivar")}
+                          disabled={cambiandoEstado}
+                          className="text-label text-acento font-medium disabled:text-mudo"
+                        >
+                          {fila.activo ? "inactivar" : "reactivar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => abrirBaja(fila, "eliminar")}
+                          disabled={cambiandoEstado}
+                          className="text-label text-negativo font-medium disabled:text-mudo"
+                        >
+                          eliminar
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>

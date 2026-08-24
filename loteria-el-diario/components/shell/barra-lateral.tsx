@@ -7,6 +7,7 @@ import {
   FlaskConical,
   LayoutDashboard,
   MapPin,
+  Receipt,
   ScanText,
   SlidersHorizontal,
   Smartphone,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import type { RolUsuario } from "@/lib/supabase/tipos";
 
 type Item = {
   href: string;
@@ -29,6 +31,15 @@ type Item = {
    * cuatro de ellos no llegaban a 3:1 aquí.
    */
   color: string;
+  /**
+   * Quién ve el item. Sin `roles`, lo ve cualquier perfil administrativo, que
+   * es como se comportaban las nueve secciones originales.
+   *
+   * El recorte de aquí es de presentación: quita el enlace de la vista, no
+   * cierra la ruta. Quien la cierra es `permitida()` en `proxy.ts`, y la
+   * guarda de la propia página. Las tres cosas tienen que decir lo mismo.
+   */
+  roles?: RolUsuario[];
 };
 
 const SECCIONES: { titulo: string; items: Item[] }[] = [
@@ -38,6 +49,15 @@ const SECCIONES: { titulo: string; items: Item[] }[] = [
       { href: "/tablero", etiqueta: "Tablero de control", Icono: LayoutDashboard, color: "var(--color-nav-i-tablero)" },
       { href: "/punto-de-venta", etiqueta: "Punto de venta", Icono: Smartphone, color: "var(--color-nav-i-pos)" },
       { href: "/resultados", etiqueta: "Sorteos y resultados", Icono: Trophy, color: "var(--color-nav-i-sorteos)" },
+      {
+        href: "/liquidacion",
+        etiqueta: "Liquidación semanal",
+        Icono: Receipt,
+        color: "var(--color-nav-i-liquidacion)",
+        // Aquí se cierran cuentas y se entrega dinero: no es una pantalla de
+        // consulta y no la abre ni el auditor ni el digitador.
+        roles: ["administrador"],
+      },
       { href: "/digitalizacion", etiqueta: "Digitalización IA", Icono: ScanText, color: "var(--color-nav-i-ocr)" },
     ],
   },
@@ -58,16 +78,30 @@ const SECCIONES: { titulo: string; items: Item[] }[] = [
   },
 ];
 
+const ETIQUETA_ROL: Record<RolUsuario, string> = {
+  administrador: "Administrador",
+  auditor: "Auditor",
+  digitador: "Digitador",
+  vendedor: "Vendedor",
+};
+
 export function BarraLateral({
   nombre,
   rol,
   iniciales,
 }: {
   nombre: string;
-  rol: string;
+  /** El rol crudo, no la etiqueta: la barra necesita decidir con él. */
+  rol: RolUsuario;
   iniciales: string;
 }) {
   const ruta = usePathname();
+
+  // Se recorta antes de pintar para no dejar secciones vacías con su título.
+  const secciones = SECCIONES.map((s) => ({
+    ...s,
+    items: s.items.filter((i) => !i.roles || i.roles.includes(rol)),
+  })).filter((s) => s.items.length > 0);
 
   return (
     <aside className="w-[262px] flex-none bg-nav-fondo flex flex-col overflow-y-auto">
@@ -84,7 +118,7 @@ export function BarraLateral({
         </span>
       </div>
 
-      {SECCIONES.map((seccion, i) => (
+      {secciones.map((seccion, i) => (
         <div key={seccion.titulo}>
           <div
             className={cn(
@@ -156,7 +190,7 @@ export function BarraLateral({
         </span>
         <span className="block min-w-0">
           <span className="block text-meta font-medium truncate text-nav-titulo">{nombre}</span>
-          <span className="block text-th truncate text-nav-seccion">{rol}</span>
+          <span className="block text-th truncate text-nav-seccion">{ETIQUETA_ROL[rol] ?? rol}</span>
         </span>
       </div>
     </aside>

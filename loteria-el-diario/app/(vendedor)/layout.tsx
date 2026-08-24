@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { AlignLeft, KeyRound, LogOut } from "lucide-react";
 
 import { salir } from "@/app/login/acciones";
+import { PestanasVendedor } from "@/components/vendedor/pestanas";
 import { iniciales } from "@/lib/format";
-import { sesionActual } from "@/lib/sesion";
+import { sesionVigente } from "@/lib/sesion-vigente";
 
 /**
  * Shell del vendedor.
@@ -14,7 +15,10 @@ import { sesionActual } from "@/lib/sesion";
  * es todo lo que necesita, y deja la altura libre para el teclado numérico.
  */
 export default async function VendedorLayout({ children }: LayoutProps<"/">) {
-  const sesion = await sesionActual();
+  // Si al vendedor lo inactivaron o lo eliminaron mientras tenía la pantalla
+  // abierta, aquí es donde se entera: `sesionVigente` borra la cookie y la
+  // siguiente navegación cae en /login.
+  const sesion = await sesionVigente();
 
   if (!sesion) redirect("/login");
 
@@ -24,7 +28,16 @@ export default async function VendedorLayout({ children }: LayoutProps<"/">) {
   if (!sesion.vendedor_id) redirect("/login");
 
   return (
-    <div className="min-h-screen flex flex-col">
+    /*
+     * `100dvh` y no `100vh`: en un móvil la barra de direcciones se recoge y
+     * se despliega, y con `vh` el pie del punto de venta —el subtotal y el
+     * botón de confirmar— quedaba debajo de ella.
+     *
+     * `overflow-x-hidden` porque el shell administrativo lo tiene y éste no:
+     * cualquier ancho fijo que se pase de los 360px de un teléfono hacía que
+     * la página se pudiera arrastrar en horizontal.
+     */
+    <div className="min-h-[100dvh] flex flex-col overflow-x-hidden">
       <header className="flex-none bg-nav-fondo px-4 py-3 flex items-center gap-3">
         <span
           className="w-8 h-8 flex-none rounded-banner flex items-center justify-center"
@@ -63,7 +76,9 @@ export default async function VendedorLayout({ children }: LayoutProps<"/">) {
         </span>
       </header>
 
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <PestanasVendedor />
+
+      <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">{children}</main>
     </div>
   );
 }

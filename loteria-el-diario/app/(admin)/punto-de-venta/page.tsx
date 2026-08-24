@@ -1,26 +1,67 @@
-import { PuntoDeVenta, type DatosPos, type VendedorPos } from "@/components/pos/punto-de-venta";
+import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
+import { fechaHonduras } from "@/lib/format";
+import type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
+import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-export default async function PuntoDeVentaPage() {
+export default async function PuntoDeVentaPage({
+  searchParams,
+}: PageProps<"/punto-de-venta">) {
   const supabase = await crearClienteServidor();
+  const sesion = await sesionActual();
 
-  // El sorteo contra el que se vende ahora: el abierto que cierra antes, pero
-  // sólo si su cierre sigue en el futuro.
-  //
-  // El filtro por hora no sobra: hoy nada pasa un sorteo de `abierto` a
-  // `cerrado` al llegar la hora (eso será un proceso automático). Sin él, la
-  // pantalla ofrecería vender en un sorteo cuya venta ya cerró, y el rechazo
-  // aparecería recién al confirmar el ticket.
-  const { data: sorteo } = await supabase
+  // Sólo administración puede registrar con la venta ya cerrada. Se decide
+  // aquí, del rol de la sesión, y se vuelve a decidir en la acción: lo que
+  // viaja al navegador es para pintar, no para autorizar.
+  const puedeForzar = sesion?.rol === "administrador";
+
+  const params = await searchParams;
+  const elegido = typeof params.sorteo === "string" ? params.sorteo : null;
+
+  /*
+   * Qué sorteos se ofrecen.
+   *
+   * Para vendedor y digitador, el de siempre: el abierto que cierra antes, y
+   * sólo si su cierre sigue en el futuro. Ofrecerles uno cuya venta ya cerró
+   * sería dejar que teclearan un ticket entero para descubrir el rechazo al
+   * confirmar.
+   *
+   * Para administración, los tres del día, con su estado. Es lo que hace
+   * posible registrar la apuesta rezagada de las once pasadas las once.
+   */
+  const consulta = supabase
     .from("sorteo")
-    .select("id, hora, hora_cierre")
-    .eq("estado", "abierto")
-    .gt("hora_cierre", new Date().toISOString())
-    .order("hora_cierre")
-    .limit(1)
-    .maybeSingle();
+    .select("id, fecha, hora, hora_cierre, estado")
+    .order("hora_cierre");
+
+  const { data: crudos } = puedeForzar
+    ? await consulta.eq("fecha", fechaHonduras()).in("estado", ["abierto", "cerrado", "liquidado"])
+    : await consulta.eq("estado", "abierto").gt("hora_cierre", new Date().toISOString()).limit(1);
+
+  const sorteos: SorteoPos[] = (crudos ?? []).map((s) => ({
+    id: s.id,
+    fecha: s.fecha,
+    hora: s.hora,
+    hora_cierre: s.hora_cierre,
+    estado: s.estado,
+  }));
+
+  /*
+   * Por omisión, el que está vendiendo; si no hay ninguno abierto, el primero
+   * de la lista.
+   *
+   * Se mira el estado y no la hora. Entre que la venta cierra y que el ciclo
+   * marca el sorteo como `cerrado` pasan hasta cinco minutos, y en esa franja
+   * lo que un administrador quiere delante es justamente ese sorteo: es donde
+   * cae la apuesta rezagada. Comparar contra la hora aquí, además, sería una
+   * lectura impura dentro del render.
+   */
+  const sorteo =
+    sorteos.find((s) => s.id === elegido) ??
+    sorteos.find((s) => s.estado === "abierto") ??
+    sorteos[0];
 
   if (!sorteo) {
     return (
@@ -30,9 +71,9 @@ export default async function PuntoDeVentaPage() {
           subtitulo="Captura de tickets con validación de cupo en vivo."
         />
         <TarjetaNota>
-          No hay ningún sorteo abierto en este momento, así que no se puede vender. Los sorteos
-          del día se programan con <code>node supabase/programar-dia.mjs</code>; más adelante lo
-          hará un proceso automático a la hora de apertura.
+          No hay ningún sorteo abierto en este momento, así que no se puede vender. El ciclo
+          automático programa y abre los del día cada cinco minutos; si hace falta forzarlo,{" "}
+          <code>node supabase/programar-dia.mjs</code>.
         </TarjetaNota>
       </Pagina>
     );
@@ -86,14 +127,20 @@ export default async function PuntoDeVentaPage() {
   }
 
   const datos: DatosPos = {
-    sorteo: { id: sorteo.id, hora: sorteo.hora, hora_cierre: sorteo.hora_cierre },
+    sorteo,
+    sorteos,
     vendedores,
     disponibleCasa,
     vendidoPropio,
+    puedeForzar,
   };
 
   return (
     <Pagina>
+      <EncabezadoPagina
+        titulo="Punto de venta"
+        subtitulo="Captura de tickets con validación de cupo en vivo. Registrar número y monto debe costar el mínimo de toques posible."
+      />
       <PuntoDeVenta datos={datos} />
     </Pagina>
   );

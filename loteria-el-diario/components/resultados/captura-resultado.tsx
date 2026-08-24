@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Boton } from "@/components/ui/boton";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/cn";
-import { fmt, fmtK, pad2 } from "@/lib/format";
+import { fmt, fmtK, hora12, pad2 } from "@/lib/format";
 import {
   calcularImpacto,
   cerrarVenta,
@@ -92,7 +92,7 @@ export function CapturaResultado({
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-h2 font-semibold tracking-sutil m-0">
-              Sorteo {sorteo.hora} · {sorteo.fechaLarga}
+              Sorteo {hora12(sorteo.hora)} · {sorteo.fechaLarga}
             </h2>
             <p className="text-micro text-secundario mt-[5px] mb-0">
               {sorteo.tickets} tickets · venta {fmt(sorteo.venta)}

@@ -6,7 +6,7 @@ import { Check, Search } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
-import { iso } from "@/lib/format";
+import { hora12, iso } from "@/lib/format";
 
 export type OpcionVendedor = {
   id: string;
@@ -171,9 +171,9 @@ export function FiltrosControl({
           <div className="flex gap-[6px]">
             {[
               { v: "", e: "Todos" },
-              { v: "11:00", e: "11:00" },
-              { v: "15:00", e: "15:00" },
-              { v: "20:00", e: "20:00" },
+              { v: "11:00", e: hora12("11:00") },
+              { v: "15:00", e: hora12("15:00") },
+              { v: "20:00", e: hora12("20:00") },
             ].map((o) => (
               <button
                 key={o.v || "todos"}

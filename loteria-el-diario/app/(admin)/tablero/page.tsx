@@ -7,7 +7,7 @@ import { BarraVendedor, TarjetaKpi } from "@/components/tablero/piezas";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaHonduras, fechaLargaSinDia, fmt, fmtK, iso, mesNombre, pad2 } from "@/lib/format";
+import { fechaHonduras, fechaLargaSinDia, fmt, fmtK, hora12, iso, mesNombre, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const ETIQUETA_ESTADO: Record<string, string> = {
@@ -396,7 +396,7 @@ async function ResumenDia({ fecha }: { fecha: string }) {
                 <Tarjeta key={s.sorteo_id} padding="16px 18px">
                   <div className="flex items-start justify-between">
                     <span className="block">
-                      <span className="block text-h2 font-semibold tracking-sutil">{s.hora}</span>
+                      <span className="block text-h2 font-semibold tracking-sutil">{hora12(s.hora)}</span>
                       <span className="block text-label text-secundario mt-[2px]">
                         {ETIQUETA_ESTADO[s.estado]}
                       </span>
@@ -532,7 +532,7 @@ async function ResumenDia({ fecha }: { fecha: string }) {
                           {d.nombre}
                         </td>
                         <td className="border-b border-fondo py-[11px] px-3 text-secundario">
-                          {d.hora}
+                          {hora12(d.hora)}
                         </td>
                         <td className="border-b border-fondo py-[11px] px-3 text-right">
                           {fmt(Number(d.venta), false)}

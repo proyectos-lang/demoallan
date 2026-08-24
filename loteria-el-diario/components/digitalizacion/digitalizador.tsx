@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
-import { fmt, pad2 } from "@/lib/format";
+import { fmt, hora12, pad2 } from "@/lib/format";
 import {
   confirmarLote,
   digitalizarHoja,
@@ -187,7 +187,7 @@ export function Digitalizador({
             >
               {sorteos.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.fecha} · {s.hora}
+                  {s.fecha} · {hora12(s.hora)}
                 </option>
               ))}
             </select>

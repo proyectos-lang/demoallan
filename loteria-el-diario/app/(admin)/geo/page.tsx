@@ -4,7 +4,7 @@ import type { Punto } from "@/components/geo/mapa";
 import { PanelGeo, type OpcionVendedor, type Zona } from "@/components/geo/panel-geo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras, fechaLargaSinDia, horaHonduras, iso } from "@/lib/format";
+import { fechaHonduras, fechaLargaSinDia, horaHonduras12, iso } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export default async function GeoPage(props: PageProps<"/geo">) {
@@ -45,7 +45,7 @@ export default async function GeoPage(props: PageProps<"/geo">) {
       total: Number(t.r_total),
       lineas: t.r_lineas,
       hora: t.r_hora,
-      reloj: horaHonduras(t.r_creado_en),
+      reloj: horaHonduras12(t.r_creado_en),
       vendedor: v?.nombre ?? "—",
       zona: v?.zona ?? "—",
       color: v?.color ?? "#2563eb",

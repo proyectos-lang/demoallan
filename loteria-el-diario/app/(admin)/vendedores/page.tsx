@@ -8,8 +8,13 @@ import { crearClienteServidor } from "@/lib/supabase/server";
 // de referencia del prototipo.
 const LIMITE_GLOBAL_REFERENCIA = 6000;
 
-export default async function VendedoresPage() {
+export default async function VendedoresPage({ searchParams }: PageProps<"/vendedores">) {
   const supabase = await crearClienteServidor();
+
+  // Los de baja se ocultan por omisión: el padrón de trabajo es el de los que
+  // venden. `?bajas=1` los trae de vuelta para poder reactivarlos.
+  const params = await searchParams;
+  const verBajas = params.bajas === "1";
 
   // `!inner` + vigente_hasta is null trae exactamente la fila de parámetros
   // vigente de cada vendedor; las versiones anteriores quedan fuera.
@@ -19,14 +24,19 @@ export default async function VendedoresPage() {
     (accesos ?? []).map((a) => [a.r_vendedor_id, a.r_usuario]),
   );
 
-  const { data, error } = await supabase
+  // Ya no se filtra por `activo`: la tabla necesita mostrar el estado y ofrecer
+  // reactivar, y para eso los inactivos tienen que llegar hasta aquí.
+  let consulta = supabase
     .from("vendedor")
     .select(
-      "id, codigo, nombre, identidad, telefono, correo, zona, color, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
+      "id, codigo, nombre, identidad, telefono, correo, zona, color, activo, eliminado_en, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
     )
-    .eq("activo", true)
     .is("parametro_vendedor.vigente_hasta", null)
     .order("codigo");
+
+  if (!verBajas) consulta = consulta.eq("activo", true);
+
+  const { data, error } = await consulta;
 
   if (error) {
     return (
@@ -49,6 +59,8 @@ export default async function VendedoresPage() {
       correo: v.correo,
       zona: v.zona,
       color: v.color,
+      activo: v.activo,
+      eliminado: v.eliminado_en !== null,
       usuario: usuarioPorVendedor.get(v.id) ?? null,
       // La base guarda fracción; aquí se muestra porcentaje.
       comision: Number((Number(p.comision) * 100).toFixed(4)),
@@ -59,7 +71,11 @@ export default async function VendedoresPage() {
 
   return (
     <Pagina>
-      <TablaVendedores filas={filas} limiteGlobal={LIMITE_GLOBAL_REFERENCIA} />
+      <TablaVendedores
+        filas={filas}
+        limiteGlobal={LIMITE_GLOBAL_REFERENCIA}
+        verBajas={verBajas}
+      />
     </Pagina>
   );
 }

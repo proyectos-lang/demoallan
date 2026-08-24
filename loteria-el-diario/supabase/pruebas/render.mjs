@@ -1,13 +1,26 @@
 /**
  * Renderizado real de las pantallas, con sesión.
  *
- * Inicia sesión, arma la cookie con el formato de @supabase/ssr y pide cada
- * página por HTTP para comprobar que el servidor las sirve completas. Cubre lo
- * que ni el typecheck ni el build ven: errores de consulta en tiempo de
- * ejecución y ramas que sólo aparecen con datos.
+ * Inicia sesión, arma la cookie y pide cada página por HTTP para comprobar que
+ * el servidor las sirve completas. Cubre lo que ni el typecheck ni el build
+ * ven: errores de consulta en tiempo de ejecución y ramas que sólo aparecen
+ * con datos.
  *
- *     BASE=http://localhost:3001 PW=<clave-admin> node supabase/pruebas/render.mjs
+ *     BASE=http://localhost:3000 USUARIO=admin PW=<clave> node supabase/pruebas/render.mjs
+ *
+ * LA SESIÓN YA NO ES DE SUPABASE AUTH
+ * -----------------------------------
+ * Este guion iniciaba sesión con `signInWithPassword` y armaba una cookie
+ * `sb-<ref>-auth-token` con el formato de @supabase/ssr. Desde la migración
+ * 0024 los usuarios viven en `allan.usuario` y la sesión es una cookie propia,
+ * `diario_sesion`, firmada con HMAC por el servidor. La cookie vieja ya no la
+ * lee nadie: el proxy la ignoraba y las nueve rutas contestaban un 307 hacia
+ * /login, así que el guion no probaba nada aunque terminara.
+ *
+ * Ahora se autentica con `fn_autenticar` —la misma función que usa la pantalla
+ * de acceso— y firma la cookie replicando lo que hace `lib/sesion.ts`.
  */
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -19,45 +32,68 @@ const env = Object.fromEntries(
 );
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
+const USUARIO = process.env.USUARIO ?? "admin";
 const CLAVE = process.env.PW;
 if (!CLAVE) {
   console.error("Falta PW=<clave del administrador>");
   process.exit(1);
 }
 
-const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
-const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  db: { schema: "allan" },
   auth: { persistSession: false },
 });
 
-const { data, error } = await sb.auth.signInWithPassword({
-  email: "admin@eldiario.hn",
-  password: CLAVE,
+const { data: cuentas, error } = await sb.rpc("fn_autenticar", {
+  p_usuario: USUARIO,
+  p_contrasena: CLAVE,
 });
+
 if (error) {
   console.error("No se pudo iniciar sesión:", error.message);
   process.exit(1);
 }
+if (!cuentas?.length) {
+  console.error(`Credenciales incorrectas para «${USUARIO}».`);
+  process.exit(1);
+}
+
+const cuenta = cuentas[0];
+if (cuenta.r_rol === "vendedor") {
+  console.error("Este guion recorre pantallas administrativas: use una cuenta que no sea de vendedor.");
+  process.exit(1);
+}
 
 /**
- * @supabase/ssr guarda la sesión como `base64-<json en base64>`, troceada en
- * cookies `.0`, `.1`… cuando pasa del tamaño máximo de una cookie.
+ * La misma firma que `lib/sesion.ts`: cuerpo en base64url, un punto, y el
+ * HMAC-SHA256 del cuerpo. Sin SESION_SECRETO se deriva de la llave de
+ * servicio, exactamente igual que el servidor.
  */
-const valor = "base64-" + Buffer.from(JSON.stringify(data.session)).toString("base64");
-const TROZO = 3180;
-const trozos = [];
-for (let i = 0; i < valor.length; i += TROZO) trozos.push(valor.slice(i, i + TROZO));
+const secreto =
+  env.SESION_SECRETO && env.SESION_SECRETO.length >= 32
+    ? env.SESION_SECRETO
+    : createHmac("sha256", env.SUPABASE_SERVICE_ROLE_KEY).update("sesion:diario").digest("base64url");
 
-const cookie =
-  trozos.length === 1
-    ? `sb-${ref}-auth-token=${trozos[0]}`
-    : trozos.map((t, i) => `sb-${ref}-auth-token.${i}=${t}`).join("; ");
+const sesion = {
+  id: cuenta.r_id,
+  nombre: cuenta.r_nombre,
+  rol: cuenta.r_rol,
+  vendedor_id: cuenta.r_vendedor_id,
+  exp: Math.floor(Date.now() / 1000) + 3600,
+};
+
+const cuerpo = Buffer.from(JSON.stringify(sesion)).toString("base64url");
+const firma = createHmac("sha256", secreto).update(cuerpo).digest("base64url");
+const cookie = `diario_sesion=${cuerpo}.${firma}`;
+
+console.log(`Sesión de ${cuenta.r_nombre} (${cuenta.r_rol}) contra ${BASE}\n`);
 
 const RUTAS = [
   ["/tablero", ["Tablero"]],
   ["/punto-de-venta", ["Punto de venta"]],
   ["/resultados", ["Sorteos y resultados"]],
   ["/vendedores", ["Vendedores y límites", "María F. Cruz", "EXPOSICIÓN"]],
+  ["/liquidacion", ["Liquidación semanal"]],
   ["/reportes", ["Reportes"]],
   ["/control", ["Control de vendedores"]],
   ["/geo", ["Geo-referenciación"]],

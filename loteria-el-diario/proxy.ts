@@ -24,14 +24,35 @@ function esPublica(ruta: string): boolean {
   return ruta === "/r" || ruta.startsWith("/r/") || ruta.startsWith("/login");
 }
 
+/**
+ * Rutas que sólo abre un administrador.
+ *
+ * Hasta ahora el único recorte era vendedor contra el resto: auditor,
+ * digitador y administrador veían las mismas nueve pantallas. La liquidación
+ * semanal es la primera que no es de consulta —ahí se cierra el pago con el
+ * vendedor— y por eso estrena la lista.
+ */
+const SOLO_ADMINISTRADOR = ["/liquidacion"];
+
 /** Lo que puede tocar cada rol. Un vendedor sólo ve lo suyo. */
 function permitida(ruta: string, rol: string): boolean {
   if (rol === "vendedor") {
-    return ruta.startsWith("/mi-venta") || ruta.startsWith("/clave");
+    return (
+      ruta.startsWith("/mi-venta") ||
+      ruta.startsWith("/mi-reporte") ||
+      ruta.startsWith("/clave")
+    );
   }
-  // El resto de perfiles no entra en la pantalla del vendedor, que está atada
-  // a un vendedor concreto y para ellos no significa nada.
-  return !ruta.startsWith("/mi-venta");
+
+  // El resto de perfiles no entra en las pantallas del vendedor, que están
+  // atadas a un vendedor concreto y para ellos no significan nada.
+  if (ruta.startsWith("/mi-venta") || ruta.startsWith("/mi-reporte")) return false;
+
+  if (rol !== "administrador" && SOLO_ADMINISTRADOR.some((r) => ruta.startsWith(r))) {
+    return false;
+  }
+
+  return true;
 }
 
 export async function proxy(request: NextRequest) {

@@ -5,7 +5,7 @@ import {
 } from "@/components/resultados/captura-resultado";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaLargaSinDia, horaHonduras, mesNombre } from "@/lib/format";
+import { fechaLargaSinDia, horaHonduras12, mesNombre } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export default async function ResultadosPage() {
@@ -108,7 +108,7 @@ export default async function ResultadosPage() {
     estado: objetivo.estado as "abierto" | "cerrado",
     venta: Number(r?.venta ?? 0),
     tickets: Number(r?.tickets ?? 0),
-    cierraA: ventaVigente ? horaHonduras(objetivo.hora_cierre) : null,
+    cierraA: ventaVigente ? horaHonduras12(objetivo.hora_cierre) : null,
   };
 
   return (

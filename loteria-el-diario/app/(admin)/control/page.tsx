@@ -7,7 +7,8 @@ import {
   fechaLargaSinDia,
   fmt,
   fmtK,
-  horaHonduras,
+  hora12,
+  horaHonduras12,
   iso,
   pad2,
 } from "@/lib/format";
@@ -445,10 +446,10 @@ async function Bitacora({
                     unSoloDia && "pl-4",
                   )}
                 >
-                  {horaHonduras(l.r_creado_en)}
+                  {horaHonduras12(l.r_creado_en)}
                 </td>
                 <td className="border-b border-fondo py-[10px] px-3 text-secundario">
-                  {l.r_hora}
+                  {hora12(l.r_hora)}
                 </td>
                 <td className="border-b border-fondo py-[10px] px-3 text-label">{l.r_folio}</td>
                 <td className="border-b border-fondo py-[10px] px-3 text-right font-medium">

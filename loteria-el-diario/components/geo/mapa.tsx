@@ -4,7 +4,7 @@ import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaf
 import { useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 
-import { fmt } from "@/lib/format";
+import { fmt, hora12 } from "@/lib/format";
 
 export type Punto = {
   folio: string;
@@ -71,7 +71,7 @@ export default function Mapa({
           <Popup>
             <strong>{p.vendedor}</strong>
             <br />
-            {p.reloj} · sorteo {p.hora}
+            {p.reloj} · sorteo {hora12(p.hora)}
             <br />
             {p.folio} · {p.lineas} {p.lineas === 1 ? "línea" : "líneas"} · {fmt(p.total)}
             <br />

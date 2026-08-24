@@ -76,6 +76,32 @@ export function horaHonduras(fecha: Date | string): string {
   return `${p.hour === "24" ? "00" : p.hour}:${p.minute}`;
 }
 
+/**
+ * `HH:MM` de 24 horas a «h:mm AM».
+ *
+ * La etiqueta del sorteo (`sorteo.hora`) es un enum de texto —`"11:00"`,
+ * `"15:00"`, `"20:00"`— y NO un instante, así que no se puede formatear con
+ * Intl: no hay fecha a la que aplicarle un huso. Se traduce a mano.
+ *
+ * El resultado es «11:00 AM» / «3:00 PM» / «8:00 PM»: sin cero a la izquierda
+ * en la hora, que es como se lee en Honduras, y con el meridiano en mayúsculas
+ * y sin puntos, como en el resto de la interfaz.
+ */
+export function hora12(etiqueta: string): string {
+  const [h, m] = etiqueta.split(":");
+  const hora = Number(h);
+  if (!Number.isFinite(hora)) return etiqueta;
+
+  const meridiano = hora < 12 ? "AM" : "PM";
+  const doce = hora % 12 === 0 ? 12 : hora % 12;
+  return `${doce}:${m ?? "00"} ${meridiano}`;
+}
+
+/** `h:mm AM` en hora de Honduras, a partir de un instante. */
+export function horaHonduras12(fecha: Date | string): string {
+  return hora12(horaHonduras(fecha));
+}
+
 /** Hoy en Honduras, como Date a medianoche local, para aritmética de días. */
 export function hoyHonduras(): Date {
   const [a, m, d] = fechaHonduras().split("-").map(Number);

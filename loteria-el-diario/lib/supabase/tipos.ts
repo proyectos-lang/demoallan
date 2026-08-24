@@ -45,6 +45,8 @@ export type Vendedor = {
   lng: number | null;
   activo: boolean;
   creado_en: string;
+  /** Baja definitiva. Sale del padrón; su historial queda intacto. */
+  eliminado_en: string | null;
 };
 
 /** `comision` es FRACCIÓN (0.125 = 12.5 %), no porcentaje. */
@@ -113,6 +115,8 @@ export type Ticket = {
   anulado_en: string | null;
   anulado_por: string | null;
   motivo_anulacion: string | null;
+  /** Registrado por administración con la venta ya cerrada. */
+  forzado: boolean;
 };
 
 export type Linea = {
@@ -137,6 +141,29 @@ export type Liquidacion = {
   utilidad: number;
   generada_en: string;
   usuario_id: string | null;
+};
+
+/** Un pago cerrado con un vendedor. Lo pagado son sus filas de CorteDetalle. */
+export type CorteVendedor = {
+  id: string;
+  vendedor_id: string;
+  desde: string;
+  hasta: string;
+  sorteos: number;
+  venta: number;
+  comision: number;
+  premios: number;
+  /** venta − comisión − premios. Positivo: el vendedor entrega. */
+  saldo: number;
+  nota: string | null;
+  pagado_en: string;
+  usuario_id: string | null;
+};
+
+/** El `unique` de `liquidacion_id` es lo que impide pagar dos veces un sorteo. */
+export type CorteDetalle = {
+  corte_id: string;
+  liquidacion_id: string;
 };
 
 export type LoteOcr = {
@@ -234,7 +261,7 @@ type Tabla<Fila, Auto extends keyof Fila> = {
 export type Database = {
   allan: {
     Tables: {
-      vendedor: Tabla<Vendedor, "id" | "activo" | "creado_en">;
+      vendedor: Tabla<Vendedor, "id" | "activo" | "creado_en" | "eliminado_en">;
       parametro_vendedor: Tabla<ParametroVendedor, "id" | "vigente_desde" | "vigente_hasta" | "creado_por">;
       sorteo: Tabla<Sorteo, "id" | "estado" | "numero_ganador" | "liquidado_en" | "liquidado_por">;
       cupo_numero: Tabla<CupoNumero, "vendido">;
@@ -244,9 +271,12 @@ export type Database = {
         Ticket,
         | "id" | "creado_en" | "creado_por" | "lat" | "lng" | "dispositivo_id"
         | "lote_ocr_id" | "anulado_en" | "anulado_por" | "motivo_anulacion"
+        | "forzado"
       >;
       linea: Tabla<Linea, "id" | "gana" | "premio">;
       liquidacion: Tabla<Liquidacion, "id" | "generada_en" | "usuario_id">;
+      corte_vendedor: Tabla<CorteVendedor, "id" | "pagado_en" | "nota" | "usuario_id">;
+      corte_detalle: Tabla<CorteDetalle, never>;
       lote_ocr: Tabla<
         LoteOcr,
         | "id" | "estado" | "creado_en" | "confianza_global" | "validado_por"
@@ -284,8 +314,29 @@ export type Database = {
           p_dispositivo_id?: string | null;
           p_canal?: CanalTicket;
           p_lote_ocr_id?: string | null;
+          /**
+           * Levanta el corte por estado y por hora. Sólo la Server Action lo
+           * pone a `true`, y sólo para un administrador: el navegador no
+           * decide esto.
+           */
+          p_forzar?: boolean;
+          p_usuario_id?: string | null;
         };
         Returns: { ticket_id: string; ticket_folio: string; ticket_total: number }[];
+      };
+      fn_registrar_tanda: {
+        Args: {
+          p_sorteo_id: string;
+          p_vendedor_id: string;
+          /** Un elemento por ticket: `[[{numero,monto}, …], [{…}], …]` */
+          p_tickets: { numero: number; monto: number }[][];
+          p_lat?: number | null;
+          p_lng?: number | null;
+          p_forzar?: boolean;
+          p_usuario_id?: string | null;
+        };
+        /** `r_creado_en` es la hora que quedó guardada: es la que se imprime. */
+        Returns: { r_folio: string; r_total: number; r_creado_en: string }[];
       };
       fn_reservar_cuota: {
         Args: {
@@ -742,6 +793,106 @@ export type Database = {
           p_valor_anterior?: string | null;
           p_valor_nuevo?: string | null;
         };
+        Returns: undefined;
+      };
+
+      // --- Bajas de vendedor (0031) -------------------------------------
+      fn_desactivar_vendedor: {
+        Args: { p_vendedor_id: string; p_usuario_id?: string | null };
+        Returns: undefined;
+      };
+      fn_activar_vendedor: {
+        Args: { p_vendedor_id: string; p_usuario_id?: string | null };
+        Returns: undefined;
+      };
+      fn_eliminar_vendedor: {
+        Args: { p_vendedor_id: string; p_usuario_id?: string | null };
+        Returns: undefined;
+      };
+      /** Lo que invalida una cookie de sesión, que por sí sola no se puede revocar. */
+      fn_sesion_vigente: { Args: { p_usuario_id: string }; Returns: boolean };
+
+      // --- Liquidación semanal (0032) -----------------------------------
+      fn_liquidacion_pendiente: {
+        Args: { p_vendedor_id: string; p_desde: string; p_hasta: string };
+        Returns: {
+          r_liquidacion_id: string;
+          r_sorteo_id: string;
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_numero_ganador: number | null;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+        }[];
+      };
+      fn_registrar_corte: {
+        Args: {
+          p_vendedor_id: string;
+          p_liquidacion_ids: string[];
+          p_desde: string;
+          p_hasta: string;
+          p_nota?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: {
+          r_corte_id: string;
+          r_sorteos: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+        }[];
+      };
+      fn_cortes_vendedor: {
+        Args: { p_vendedor_id: string; p_limite?: number };
+        Returns: {
+          r_corte_id: string;
+          r_desde: string;
+          r_hasta: string;
+          r_sorteos: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+          r_nota: string | null;
+          r_pagado_en: string;
+        }[];
+      };
+      /** Los activos, más los de baja que todavía tienen sorteos sin pagar. */
+      fn_vendedores_liquidables: {
+        Args: Record<string, never>;
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_nombre: string;
+          r_activo: boolean;
+          r_eliminado: boolean;
+          r_pendientes: number;
+        }[];
+      };
+
+      // --- Reporte del vendedor (0034) ----------------------------------
+      /** Rejilla día × sorteo de un vendedor, con la marca de pago. */
+      fn_mi_periodo: {
+        Args: { p_vendedor_id: string; p_desde: string; p_hasta: string };
+        Returns: {
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo;
+          r_ganador: number | null;
+          r_tickets: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_pagado: boolean;
+        }[];
+      };
+
+      // --- Venta de administración (0033) -------------------------------
+      fn_recalcular_liquidacion: {
+        Args: { p_sorteo_id: string; p_vendedor_id: string };
         Returns: undefined;
       };
     };

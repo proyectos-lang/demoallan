@@ -45,11 +45,16 @@ Ninguna escritura se hace con `INSERT` desde el cliente. Todo pasa por funciones
 | Función | Uso |
 |---|---|
 | `fn_abrir_sorteo(sorteo, limite_por_numero)` | Siembra las 100 filas de cupo y abre la venta |
-| `fn_registrar_ticket(sorteo, vendedor, lineas, …)` | Venta. Valida cupo con la fila bloqueada, dentro de la transacción |
+| `fn_registrar_ticket(sorteo, vendedor, lineas, …, forzar, usuario)` | Venta. Valida cupo con la fila bloqueada, dentro de la transacción. `forzar` levanta el corte por estado y por hora, y sólo lo pone a `true` la Server Action para un administrador |
+| `fn_registrar_tanda(sorteo, vendedor, tickets, …)` | Varios tickets en UNA transacción: o entran todos o no entra ninguno |
 | `fn_cerrar_sorteo(sorteo)` | Corta la venta |
 | `fn_liquidar_sorteo(sorteo, numero_ganador)` | Marca ganadoras, calcula premios y bloquea el sorteo |
 | `fn_anular_ticket(ticket, motivo)` | Anula y devuelve el cupo. Los tickets no se editan |
 | `fn_guardar_parametros(vendedor, comision, factor, tope)` | Versiona; no reescribe historia |
+| `fn_desactivar_vendedor` · `fn_activar_vendedor` · `fn_eliminar_vendedor` | Bajas y altas del padrón. **Nunca `DELETE`**: eliminar marca `eliminado_en` y el historial queda intacto |
+| `fn_sesion_vigente(usuario)` | Si la cuenta sigue sirviendo. La cookie va firmada y no se puede revocar: esto es lo que la invalida |
+| `fn_liquidacion_pendiente(vendedor, desde, hasta)` | Sorteos liquidados del rango que todavía no se le han pagado |
+| `fn_registrar_corte(vendedor, liquidaciones, …)` | Cierra un pago. Recalcula los totales desde la base; no acepta los del cliente |
 | `fn_cupo_disponible(sorteo, vendedor, numero)` | Sólo consulta. **No es autoritativa** |
 | `fn_reparar_cupo(sorteo)` | Repone las filas de cupo que falten, reconstruyendo `vendido` desde las líneas |
 
@@ -80,6 +85,10 @@ Se ejecutan contra el proyecto real y limpian lo que crean.
 node supabase/pruebas/nucleo.mjs         # ciclo de sorteo, congelamiento, cupo, liquidación
 node supabase/pruebas/concurrencia.mjs   # 25 ventas simultáneas: ¿se puede sobrevender?
 node supabase/pruebas/liquidacion.mjs    # ¿coincide la vista previa con lo que se liquida?
+node supabase/pruebas/cierre-y-tanda.mjs # ¿cierra a y:59? ¿una tanda entra entera o no entra?
+node supabase/pruebas/venta-forzada.mjs  # el admin fuera de hora: ¿queda marcado? ¿recalcula lo liquidado?
+node supabase/pruebas/baja-vendedor.mjs  # inactivar y eliminar: ¿se le cierra la sesión?
+node supabase/pruebas/liquidacion-semanal.mjs  # pago parcial: ¿lo pagado deja de aparecer? ¿se puede pagar dos veces?
 PW=<clave-admin> node supabase/pruebas/autorizacion.mjs   # escalada de privilegios por rol
 PW=<clave-admin> node supabase/pruebas/agregados.mjs      # tablero: ¿se cuela lo pendiente en la utilidad?
 PW=<clave-admin> node supabase/pruebas/reportes.mjs       # ¿los subtotales son del filtro o de la página?

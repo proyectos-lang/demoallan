@@ -79,6 +79,7 @@
   --color-nav-i-geo: #34d399;
   --color-nav-i-simulador: #8b95f6;
   --color-nav-i-vendedores: #fb923c;
+  --color-nav-i-liquidacion: #f0abfc;
 
   /* — Positivo (esmeralda) ---------------------------------------------- */
   --color-positivo: #047857; /* cifras positivas — el de uso general */
@@ -259,5 +260,148 @@ select:focus {
   }
   50% {
     opacity: 0.25;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   El ticket en papel.
+
+   Algunos vendedores trabajan con un handheld POS Android con impresora
+   anexada. La impresión va por el diálogo del sistema —`window.print()`—
+   porque así funciona con el servicio de impresión del fabricante, con RawBT
+   y con cualquier impresora que Android reconozca, sin saber el modelo.
+
+   TODO EL ANCHO ESTÁ AQUÍ. Pasar de 58 a 80 mm es cambiar una línea.
+--------------------------------------------------------------------------- */
+
+:root {
+  --ticket-ancho: 58mm;
+  /* El margen interno lo aplica el papel, no la impresora: casi todas las
+     térmicas de 58 mm imprimen sobre unos 48 mm útiles. */
+  --ticket-margen: 3mm;
+}
+
+/* Fuera de la impresión el recibo no ocupa nada ni se lee en voz alta. */
+.hoja-impresion {
+  display: none;
+}
+
+@media print {
+  /*
+     Se apaga TODO lo que no sea el recibo.
+
+     Sin esto, mandar la pantalla entera a un rollo de 58 mm son metros de
+     papel en blanco. La regla mira hijos DIRECTOS de body, y por eso el
+     recibo se monta con un portal a body: si colgara del árbol de la
+     aplicación, este selector no lo alcanzaría.
+  */
+  body > *:not([data-impresion]) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff;
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+     El ancho va literal, no con `var(--ticket-ancho)`.
+
+     El contexto de página no hereda las propiedades personalizadas del
+     documento de forma fiable —Chrome las ignora aquí—, y una `size` inválida
+     no falla ruidosamente: cae al papel por omisión, que es A4, y el ticket
+     sale en una esquina de una hoja enorme. Es el único sitio donde el ancho
+     está repetido; al cambiarlo hay que tocar los dos.
+  */
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  .hoja-impresion {
+    display: block;
+    width: var(--ticket-ancho);
+  }
+
+  /*
+     Monoespaciada a propósito: en una térmica de 58 mm las columnas sólo
+     cuadran si cada carácter mide lo mismo. Y en negro puro, sin grises: el
+     papel térmico no tiene medios tonos y un gris sale como una mancha
+     ilegible.
+  */
+  .ticket-impreso {
+    width: var(--ticket-ancho);
+    padding: var(--ticket-margen);
+    box-sizing: border-box;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #000;
+    /* Cada ticket es un comprobante: se corta entre uno y el siguiente. */
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .ticket-impreso:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .ticket-centro {
+    text-align: center;
+  }
+
+  .ticket-marca {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+
+  .ticket-linea {
+    border-top: 1px dashed #000;
+    margin: 2mm 0;
+  }
+
+  .ticket-fila {
+    display: flex;
+    justify-content: space-between;
+    gap: 2mm;
+  }
+
+  .ticket-fila > span:last-child {
+    text-align: right;
+  }
+
+  .ticket-encabezado {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+
+  .ticket-fuerte,
+  .ticket-numero {
+    font-weight: 700;
+  }
+
+  /* El número jugado es lo primero que mira el comprador al reclamar. */
+  .ticket-numero {
+    font-size: 13px;
+  }
+
+  .ticket-total {
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .ticket-mensaje {
+    text-align: center;
+    margin-top: 3mm;
+    font-size: 11px;
+  }
+
+  /* Avance antes del corte. Sin esto la cuchilla se lleva la última línea. */
+  .ticket-pie {
+    height: 8mm;
   }
 }
