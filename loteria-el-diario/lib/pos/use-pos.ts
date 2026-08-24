@@ -76,6 +76,20 @@ export const ATAJOS: [number, number][] = [
 export const CUPO_BAJO = 300;
 
 /**
+ * Cuántos números lleva cada línea de la rejilla móvil: 00–04, 05–09, 10–14…
+ *
+ * Empezó en diez, una fila por decena. Con diez columnas en 375 px cada
+ * casilla salía de 29 px de ancho, por debajo de los 44 que recomiendan iOS y
+ * Android, y en la calle eso es tocar el número de al lado — o sea vender otro
+ * número. Con cinco, la casilla casi se duplica.
+ *
+ * Lo que se paga es alto: veinte filas en vez de diez. Cambiar el reparto es
+ * cambiar este número; la rejilla y el botón de línea se calculan a partir de
+ * él.
+ */
+export const POR_LINEA = 5;
+
+/**
  * Todo el estado del punto de venta, en un solo sitio.
  *
  * Se llama `usePos` y no `usarPos`, que es lo que pediría el resto del código:
@@ -326,16 +340,17 @@ export function usePos(datos: DatosPos) {
   };
 
   /**
-   * Toma o suelta una fila entera de diez —la decena `d`: 00–09, 10–19…
+   * Toma o suelta una línea entera de la rejilla —la línea `i`: 00–04, 05–09…
    *
    * Los números sin cupo se quedan fuera: meterlos sólo serviría para que el
-   * aviso dijera enseguida que no caben. Si la fila ya está tomada al
+   * aviso dijera enseguida que no caben. Si la línea ya está tomada al
    * completo, el mismo gesto la suelta.
    */
-  const alternarDecena = (d: number) => {
-    const fila = Array.from({ length: 10 }, (_, i) => d * 10 + i).filter(
-      (n) => disponible[n] > 0,
-    );
+  const alternarLinea = (indice: number) => {
+    const fila = Array.from(
+      { length: POR_LINEA },
+      (_, i) => indice * POR_LINEA + i,
+    ).filter((n) => disponible[n] > 0);
     if (fila.length === 0) return;
 
     setNumero("");
@@ -506,7 +521,7 @@ export function usePos(datos: DatosPos) {
     agregarSeleccion,
     limpiarEntrada,
     alternarNumero,
-    alternarDecena,
+    alternarLinea,
     escribirNumero,
     quitarLinea,
     cerrarTicket,
