@@ -313,21 +313,45 @@ select:focus {
   box-sizing: border-box;
   /*
      Monoespaciada a propósito: en una térmica de 58 mm las columnas sólo
-     cuadran si cada carácter mide lo mismo. Y en negro puro, sin grises: el
-     papel térmico no tiene medios tonos y un gris sale como una mancha.
+     cuadran si cada carácter mide lo mismo.
   */
   font-family: "Courier New", Courier, monospace;
   font-size: 11px;
   line-height: 1.35;
+}
+
+/*
+   TODO EL TICKET, AL MÁXIMO DE TINTA.
+
+   Un cabezal térmico no tiene medios tonos: cada punto se quema o no se quema.
+   Lo que en pantalla es un gris elegante, en la tirilla sale como puntos
+   sueltos —y a media hoja del rollo, cuando el cabezal ya no aprieta igual, se
+   vuelve ilegible. La única palanca real es poner más puntos por trazo: negro
+   puro y negrita en todo.
+
+   Courier New negrita tiene el MISMO avance por carácter que la redonda —es
+   monoespaciada en las dos—, así que engordarla no mueve ni una columna ni
+   cambia cuántos caracteres caben por línea.
+
+   `print-color-adjust: exact` impide que el navegador «ahorre tinta»
+   aclarando lo que manda a la impresora.
+*/
+.ticket-impreso,
+.ticket-impreso * {
   color: #000;
+  font-weight: 700;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .ticket-impreso + .ticket-impreso {
   border-top: 1px dashed var(--color-borde-punteado);
 }
 
+/* Sólida y no punteada: una línea de puntos en una térmica sale medio comida.
+   Una barra continua es el trazo más oscuro que sabe hacer el cabezal. */
 .ticket-linea {
-  border-top: 1px dashed #000;
+  border-top: 1px solid #000;
   margin: 2mm 0;
 }
 
@@ -341,31 +365,13 @@ select:focus {
   text-align: right;
 }
 
-/*
-   Las etiquetas de la izquierda —EMITIDO, SORTEO, VENDEDOR, FOLIO— y la fila
-   de encabezado van en negrita.
-
-   No es cuestión de gusto: una térmica no tiene medios tonos, así que una
-   fuente fina no sale «gris», sale con puntos sueltos y a media hoja del rollo
-   ya cuesta leerla. El negrita le da al cabezal el doble de puntos por trazo.
-*/
-.ticket-fila > span:first-child {
-  font-weight: 700;
-}
-
 .ticket-encabezado {
   font-size: 11px;
-  font-weight: 700;
   letter-spacing: 0.06em;
-}
-
-.ticket-fuerte {
-  font-weight: 700;
 }
 
 /* El número jugado es lo primero que mira el comprador al reclamar. */
 .ticket-numero {
-  font-weight: 700;
   /*
      15px es el techo. A 11px de Courier caben 29 caracteres en los 52 mm
      útiles; a 15px caben 21, y la fila más larga —«N.º 47» más «L 1,000»— son
@@ -376,7 +382,6 @@ select:focus {
 }
 
 .ticket-total {
-  font-weight: 700;
   font-size: 15px;
 }
 
