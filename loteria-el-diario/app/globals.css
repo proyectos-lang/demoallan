@@ -341,8 +341,21 @@ select:focus {
   text-align: right;
 }
 
+/*
+   Las etiquetas de la izquierda —EMITIDO, SORTEO, VENDEDOR, FOLIO— y la fila
+   de encabezado van en negrita.
+
+   No es cuestión de gusto: una térmica no tiene medios tonos, así que una
+   fuente fina no sale «gris», sale con puntos sueltos y a media hoja del rollo
+   ya cuesta leerla. El negrita le da al cabezal el doble de puntos por trazo.
+*/
+.ticket-fila > span:first-child {
+  font-weight: 700;
+}
+
 .ticket-encabezado {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
@@ -353,12 +366,18 @@ select:focus {
 /* El número jugado es lo primero que mira el comprador al reclamar. */
 .ticket-numero {
   font-weight: 700;
-  font-size: 13px;
+  /*
+     15px es el techo. A 11px de Courier caben 29 caracteres en los 52 mm
+     útiles; a 15px caben 21, y la fila más larga —«N.º 47» más «L 1,000»— son
+     14. Subir más desborda por la derecha y el texto se sale del papel.
+  */
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .ticket-total {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .ticket-mensaje {

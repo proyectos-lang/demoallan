@@ -1,5 +1,6 @@
 "use client";
 
+import { TicketImpreso } from "@/components/pos/ticket-impreso";
 import { VistaEscritorio } from "@/components/pos/vista-escritorio";
 import { VistaMovil } from "@/components/pos/vista-movil";
 import { usePos, type DatosPos } from "@/lib/pos/use-pos";
@@ -30,6 +31,23 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
     <>
       <VistaEscritorio pos={pos} />
       <VistaMovil pos={pos} />
+
+      {/*
+        La hoja que sale por la impresora, UNA sola vez.
+
+        Va aquí y no dentro del recibo porque el recibo se pinta dos veces —una
+        por vista— y colgaba dos hojas de `document.body`: el papel salía con
+        todo repetido. Aquí arriba sólo hay un sitio donde ponerla.
+      */}
+      {pos.recibo && pos.vendedor && (
+        <TicketImpreso
+          modo="impresion"
+          tickets={pos.recibo.tickets}
+          sorteo={pos.datos.sorteo}
+          vendedor={pos.vendedor}
+          soloFolio={pos.soloFolio}
+        />
+      )}
     </>
   );
 }

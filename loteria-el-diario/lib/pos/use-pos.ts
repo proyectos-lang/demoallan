@@ -111,6 +111,34 @@ export function usePos(datos: DatosPos) {
   const [enviando, iniciar] = useTransition();
 
   /*
+   * La impresión vive AQUÍ y no en el recibo.
+   *
+   * El recibo se pinta dos veces —una en la vista de escritorio y otra en la
+   * de móvil, ocultas por CSS según el ancho—, así que cuando cada copia
+   * colgaba su propia hoja de `document.body` había DOS hojas y el papel salía
+   * con el contenido repetido. El estado es de la venta, no de la vista: sube
+   * al hook, que sí es uno solo, y la hoja se pinta una única vez.
+   */
+  const [soloFolio, setSoloFolio] = useState<string | null>(null);
+  /** Sube en cada petición de impresión; es lo que dispara el efecto. */
+  const [pedidoImpresion, setPedidoImpresion] = useState(0);
+
+  useEffect(() => {
+    // `window.print()` va en un efecto y no en el `onClick` porque antes de
+    // imprimir hay que RENDERIZAR lo que se va a imprimir: al pulsar «repetir»
+    // sobre un ticket suelto, la clase que omite los demás todavía no está
+    // aplicada.
+    if (pedidoImpresion === 0) return;
+    window.print();
+  }, [pedidoImpresion]);
+
+  /** `null` imprime todos los tickets de la venta; un folio, sólo ése. */
+  const imprimir = (folio: string | null) => {
+    setSoloFolio(folio);
+    setPedidoImpresion((p) => p + 1);
+  };
+
+  /*
    * Arranca en 0 y no en `Date.now()`.
    *
    * El estado inicial se evalúa también en el render del servidor, así que
@@ -354,7 +382,10 @@ export function usePos(datos: DatosPos) {
     bloqueada,
     banner,
 
+    soloFolio,
+
     // acciones
+    imprimir,
     setModo,
     setFoco,
     setNumero,
