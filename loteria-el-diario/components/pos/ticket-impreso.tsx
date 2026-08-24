@@ -15,6 +15,19 @@ import {
 import type { SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 
 /**
+ * `dd/mm/aaaa` en hora de Honduras.
+ *
+ * Se parte de `fechaHonduras` y no de los diez primeros caracteres del ISO: el
+ * timestamp viene en UTC, y a partir de las seis de la tarde en Honduras esos
+ * diez caracteres ya son del día siguiente. Un ticket vendido el lunes a las
+ * 19:00 se imprimiría con fecha de martes.
+ */
+function fechaCorta(instante: string): string {
+  const [a, m, d] = fechaHonduras(instante).split("-");
+  return `${d}/${m}/${a}`;
+}
+
+/**
  * El ticket en papel.
  *
  * Se usa de dos formas y las dos importan:
@@ -69,16 +82,18 @@ export function TicketImpreso({
             cierre». «SORTEO» es el juego al que va la apuesta. Confundirlos es
             fácil, así que van rotulados y separados.
           */}
+          {/*
+            Fecha numérica y no «24 de agosto de 2026».
+
+            En 58 mm quedan unos 52 útiles, que a 11px de Courier son 29
+            caracteres por línea. «EMITIDO» más la fecha larga y la hora suman
+            36: la fila se desbordaba por la derecha y se salía del papel. En
+            formato corto son 26 y entra con holgura.
+          */}
           <div className="ticket-fila">
             <span>EMITIDO</span>
-            {/*
-              `fechaHonduras` y no los diez primeros caracteres del ISO: el
-              timestamp viene en UTC, y a partir de las seis de la tarde en
-              Honduras esos diez caracteres ya son del día siguiente. Un ticket
-              vendido el lunes a las 19:00 se imprimiría con fecha de martes.
-            */}
             <span>
-              {fechaLargaSinDia(fechaHonduras(t.creadoEn))} {horaHonduras12(t.creadoEn)}
+              {fechaCorta(t.creadoEn)} {horaHonduras12(t.creadoEn)}
             </span>
           </div>
 

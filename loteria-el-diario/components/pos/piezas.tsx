@@ -235,25 +235,37 @@ export function Recibo({ pos }: { pos: Pos }) {
    * tipo de fallo que sólo se descubre con el papel en la mano.
    */
   /*
-   * Qué se manda al papel. `null` mientras no se ha pedido imprimir; una
-   * cadena vacía para «todos»; un folio para uno solo.
+   * Qué ticket se manda al papel. `null` son todos; un folio, uno solo.
    *
-   * `window.print()` se llama desde un efecto y no desde el `onClick` porque
-   * antes de imprimir hay que RENDERIZAR lo que se va a imprimir. Llamarlo en
-   * el mismo gesto sacaría el recibo anterior —o ninguno—, que es justo el
-   * tipo de fallo que sólo se descubre con el papel en la mano.
+   * LA HOJA DE IMPRESIÓN NUNCA SE DESMONTA, y esa es la corrección que hizo
+   * falta. Antes se montaba al pulsar «Imprimir» y se retiraba al recibir
+   * `afterprint`. En un escritorio eso funciona porque `window.print()` bloquea
+   * hasta que se cierra el diálogo; en Android NO bloquea —entrega la página al
+   * servicio de impresión y sigue—, así que `afterprint` llegaba antes de que
+   * el sistema rasterizara y la hoja ya no estaba. Papel en blanco, incluso
+   * «guardar como PDF», con la vista previa de la aplicación perfecta.
+   *
+   * Ahora la hoja está siempre en el árbol (oculta salvo al imprimir) y lo
+   * único que cambia es QUÉ tickets se omiten. No hay nada que retirar, así
+   * que no hay carrera que perder.
    */
-  const [aImprimir, setAImprimir] = useState<string | null>(null);
+  const [soloFolio, setSoloFolio] = useState<string | null>(null);
+  /** Sube en cada petición de impresión; es lo que dispara el efecto. */
+  const [pedido, setPedido] = useState(0);
 
   useEffect(() => {
-    if (aImprimir === null) return;
-
-    const limpiar = () => setAImprimir(null);
-    window.addEventListener("afterprint", limpiar, { once: true });
+    // `window.print()` va en un efecto y no en el `onClick` porque antes de
+    // imprimir hay que RENDERIZAR lo que se va a imprimir: al pulsar «repetir»
+    // sobre un ticket suelto, la clase que omite los demás todavía no está
+    // aplicada.
+    if (pedido === 0) return;
     window.print();
+  }, [pedido]);
 
-    return () => window.removeEventListener("afterprint", limpiar);
-  }, [aImprimir]);
+  const imprimir = (folio: string | null) => {
+    setSoloFolio(folio);
+    setPedido((p) => p + 1);
+  };
 
   if (!recibo || !pos.vendedor) return null;
 
@@ -263,17 +275,16 @@ export function Recibo({ pos }: { pos: Pos }) {
     <div className="flex flex-col items-center gap-4">
       {/*
         La hoja que sale por la impresora. Vive fuera del árbol de la
-        aplicación (portal a body) y sólo se monta mientras dura el diálogo.
+        aplicación —portal a body— y se queda montada todo el tiempo: oculta
+        salvo al imprimir. Ver la nota de arriba sobre Android.
       */}
-      {aImprimir !== null && (
-        <TicketImpreso
-          modo="impresion"
-          tickets={recibo.tickets}
-          sorteo={pos.datos.sorteo}
-          vendedor={pos.vendedor}
-          soloFolio={aImprimir || null}
-        />
-      )}
+      <TicketImpreso
+        modo="impresion"
+        tickets={recibo.tickets}
+        sorteo={pos.datos.sorteo}
+        vendedor={pos.vendedor}
+        soloFolio={soloFolio}
+      />
 
       <span className="w-16 h-16 rounded-full bg-positivo-fondo text-positivo-vivo text-rapida font-semibold flex items-center justify-center">
         ✓
@@ -302,7 +313,7 @@ export function Recibo({ pos }: { pos: Pos }) {
             {recibo.tickets.map((t) => (
               <button
                 key={t.folio}
-                onClick={() => setAImprimir(t.folio)}
+                onClick={() => imprimir(t.folio)}
                 className="flex items-center gap-2 text-label text-acento font-medium py-1"
               >
                 <Printer size={13} strokeWidth={2} absoluteStrokeWidth />
@@ -326,7 +337,7 @@ export function Recibo({ pos }: { pos: Pos }) {
           Nueva venta
         </button>
         <button
-          onClick={() => setAImprimir("")}
+          onClick={() => imprimir(null)}
           className="flex items-center gap-2 border border-borde-campo bg-superficie text-tinta rounded-pos px-5 py-4 text-pos font-semibold cursor-pointer"
         >
           <Printer size={17} strokeWidth={2} absoluteStrokeWidth />
