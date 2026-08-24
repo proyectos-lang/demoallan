@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 
-import type { TicketRegistrado } from "@/app/(admin)/punto-de-venta/acciones";
 import { TicketImpreso } from "@/components/pos/ticket-impreso";
 import { cn } from "@/lib/cn";
 import { fmt, hora12, pad2 } from "@/lib/format";
@@ -235,10 +234,19 @@ export function Recibo({ pos }: { pos: Pos }) {
    * el mismo gesto sacaría el recibo anterior —o ninguno—, que es justo el
    * tipo de fallo que sólo se descubre con el papel en la mano.
    */
-  const [aImprimir, setAImprimir] = useState<TicketRegistrado[] | null>(null);
+  /*
+   * Qué se manda al papel. `null` mientras no se ha pedido imprimir; una
+   * cadena vacía para «todos»; un folio para uno solo.
+   *
+   * `window.print()` se llama desde un efecto y no desde el `onClick` porque
+   * antes de imprimir hay que RENDERIZAR lo que se va a imprimir. Llamarlo en
+   * el mismo gesto sacaría el recibo anterior —o ninguno—, que es justo el
+   * tipo de fallo que sólo se descubre con el papel en la mano.
+   */
+  const [aImprimir, setAImprimir] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!aImprimir) return;
+    if (aImprimir === null) return;
 
     const limpiar = () => setAImprimir(null);
     window.addEventListener("afterprint", limpiar, { once: true });
@@ -253,11 +261,17 @@ export function Recibo({ pos }: { pos: Pos }) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {aImprimir && (
+      {/*
+        La hoja que sale por la impresora. Vive fuera del árbol de la
+        aplicación (portal a body) y sólo se monta mientras dura el diálogo.
+      */}
+      {aImprimir !== null && (
         <TicketImpreso
-          tickets={aImprimir}
+          modo="impresion"
+          tickets={recibo.tickets}
           sorteo={pos.datos.sorteo}
           vendedor={pos.vendedor}
+          soloFolio={aImprimir || null}
         />
       )}
 
@@ -268,39 +282,38 @@ export function Recibo({ pos }: { pos: Pos }) {
         {varios ? `${recibo.tickets.length} tickets registrados` : "Venta registrada"}
       </span>
 
-      <div className="w-full border border-dashed border-borde-punteado rounded-pos p-4">
-        <div className="text-center text-th font-semibold tracking-th text-secundario">
-          LOTERÍA EL DIARIO
-        </div>
-        <div className="text-center text-label text-mudo mt-1">
-          Sorteo {hora12(pos.datos.sorteo.hora)}
-        </div>
+      {/*
+        Vista previa a tamaño real.
 
-        <div className="mt-3 flex flex-col gap-2">
-          {recibo.tickets.map((t) => (
-            <div
-              key={t.folio}
-              className="flex items-center gap-3 border-t border-borde-punteado pt-2"
-            >
-              <span className="flex-1 min-w-0">
-                <span className="block text-meta text-secundario truncate">{t.folio}</span>
-                <span className="block text-label text-mudo">
-                  {t.lineas.map((l) => pad2(l.numero)).join(" · ")}
-                </span>
-              </span>
-              <span className="text-tabla font-semibold">{fmt(t.total, false)}</span>
+        No es adorno: el vendedor ve lo que va a salir antes de gastar papel, y
+        si algo va mal se nota aquí en vez de descubrirse con un rollo en
+        blanco en la mano.
+      */}
+      <div className="w-full flex flex-col items-center gap-3">
+        <TicketImpreso
+          modo="pantalla"
+          tickets={recibo.tickets}
+          sorteo={pos.datos.sorteo}
+          vendedor={pos.vendedor}
+        />
+
+        {varios && (
+          <div className="w-full flex flex-col gap-1">
+            {recibo.tickets.map((t) => (
               <button
-                onClick={() => setAImprimir([t])}
-                className="text-label text-acento font-medium px-1"
+                key={t.folio}
+                onClick={() => setAImprimir(t.folio)}
+                className="flex items-center gap-2 text-label text-acento font-medium py-1"
               >
-                imprimir
+                <Printer size={13} strokeWidth={2} absoluteStrokeWidth />
+                repetir sólo {t.folio}
               </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        <div className="flex justify-between border-t border-borde-punteado mt-3 pt-2 text-tabla font-semibold">
-          <span>TOTAL</span>
+        <div className="w-full flex justify-between text-tabla font-semibold border-t border-borde-punteado pt-2">
+          <span>TOTAL DE LA VENTA</span>
           <span>{fmt(recibo.total, false)}</span>
         </div>
       </div>
@@ -313,7 +326,7 @@ export function Recibo({ pos }: { pos: Pos }) {
           Nueva venta
         </button>
         <button
-          onClick={() => setAImprimir(recibo.tickets)}
+          onClick={() => setAImprimir("")}
           className="flex items-center gap-2 border border-borde-campo bg-superficie text-tinta rounded-pos px-5 py-4 text-pos font-semibold cursor-pointer"
         >
           <Printer size={17} strokeWidth={2} absoluteStrokeWidth />

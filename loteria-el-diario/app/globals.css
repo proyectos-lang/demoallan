@@ -271,32 +271,130 @@ select:focus {
    porque así funciona con el servicio de impresión del fabricante, con RawBT
    y con cualquier impresora que Android reconozca, sin saber el modelo.
 
-   TODO EL ANCHO ESTÁ AQUÍ. Pasar de 58 a 80 mm es cambiar una línea.
+   El mismo marcado se pinta DOS veces: `.hoja-pantalla` es la vista previa que
+   ve el vendedor dentro del recibo, y `.hoja-impresion` es lo que sale por la
+   impresora, colgado de <body> con un portal. La vista previa no es adorno:
+   sin ella, un fallo de impresión sólo se descubre con el rollo en blanco en
+   la mano, y no hay forma de saber si faltaba el dato o sobraba una regla.
+
+   TODO EL ANCHO ESTÁ AQUÍ, salvo en `@page`. Pasar de 58 a 80 mm son dos
+   líneas, y están señaladas.
 --------------------------------------------------------------------------- */
 
 :root {
   --ticket-ancho: 58mm;
-  /* El margen interno lo aplica el papel, no la impresora: casi todas las
-     térmicas de 58 mm imprimen sobre unos 48 mm útiles. */
+  /* El margen lo pone el papel, no la impresora: casi todas las térmicas de
+     58 mm imprimen sobre unos 48 mm útiles. */
   --ticket-margen: 3mm;
 }
 
-/* Fuera de la impresión el recibo no ocupa nada ni se lee en voz alta. */
+/* Fuera de la impresión, la hoja de la impresora no existe. */
 .hoja-impresion {
   display: none;
 }
 
+/* --- La vista previa, en pantalla ---------------------------------------- */
+
+.hoja-pantalla {
+  width: var(--ticket-ancho);
+  max-width: 100%;
+  background: #fff;
+  border: 1px dashed var(--color-borde-punteado);
+  border-radius: var(--radius-pos);
+  overflow: hidden;
+}
+
+/* --- El cuerpo del ticket, igual en pantalla y en papel ------------------- */
+
+.ticket-impreso {
+  width: var(--ticket-ancho);
+  max-width: 100%;
+  padding: var(--ticket-margen);
+  box-sizing: border-box;
+  /*
+     Monoespaciada a propósito: en una térmica de 58 mm las columnas sólo
+     cuadran si cada carácter mide lo mismo. Y en negro puro, sin grises: el
+     papel térmico no tiene medios tonos y un gris sale como una mancha.
+  */
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #000;
+}
+
+.ticket-impreso + .ticket-impreso {
+  border-top: 1px dashed var(--color-borde-punteado);
+}
+
+.ticket-linea {
+  border-top: 1px dashed #000;
+  margin: 2mm 0;
+}
+
+.ticket-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+}
+
+.ticket-fila > span:last-child {
+  text-align: right;
+}
+
+.ticket-encabezado {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.ticket-fuerte {
+  font-weight: 700;
+}
+
+/* El número jugado es lo primero que mira el comprador al reclamar. */
+.ticket-numero {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ticket-total {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ticket-mensaje {
+  text-align: center;
+  margin-top: 3mm;
+  font-size: 11px;
+}
+
+/* Avance antes del corte. Sin esto la cuchilla se lleva la última línea. */
+.ticket-pie {
+  height: 8mm;
+}
+
+/* --- Lo que cambia al imprimir ------------------------------------------- */
+
 @media print {
   /*
-     Se apaga TODO lo que no sea el recibo.
+     Se apaga TODO lo que no sea la hoja de impresión.
 
      Sin esto, mandar la pantalla entera a un rollo de 58 mm son metros de
-     papel en blanco. La regla mira hijos DIRECTOS de body, y por eso el
-     recibo se monta con un portal a body: si colgara del árbol de la
-     aplicación, este selector no lo alcanzaría.
+     papel en blanco. La regla mira hijos DIRECTOS de body, y por eso la hoja
+     se monta con un portal: si colgara del árbol de la aplicación —como sí
+     cuelga la vista previa— este selector no la alcanzaría. La vista previa
+     desaparece por la misma regla, que es lo correcto: se imprime una vez.
   */
   body > *:not([data-impresion]) {
     display: none !important;
+  }
+
+  /* `!important` como seguro: si algún día otra regla llega después con la
+     misma especificidad, el papel no puede salir en blanco por eso. */
+  .hoja-impresion {
+    display: block !important;
+    width: var(--ticket-ancho);
+    border: 0;
+    border-radius: 0;
   }
 
   html,
@@ -304,6 +402,7 @@ select:focus {
     background: #fff;
     margin: 0;
     padding: 0;
+    height: auto !important;
   }
 
   /*
@@ -312,36 +411,18 @@ select:focus {
      El contexto de página no hereda las propiedades personalizadas del
      documento de forma fiable —Chrome las ignora aquí—, y una `size` inválida
      no falla ruidosamente: cae al papel por omisión, que es A4, y el ticket
-     sale en una esquina de una hoja enorme. Es el único sitio donde el ancho
-     está repetido; al cambiarlo hay que tocar los dos.
+     sale en una esquina de una hoja enorme.
   */
   @page {
     size: 58mm auto;
     margin: 0;
   }
 
-  .hoja-impresion {
-    display: block;
-    width: var(--ticket-ancho);
-  }
-
-  /*
-     Monoespaciada a propósito: en una térmica de 58 mm las columnas sólo
-     cuadran si cada carácter mide lo mismo. Y en negro puro, sin grises: el
-     papel térmico no tiene medios tonos y un gris sale como una mancha
-     ilegible.
-  */
+  /* Cada ticket es un comprobante: se corta entre uno y el siguiente. */
   .ticket-impreso {
-    width: var(--ticket-ancho);
-    padding: var(--ticket-margen);
-    box-sizing: border-box;
-    font-family: "Courier New", Courier, monospace;
-    font-size: 11px;
-    line-height: 1.35;
-    color: #000;
-    /* Cada ticket es un comprobante: se corta entre uno y el siguiente. */
     break-after: page;
     page-break-after: always;
+    border-top: 0 !important;
   }
 
   .ticket-impreso:last-child {
@@ -349,59 +430,8 @@ select:focus {
     page-break-after: auto;
   }
 
-  .ticket-centro {
-    text-align: center;
-  }
-
-  .ticket-marca {
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-  }
-
-  .ticket-linea {
-    border-top: 1px dashed #000;
-    margin: 2mm 0;
-  }
-
-  .ticket-fila {
-    display: flex;
-    justify-content: space-between;
-    gap: 2mm;
-  }
-
-  .ticket-fila > span:last-child {
-    text-align: right;
-  }
-
-  .ticket-encabezado {
-    font-size: 10px;
-    letter-spacing: 0.06em;
-  }
-
-  .ticket-fuerte,
-  .ticket-numero {
-    font-weight: 700;
-  }
-
-  /* El número jugado es lo primero que mira el comprador al reclamar. */
-  .ticket-numero {
-    font-size: 13px;
-  }
-
-  .ticket-total {
-    font-weight: 700;
-    font-size: 13px;
-  }
-
-  .ticket-mensaje {
-    text-align: center;
-    margin-top: 3mm;
-    font-size: 11px;
-  }
-
-  /* Avance antes del corte. Sin esto la cuchilla se lleva la última línea. */
-  .ticket-pie {
-    height: 8mm;
+  /* Al repetir un ticket suelto, los demás no salen. */
+  .ticket-omitido {
+    display: none !important;
   }
 }
