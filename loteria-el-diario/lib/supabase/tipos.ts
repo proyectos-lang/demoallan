@@ -893,7 +893,8 @@ export type Database = {
       // --- Informe de gerencia (0036) -----------------------------------
       /** Una fila por vendedor, con el desglose de la hoja del gerente. */
       fn_informe_gerencia: {
-        Args: { p_desde: string; p_hasta: string };
+        /** `p_hora` en nulo suma las tres loterías. */
+        Args: { p_desde: string; p_hasta: string; p_hora?: HoraSorteo | null };
         Returns: {
           r_vendedor_id: string;
           r_codigo: string;

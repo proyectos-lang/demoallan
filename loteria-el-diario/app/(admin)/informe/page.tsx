@@ -1,8 +1,12 @@
-import { FiltrosInforme, type Atajo } from "@/components/informe/filtros-informe";
+import {
+  FiltrosInforme,
+  type Atajo,
+  type DiaDelRango,
+} from "@/components/informe/filtros-informe";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLargaSinDia, fmt, hoyHonduras, iso } from "@/lib/format";
+import { fechaLarga, fechaLargaSinDia, fmt, hora12, hoyHonduras, iso } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -86,9 +90,49 @@ export default async function InformePage({ searchParams }: PageProps<"/informe"
   // que movieron algo.
   const soloConVenta = params.conventa === "1";
 
+  /*
+   * El desglose dentro del rango.
+   *
+   * El día no necesita parámetro en la base: un día es un rango de un día, así
+   * que se estrecha la consulta. El rango original se conserva en la URL
+   * porque es lo que dibuja la tira de días.
+   *
+   * Un día fuera del rango se ignora: llegaría de una dirección vieja y daría
+   * una tabla vacía sin explicar por qué.
+   */
+  const diaPedido = texto("dia", "");
+  const dia = diaPedido >= desde && diaPedido <= hasta ? diaPedido : "";
+
+  const horaPedida = typeof params.hora === "string" ? params.hora : "";
+  const hora = ["11:00", "15:00", "20:00"].includes(horaPedida) ? horaPedida : "";
+
+  /*
+   * Los días del rango, para la tira.
+   *
+   * Con más de dos meses la tira deja de servir —sesenta y tantas fichas no se
+   * leen de un vistazo— y se esconde: para eso están los atajos de semana.
+   */
+  const DIAS_MAX = 62;
+  const dias: DiaDelRango[] = [];
+  const cursor = new Date(`${desde}T00:00:00`);
+  const fin = new Date(`${hasta}T00:00:00`);
+  while (cursor <= fin && dias.length <= DIAS_MAX) {
+    const f = iso(cursor);
+    // «lun 3» — el día de la semana en tres letras y el número, que es como se
+    // nombra un día cuando se tiene la semana delante.
+    const larga = fechaLarga(f);
+    dias.push({
+      fecha: f,
+      etiqueta: `${larga.slice(0, 3)} ${cursor.getDate()}`,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  const tiraDeDias = dias.length <= DIAS_MAX ? dias : [];
+
   const { data, error } = await supabase.rpc("fn_informe_gerencia", {
-    p_desde: desde,
-    p_hasta: hasta,
+    p_desde: dia || desde,
+    p_hasta: dia || hasta,
+    p_hora: (hora || null) as never,
   });
 
   const todas = (data ?? []).map((f) => ({
@@ -145,7 +189,11 @@ export default async function InformePage({ searchParams }: PageProps<"/informe"
     <Pagina>
       <EncabezadoPagina
         titulo="Informe de gerencia"
-        subtitulo={`${fechaLargaSinDia(desde)} — ${fechaLargaSinDia(hasta)}. Una fila por vendedor, con el mismo desglose de la hoja: venta, lo apostado al número ganador, lo que costó pagarlo, la comisión y lo que queda.`}
+        subtitulo={
+          dia || hora
+            ? `${dia ? fechaLarga(dia) : `${fechaLargaSinDia(desde)} — ${fechaLargaSinDia(hasta)}`}${hora ? ` · lotería de las ${hora12(hora)}` : " · las tres loterías"}`
+            : `${fechaLargaSinDia(desde)} — ${fechaLargaSinDia(hasta)}. Una fila por vendedor, con el mismo desglose de la hoja: venta, lo apostado al número ganador, lo que costó pagarlo, la comisión y lo que queda.`
+        }
       />
 
       <div className="flex flex-col gap-4">
@@ -155,6 +203,9 @@ export default async function InformePage({ searchParams }: PageProps<"/informe"
           atajos={atajos}
           ocultarSinMovimiento={soloConVenta}
           sinMovimiento={sinMovimiento}
+          dias={tiraDeDias}
+          dia={dia}
+          hora={hora}
         />
 
         {/* Los cinco números que el gerente busca primero, antes de la tabla. */}
