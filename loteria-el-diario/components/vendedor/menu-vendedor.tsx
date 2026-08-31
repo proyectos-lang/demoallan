@@ -8,6 +8,7 @@ import {
   KeyRound,
   Menu,
   Receipt,
+  ScanText,
   Smartphone,
   X,
   type LucideIcon,
@@ -28,6 +29,12 @@ const MODULOS: Modulo[] = [
     etiqueta: "Vender",
     detalle: "Registrar tickets del sorteo abierto",
     Icono: Smartphone,
+  },
+  {
+    href: "/mi-digitalizacion",
+    etiqueta: "Digitalizar ventas escritas",
+    detalle: "Fotografíe su hoja y cuádrela contra el total que sumó",
+    Icono: ScanText,
   },
   {
     href: "/mi-dia",

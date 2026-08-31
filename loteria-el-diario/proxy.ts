@@ -39,6 +39,7 @@ function permitida(ruta: string, rol: string): boolean {
   if (rol === "vendedor") {
     return (
       ruta.startsWith("/mi-venta") ||
+      ruta.startsWith("/mi-digitalizacion") ||
       ruta.startsWith("/mi-dia") ||
       ruta.startsWith("/mi-reporte") ||
       ruta.startsWith("/clave")
@@ -49,6 +50,7 @@ function permitida(ruta: string, rol: string): boolean {
   // atadas a un vendedor concreto y para ellos no significan nada.
   if (
     ruta.startsWith("/mi-venta") ||
+    ruta.startsWith("/mi-digitalizacion") ||
     ruta.startsWith("/mi-dia") ||
     ruta.startsWith("/mi-reporte")
   ) {

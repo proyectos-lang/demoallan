@@ -25,9 +25,17 @@ const CLASE_CONTROL =
 export function Digitalizador({
   vendedores,
   sorteos,
+  propio = false,
 }: {
   vendedores: OpcionVendedor[];
   sorteos: OpcionSorteo[];
+  /**
+   * Modo del propio vendedor: no elige a nombre de quién sube la hoja —sale de
+   * su sesión— y el total del papel deja de ser opcional. Quien tiene la hoja
+   * delante es él, así que suplirlo con la lectura del modelo sería quitar el
+   * control justo donde puede fallar la lectura.
+   */
+  propio?: boolean;
 }) {
   const [vendedor, setVendedor] = useState(vendedores[0]?.id ?? "");
   const [sorteo, setSorteo] = useState(sorteos[0]?.id ?? "");
@@ -161,20 +169,22 @@ export function Digitalizador({
       {/* --- Carga --- */}
       <div className="bg-superficie border border-borde rounded-card shadow-card px-[18px] py-4">
         <div className="flex gap-4 flex-wrap items-end">
-          <label className="block">
-            <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
-            <select
-              value={vendedor}
-              onChange={(e) => setVendedor(e.target.value)}
-              className={cn(CLASE_CONTROL, "min-w-[240px]")}
-            >
-              {vendedores.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nombre} · {v.codigo}
-                </option>
-              ))}
-            </select>
-          </label>
+          {!propio && (
+            <label className="block">
+              <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
+              <select
+                value={vendedor}
+                onChange={(e) => setVendedor(e.target.value)}
+                className={cn(CLASE_CONTROL, "min-w-[240px]")}
+              >
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre} · {v.codigo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="block">
             <span className="block text-label text-secundario font-medium mb-[6px]">
@@ -195,13 +205,13 @@ export function Digitalizador({
 
           <label className="block">
             <span className="block text-label text-secundario font-medium mb-[6px]">
-              Total de la hoja (L)
+              Total de la hoja (L){propio && <span className="text-negativo"> ·  obligatorio</span>}
             </span>
             <input
               value={total}
               onChange={(e) => setTotal(e.target.value.replace(/\D/g, "").slice(0, 7))}
               inputMode="numeric"
-              placeholder="contado"
+              placeholder={propio ? "el que sumó" : "contado"}
               className={cn(CLASE_CONTROL, "w-[140px] text-right")}
             />
           </label>
@@ -217,7 +227,7 @@ export function Digitalizador({
             />
           </label>
 
-          <Boton onClick={leer} disabled={trabajando || !archivo}>
+          <Boton onClick={leer} disabled={trabajando || !archivo || (propio && !total)}>
             {trabajando && !loteId ? "Leyendo…" : "Leer hoja"}
           </Boton>
         </div>

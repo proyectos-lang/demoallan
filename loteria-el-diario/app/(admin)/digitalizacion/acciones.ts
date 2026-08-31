@@ -3,8 +3,53 @@
 import { revalidatePath } from "next/cache";
 
 import { extraerHoja, MODELO } from "@/lib/ia/gemini";
+import { sesionVigente } from "@/lib/sesion-vigente";
 import { crearClienteServicio } from "@/lib/supabase/admin";
 import { crearClienteServidor } from "@/lib/supabase/server";
+
+/**
+ * Quién puede digitalizar, y a nombre de quién.
+ *
+ * Estas tres acciones no comprobaban la sesión en absoluto. Las funciones SQL
+ * llaman a `fn_exige`, pero desde la 0024 la aplicación habla como
+ * `service_role` y esa guarda retorna sin mirar nada: cualquier perfil con
+ * sesión podía subir una hoja a nombre de cualquier vendedor.
+ *
+ * Ahora un vendedor digitaliza SIEMPRE lo suyo —el id sale de la sesión y lo
+ * que mande el navegador se ignora—, administración y digitación pueden
+ * hacerlo por cualquiera, y el auditor no puede: lee, no captura.
+ */
+async function quienDigitaliza(): Promise<
+  { ok: true; rol: string; vendedorPropio: string | null; usuarioId: string } | { ok: false; mensaje: string }
+> {
+  const s = await sesionVigente();
+  if (!s) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+
+  if (s.rol === "vendedor") {
+    if (!s.vendedor_id) {
+      return { ok: false, mensaje: "Su cuenta no está enlazada a ningún vendedor." };
+    }
+    return { ok: true, rol: s.rol, vendedorPropio: s.vendedor_id, usuarioId: s.id };
+  }
+
+  if (s.rol !== "administrador" && s.rol !== "digitador") {
+    return { ok: false, mensaje: "Su perfil no puede digitalizar hojas." };
+  }
+
+  return { ok: true, rol: s.rol, vendedorPropio: null, usuarioId: s.id };
+}
+
+/** Un vendedor sólo toca los lotes que subió él. */
+async function loteAjeno(loteId: string, vendedorPropio: string | null): Promise<boolean> {
+  if (!vendedorPropio) return false;
+  const supabase = crearClienteServicio();
+  const { data } = await supabase
+    .from("lote_ocr")
+    .select("vendedor_id")
+    .eq("id", loteId)
+    .maybeSingle();
+  return data?.vendedor_id !== vendedorPropio;
+}
 
 export type LineaPropuesta = {
   numero: string;
@@ -40,16 +85,32 @@ export type ResultadoExtraccion =
  * crean en `confirmarLote`, y sólo si el operador la revisó y la suma cuadra.
  */
 export async function digitalizarHoja(datos: FormData): Promise<ResultadoExtraccion> {
+  const quien = await quienDigitaliza();
+  if (!quien.ok) return { ok: false, mensaje: quien.mensaje };
+
   const archivo = datos.get("hoja");
-  const vendedorId = String(datos.get("vendedor") ?? "");
   const sorteoId = String(datos.get("sorteo") ?? "");
   const totalManual = String(datos.get("total") ?? "").replace(/\D/g, "");
+
+  // Un vendedor digitaliza lo suyo, se mande lo que se mande desde el
+  // navegador. Los demás perfiles sí eligen.
+  const vendedorId = quien.vendedorPropio ?? String(datos.get("vendedor") ?? "");
 
   if (!(archivo instanceof File) || archivo.size === 0) {
     return { ok: false, mensaje: "Seleccione la fotografía de la hoja." };
   }
   if (!vendedorId || !sorteoId) {
     return { ok: false, mensaje: "Elija el vendedor y el sorteo de destino." };
+  }
+  // Al vendedor se le exige el total de su hoja, siempre. Es el único control
+  // de cuadre que hay, y quien tiene el papel delante es él: dejar que lo
+  // supla la lectura del modelo sería quitar el control justo donde puede
+  // fallar la lectura.
+  if (quien.vendedorPropio && !totalManual) {
+    return {
+      ok: false,
+      mensaje: "Escriba el total de la hoja: sin él no se puede comprobar el cuadre.",
+    };
   }
   if (archivo.size > 10 * 1024 * 1024) {
     return { ok: false, mensaje: "La imagen pesa más de 10 MB." };
@@ -111,6 +172,7 @@ export async function digitalizarHoja(datos: FormData): Promise<ResultadoExtracc
   }
 
   revalidatePath("/digitalizacion");
+  revalidatePath("/mi-digitalizacion");
   return {
     ok: true,
     loteId: loteId as unknown as string,
@@ -136,6 +198,12 @@ export async function confirmarLote(
   loteId: string,
   lineas: { numero: number; monto: number }[],
 ): Promise<ResultadoConfirmacion> {
+  const quien = await quienDigitaliza();
+  if (!quien.ok) return { ok: false, mensaje: quien.mensaje };
+  if (await loteAjeno(loteId, quien.vendedorPropio)) {
+    return { ok: false, mensaje: "Esa hoja no es suya." };
+  }
+
   const supabase = await crearClienteServidor();
 
   const { data, error } = await supabase.rpc("fn_validar_lote_ocr", {
@@ -148,6 +216,8 @@ export async function confirmarLote(
   if (!f) return { ok: false, mensaje: "La validación no devolvió resultado." };
 
   revalidatePath("/digitalizacion");
+  revalidatePath("/mi-digitalizacion");
+  revalidatePath("/mi-dia");
   revalidatePath("/tablero");
   return { ok: true, folio: f.ticket_folio, lineas: Number(f.lineas) };
 }
@@ -156,6 +226,12 @@ export async function rechazarLote(
   loteId: string,
   motivo: string,
 ): Promise<{ ok: boolean; mensaje: string }> {
+  const quien = await quienDigitaliza();
+  if (!quien.ok) return { ok: false, mensaje: quien.mensaje };
+  if (await loteAjeno(loteId, quien.vendedorPropio)) {
+    return { ok: false, mensaje: "Esa hoja no es suya." };
+  }
+
   const supabase = await crearClienteServidor();
   const { error } = await supabase.rpc("fn_rechazar_lote_ocr", {
     p_lote_id: loteId,
