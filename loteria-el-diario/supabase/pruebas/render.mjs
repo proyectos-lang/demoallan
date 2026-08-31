@@ -94,6 +94,7 @@ const RUTAS = [
   ["/resultados", ["Sorteos y resultados"]],
   ["/vendedores", ["Vendedores y límites", "María F. Cruz", "EXPOSICIÓN"]],
   ["/liquidacion", ["Liquidación semanal"]],
+  ["/informe", ["Informe de gerencia"]],
   ["/reportes", ["Reportes"]],
   ["/control", ["Control de vendedores"]],
   ["/geo", ["Geo-referenciación"]],

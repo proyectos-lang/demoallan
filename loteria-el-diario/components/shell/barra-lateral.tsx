@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AlignLeft,
+  ClipboardList,
   FlaskConical,
   LayoutDashboard,
   MapPin,
@@ -64,6 +65,12 @@ const SECCIONES: { titulo: string; items: Item[] }[] = [
   {
     titulo: "ANÁLISIS",
     items: [
+      {
+        href: "/informe",
+        etiqueta: "Informe de gerencia",
+        Icono: ClipboardList,
+        color: "var(--color-nav-i-informe)",
+      },
       { href: "/reportes", etiqueta: "Reportes", Icono: Table, color: "var(--color-nav-i-reportes)" },
       { href: "/control", etiqueta: "Control de vendedores", Icono: UserSearch, color: "var(--color-nav-i-control)" },
       { href: "/geo", etiqueta: "Geo-referenciación", Icono: MapPin, color: "var(--color-nav-i-geo)" },

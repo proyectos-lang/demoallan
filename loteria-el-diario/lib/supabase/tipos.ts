@@ -890,6 +890,27 @@ export type Database = {
         }[];
       };
 
+      // --- Informe de gerencia (0036) -----------------------------------
+      /** Una fila por vendedor, con el desglose de la hoja del gerente. */
+      fn_informe_gerencia: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_nombre: string;
+          r_venta: number;
+          /** Lo APOSTADO al número ganador, no lo pagado por él. */
+          r_premiado: number;
+          r_factor: number;
+          r_pago: number;
+          /** Fracción: 0.20, no 20. */
+          r_porcentaje: number;
+          r_comision: number;
+          r_bruto: number;
+          r_neto: number;
+        }[];
+      };
+
       // --- Venta de administración (0033) -------------------------------
       fn_recalcular_liquidacion: {
         Args: { p_sorteo_id: string; p_vendedor_id: string };
