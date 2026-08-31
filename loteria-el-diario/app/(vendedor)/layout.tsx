@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlignLeft, KeyRound, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { salir } from "@/app/login/acciones";
-import { PestanasVendedor } from "@/components/vendedor/pestanas";
+import { MenuVendedor, TituloVendedor } from "@/components/vendedor/menu-vendedor";
 import { iniciales } from "@/lib/format";
 import { sesionVigente } from "@/lib/sesion-vigente";
 
@@ -38,45 +37,35 @@ export default async function VendedorLayout({ children }: LayoutProps<"/">) {
      * la página se pudiera arrastrar en horizontal.
      */
     <div className="min-h-[100dvh] flex flex-col overflow-x-hidden">
-      <header className="flex-none bg-nav-fondo px-4 py-3 flex items-center gap-3">
-        <span
-          className="w-8 h-8 flex-none rounded-banner flex items-center justify-center"
-          style={{ background: "var(--gradiente-logo)" }}
-        >
-          <AlignLeft size={17} color="#fff" strokeWidth={2} absoluteStrokeWidth />
-        </span>
+      {/*
+        La cabecera se queda en lo mínimo: menú, dónde estoy y salir.
+
+        Antes llevaba además el logotipo, el acceso a la clave y las iniciales,
+        más una fila de pestañas debajo. Eran unos noventa píxeles fijos en una
+        pantalla donde la rejilla de cien números ya obliga a desplazarse; lo
+        que no es imprescindible se fue al menú.
+      */}
+      <header className="flex-none bg-nav-fondo px-3 py-2 flex items-center gap-3">
+        <MenuVendedor
+          nombre={sesion.nombre}
+          codigo={iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}
+        />
 
         <span className="block min-w-0 flex-1">
-          <span className="block text-meta font-semibold text-nav-titulo truncate">
-            {sesion.nombre}
-          </span>
-          <span className="block text-th text-nav-seccion">Vendedor</span>
+          <TituloVendedor />
+          <span className="block text-th text-nav-seccion truncate">{sesion.nombre}</span>
         </span>
-
-        <Link
-          href="/clave"
-          className="w-9 h-9 flex-none rounded-campo flex items-center justify-center bg-nav-chip"
-          aria-label="Cambiar contraseña"
-        >
-          <KeyRound size={16} color="var(--color-nav-item)" strokeWidth={2} absoluteStrokeWidth />
-        </Link>
 
         <form action={salir} className="flex-none">
           <button
             type="submit"
-            className="w-9 h-9 rounded-campo flex items-center justify-center bg-nav-chip"
+            className="w-10 h-10 rounded-campo flex items-center justify-center bg-nav-chip"
             aria-label="Salir"
           >
-            <LogOut size={16} color="var(--color-nav-item)" strokeWidth={2} absoluteStrokeWidth />
+            <LogOut size={17} color="var(--color-nav-item)" strokeWidth={2} absoluteStrokeWidth />
           </button>
         </form>
-
-        <span className="w-8 h-8 flex-none rounded-full bg-nav-activo text-nav-titulo text-meta font-semibold flex items-center justify-center">
-          {iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}
-        </span>
       </header>
-
-      <PestanasVendedor />
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">{children}</main>
     </div>

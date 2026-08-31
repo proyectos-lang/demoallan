@@ -39,6 +39,7 @@ function permitida(ruta: string, rol: string): boolean {
   if (rol === "vendedor") {
     return (
       ruta.startsWith("/mi-venta") ||
+      ruta.startsWith("/mi-dia") ||
       ruta.startsWith("/mi-reporte") ||
       ruta.startsWith("/clave")
     );
@@ -46,7 +47,13 @@ function permitida(ruta: string, rol: string): boolean {
 
   // El resto de perfiles no entra en las pantallas del vendedor, que están
   // atadas a un vendedor concreto y para ellos no significan nada.
-  if (ruta.startsWith("/mi-venta") || ruta.startsWith("/mi-reporte")) return false;
+  if (
+    ruta.startsWith("/mi-venta") ||
+    ruta.startsWith("/mi-dia") ||
+    ruta.startsWith("/mi-reporte")
+  ) {
+    return false;
+  }
 
   if (rol !== "administrador" && SOLO_ADMINISTRADOR.some((r) => ruta.startsWith(r))) {
     return false;

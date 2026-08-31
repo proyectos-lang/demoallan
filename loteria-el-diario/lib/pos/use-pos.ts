@@ -124,6 +124,17 @@ export function usePos(datos: DatosPos) {
    * así que una fila entera a 50 son diez líneas de 50, no una de 500.
    */
   const [seleccion, setSeleccion] = useState<number[]>([]);
+
+  /**
+   * Si la hoja del monto está abierta.
+   *
+   * En móvil, tocar un número la abre en el acto. Antes el monto vivía debajo
+   * de la rejilla, y con veinte líneas eso son ochocientos píxeles de
+   * desplazamiento entre elegir el número y decir cuánto — con una cola
+   * delante, cada venta. La hoja trae el teclado consigo y aparece donde está
+   * el pulgar.
+   */
+  const [montoAbierto, setMontoAbierto] = useState(false);
   const [foco, setFoco] = useState<Foco>("numero");
 
   /** El ticket que se está tecleando. */
@@ -308,6 +319,7 @@ export function usePos(datos: DatosPos) {
     setNumero("");
     setMonto("");
     setSeleccion([]);
+    setMontoAbierto(false);
     setFoco("numero");
     setRapidaTexto("");
   };
@@ -330,7 +342,33 @@ export function usePos(datos: DatosPos) {
     setErrorVenta("");
   };
 
-  /** Toca un número: entra o sale de la selección. */
+  /**
+   * Abre la hoja del monto para uno o varios números.
+   *
+   * Es el gesto del móvil: tocar el 47 pregunta cuánto en el acto, y tocar el
+   * rango de una línea pregunta lo mismo para sus cinco. Los números sin cupo
+   * se quedan fuera; si no queda ninguno, no hay nada que preguntar.
+   */
+  const pedirMonto = (numeros: number[]) => {
+    const conCupo = [...new Set(numeros)]
+      .filter((n) => disponible[n] > 0)
+      .sort((a, b) => a - b);
+    if (conCupo.length === 0) return;
+
+    setNumero("");
+    setMonto("");
+    setSeleccion(conCupo);
+    setMontoAbierto(true);
+    setErrorVenta("");
+  };
+
+  const cerrarMonto = () => {
+    setMontoAbierto(false);
+    setSeleccion([]);
+    setMonto("");
+  };
+
+  /** Toca un número: entra o sale de la selección. Lo usa el escritorio. */
   const alternarNumero = (n: number) => {
     setNumero("");
     setSeleccion((s) =>
@@ -489,6 +527,7 @@ export function usePos(datos: DatosPos) {
     errorVenta,
     ahora,
     montado,
+    montoAbierto,
     enviando,
 
     // derivados
@@ -520,6 +559,8 @@ export function usePos(datos: DatosPos) {
     agregar,
     agregarSeleccion,
     limpiarEntrada,
+    pedirMonto,
+    cerrarMonto,
     alternarNumero,
     alternarLinea,
     escribirNumero,

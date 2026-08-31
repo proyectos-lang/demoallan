@@ -2,14 +2,14 @@
 
 import {
   AvisoFueraDeHora,
-  BannerCupo,
   ListaTanda,
   Recibo,
   TicketEnCurso,
 } from "@/components/pos/piezas";
+import { HojaMonto } from "@/components/pos/hoja-monto";
 import { cn } from "@/lib/cn";
 import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
-import { CUPO_BAJO, MONTOS_RAPIDOS, POR_LINEA, TECLAS, type Pos } from "@/lib/pos/use-pos";
+import { CUPO_BAJO, POR_LINEA, type Pos } from "@/lib/pos/use-pos";
 
 /**
  * Punto de venta en un teléfono de verdad.
@@ -21,10 +21,10 @@ import { CUPO_BAJO, MONTOS_RAPIDOS, POR_LINEA, TECLAS, type Pos } from "@/lib/po
  * confirmar quedaba por debajo del pliegue. La venta se podía teclear pero no
  * cerrar. Aquí la pantalla del teléfono ES la pantalla.
  *
- * SÓLO TECLADO. De los tres flujos del prototipo se queda el primero. La línea
- * rápida y la rejilla 00–99 siguen existiendo en la vista de escritorio, donde
- * hay sitio y un teclado físico; en la mano, cambiar de modo era una decisión
- * más que tomar antes de cada venta.
+ * SIN MODOS. De los tres flujos del prototipo no queda ninguno en la mano: se
+ * toca el número en la rejilla y una hoja pregunta cuánto. La línea rápida y el
+ * teclado de dos campos siguen en la vista de escritorio, donde hay sitio y un
+ * teclado físico.
  *
  * DOS NIVELES. El vendedor de calle atiende una cola: teclea un ticket, lo
  * cierra, teclea el siguiente, y al final confirma todo de una vez. De ahí el
@@ -96,63 +96,6 @@ export function VistaMovil({ pos }: { pos: Pos }) {
             <AvisoFueraDeHora pos={pos} />
 
             <Rejilla pos={pos} />
-
-            {/* El monto, que se aplica a TODO lo seleccionado. */}
-            <div className="mt-3 bg-superficie rounded-pos px-[14px] py-[11px] border-2 border-acento">
-              <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario">
-                MONTO (L) {pos.seleccion.length > 1 && "· A CADA NÚMERO"}
-              </span>
-              <span className="block text-display font-semibold">{pos.monto || "0"}</span>
-            </div>
-
-            <BannerCupo pos={pos} className="mt-3" />
-
-            <div className="grid grid-cols-3 gap-[9px] mt-3">
-              {TECLAS.map((k) => (
-                <button
-                  key={k}
-                  onClick={() => pos.tecla(k)}
-                  className={cn(
-                    "border border-borde-campo rounded-pos py-[15px] text-tecla font-semibold bg-superficie cursor-pointer active:bg-acento-suave",
-                    (k === "C" || k === "←") && "text-negativo",
-                  )}
-                >
-                  {k}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mt-3">
-              {MONTOS_RAPIDOS.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => (pos.disp ?? 0) > 0 && pos.setMonto(String(m))}
-                  className={cn(
-                    "rounded-pos py-[10px] text-tabla font-semibold border cursor-pointer",
-                    String(m) === pos.monto
-                      ? "bg-acento text-white border-acento"
-                      : "bg-superficie text-tinta border-borde-pos",
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            <button
-              disabled={!pos.puedeAgregar}
-              onClick={pos.agregarSeleccion}
-              className={cn(
-                "w-full mt-3 rounded-pos py-4 text-pos font-semibold border-0",
-                pos.puedeAgregar
-                  ? "bg-tinta text-white cursor-pointer"
-                  : "bg-riel text-mudo cursor-not-allowed",
-              )}
-            >
-              {pos.seleccion.length > 1
-                ? `Agregar ${pos.seleccion.length} números al ticket`
-                : "Agregar al ticket"}
-            </button>
 
             <div className="mt-4">
               <TicketEnCurso pos={pos} />
@@ -233,6 +176,8 @@ export function VistaMovil({ pos }: { pos: Pos }) {
           </div>
         </>
       )}
+
+      <HojaMonto pos={pos} />
     </div>
   );
 }
@@ -260,18 +205,8 @@ function Rejilla({ pos }: { pos: Pos }) {
 
   return (
     <div className="mt-3">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="text-micro text-secundario">
-          Toque los números; el rango toma la línea entera.
-        </span>
-        {pos.seleccion.length > 0 && (
-          <button
-            onClick={pos.limpiarEntrada}
-            className="text-label text-acento font-medium"
-          >
-            quitar {pos.seleccion.length}
-          </button>
-        )}
+      <div className="text-micro text-secundario mb-2">
+        Toque un número y diga cuánto. El rango pregunta por la línea entera.
       </div>
 
       <div className="flex flex-col gap-[2px]">
@@ -279,8 +214,6 @@ function Rejilla({ pos }: { pos: Pos }) {
           const desde = indice * POR_LINEA;
           const fila = Array.from({ length: POR_LINEA }, (_, i) => desde + i);
           const conCupo = fila.filter((n) => pos.disponible[n] > 0);
-          const completa =
-            conCupo.length > 0 && conCupo.every((n) => pos.seleccion.includes(n));
 
           return (
             <div
@@ -291,16 +224,14 @@ function Rejilla({ pos }: { pos: Pos }) {
               }}
             >
               <button
-                onClick={() => pos.alternarLinea(indice)}
+                onClick={() => pos.pedirMonto(fila)}
                 disabled={conCupo.length === 0}
                 aria-label={`Seleccionar toda la línea del ${pad2(desde)} al ${pad2(desde + POR_LINEA - 1)}`}
                 className={cn(
                   "h-[38px] rounded-celda text-badge font-semibold border-[1.5px] leading-tight",
                   conCupo.length === 0
                     ? "bg-riel text-mudo border-riel"
-                    : completa
-                      ? "bg-tinta text-white border-tinta"
-                      : "bg-panel text-cuerpo border-borde-pos",
+                    : "bg-panel text-cuerpo border-borde-pos",
                 )}
               >
                 {pad2(desde)}–{pad2(desde + POR_LINEA - 1)}
@@ -308,17 +239,14 @@ function Rejilla({ pos }: { pos: Pos }) {
 
               {fila.map((n) => {
                 const dp = pos.disponible[n];
-                const elegido = pos.seleccion.includes(n);
                 return (
                   <button
                     key={n}
-                    onClick={() => dp > 0 && pos.alternarNumero(n)}
+                    onClick={() => pos.pedirMonto([n])}
                     disabled={dp <= 0}
                     className={cn(
                       "h-[38px] rounded-celda text-pos font-semibold border-[1.5px] p-0",
-                      elegido
-                        ? "bg-acento text-white border-acento"
-                        : dp <= 0
+                      dp <= 0
                           ? "bg-negativo-fondo text-negativo-texto border-negativo-borde"
                           : dp < CUPO_BAJO
                             ? "bg-ambar-fondo text-tinta border-borde-pos"

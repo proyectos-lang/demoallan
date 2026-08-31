@@ -96,7 +96,7 @@ export default async function MiReportePage({ searchParams }: PageProps<"/mi-rep
   return (
     <div className="px-4 py-5 flex flex-col gap-4 max-w-[820px] mx-auto">
       <div>
-        <h1 className="text-h1 font-semibold tracking-titular m-0">Mi reporte</h1>
+        <h1 className="text-h1 font-semibold tracking-titular m-0">Liquidaciones e informes</h1>
         <p className="text-meta text-secundario mt-[5px] mb-0">
           Día por día y lotería por lotería, lo que le corresponde.
         </p>
