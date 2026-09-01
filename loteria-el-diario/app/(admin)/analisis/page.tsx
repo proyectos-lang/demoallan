@@ -7,13 +7,24 @@ import {
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, fmtK, hora12, hoyHonduras, iso, mesNombre } from "@/lib/format";
+import { fechaLarga, fmt, fmtK, hora12, hoyHonduras, iso, mesNombre, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 const RANGO = /^\d{4}-\d{2}-\d{2}$/;
-const GRANOS: Grano[] = ["dia", "semana", "mes", "anio"];
+const GRANOS: Grano[] = ["sorteo", "dia", "semana", "mes", "anio"];
+
+/**
+ * Cuántas tarjetas se pintan como mucho.
+ *
+ * Sorteo por sorteo son tres tarjetas por día: un mes son noventa y un año
+ * pasa de mil. Mil tarjetas no se leen —y el HTML de esa página se va a varios
+ * megabytes, que es la clase de peso que ya obligó a quitar la precarga de la
+ * barra lateral—. Se corta el DIBUJO, nunca la cuenta: los totales de arriba
+ * se calculan sobre el rango entero y el aviso dice cuántas quedaron fuera.
+ */
+const TOPE_TARJETAS = 120;
 
 const MESES_LARGOS = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -36,6 +47,9 @@ function sumarDias(d: Date, n: number): Date {
 function rotular(grano: Grano, inicio: string, fin: string): string {
   const [a, m, d] = inicio.split("-").map(Number);
   if (grano === "anio") return String(a);
+  // La hora no va en el rótulo sino en el chip de la derecha: «martes 4 de
+  // agosto de 2026 · 3:00 PM» no cabe en una tarjeta de 298 px.
+  if (grano === "sorteo") return fechaLarga(inicio);
   if (grano === "mes") return `${MESES_LARGOS[m - 1]} ${a}`;
   if (grano === "dia") return fechaLarga(inicio);
 
@@ -141,6 +155,8 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
   const periodos = (data ?? []).map((f) => ({
     inicio: f.r_inicio,
     fin: f.r_fin,
+    hora: f.r_hora,
+    ganador: f.r_numero_ganador,
     dias: Number(f.r_dias),
     sorteos: Number(f.r_sorteos),
     venta: Number(f.r_venta),
@@ -161,7 +177,21 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
     { venta: 0, comision: 0, premios: 0, utilidad: 0, dias: 0, sorteos: 0 },
   );
 
+  /*
+   * Los días NO se suman con el grano de sorteo.
+   *
+   * Cada tarjeta trae los días que abarca, y en los demás cortes eso se puede
+   * sumar porque dos semanas no comparten un día. Tres sorteos sí comparten el
+   * suyo: sumarlos diría «55 días» donde hay diecinueve. A ese grano los días
+   * son las fechas distintas.
+   */
+  const dias =
+    grano === "sorteo"
+      ? new Set(periodos.map((p) => p.inicio)).size
+      : total.dias;
+
   const margen = total.venta ? (total.utilidad / total.venta) * 100 : 0;
+  const visibles = periodos.slice(0, TOPE_TARJETAS);
 
   return (
     <Pagina>
@@ -201,7 +231,7 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
               </span>
               <span className="block text-pos-lg font-semibold tracking-sutil mt-[6px]">
                 {periodos.length} {periodos.length === 1 ? "período" : "períodos"} ·{" "}
-                {total.dias} {total.dias === 1 ? "día" : "días"} · {total.sorteos} sorteos
+                {dias} {dias === 1 ? "día" : "días"} · {total.sorteos} sorteos
               </span>
             </div>
             <div className="text-right">
@@ -248,17 +278,19 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
         ) : (
           <>
             <h2 className="text-h2 font-semibold tracking-sutil mt-2 mb-0">
-              {grano === "dia"
-                ? "Día por día"
-                : grano === "semana"
-                  ? "Semana por semana"
-                  : grano === "mes"
-                    ? "Mes por mes"
-                    : "Año por año"}
+              {grano === "sorteo"
+                ? "Sorteo por sorteo"
+                : grano === "dia"
+                  ? "Día por día"
+                  : grano === "semana"
+                    ? "Semana por semana"
+                    : grano === "mes"
+                      ? "Mes por mes"
+                      : "Año por año"}
             </h2>
 
             <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fill,minmax(298px,1fr))]">
-              {periodos.map((p, i) => {
+              {visibles.map((p, i) => {
                 const anterior = i > 0 ? periodos[i - 1] : null;
                 const dif = anterior ? p.utilidad - anterior.utilidad : null;
                 const margenP = p.venta ? (p.utilidad / p.venta) * 100 : 0;
@@ -270,17 +302,36 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
                 ];
 
                 return (
-                  <Tarjeta key={p.inicio} padding="16px 18px">
+                  <Tarjeta key={`${p.inicio}-${p.hora ?? ""}`} padding="16px 18px">
                     <div className="flex justify-between items-baseline border-b border-riel pb-3 gap-3">
                       <span className="text-cta font-semibold tracking-sutil">
                         {rotular(grano, p.inicio, p.fin)}
                       </span>
+                      {/* A la derecha, lo que distingue a esta tarjeta de la
+                          de al lado: la lotería si el corte es por sorteo
+                          —donde «1 día» sería siempre igual y no diría nada—,
+                          y si no, cuánto abarca. */}
                       <span className="text-micro text-secundario flex-none">
-                        {p.dias} {p.dias === 1 ? "día" : "días"}
+                        {p.hora ? hora12(p.hora) : `${p.dias} ${p.dias === 1 ? "día" : "días"}`}
                       </span>
                     </div>
 
                     <div className="grid [grid-template-columns:1fr_auto] gap-x-3 gap-y-[7px] mt-3">
+                      {/* A este grano la tarjeta es un sorteo, así que hay un
+                          número y es el que explica los premios de abajo. La
+                          misma píldora que en el reporte del vendedor: un
+                          número ganador se ve igual en todo el sistema. */}
+                      {p.ganador !== null && (
+                        <>
+                          <span className="text-tabla text-secundario">Número ganador</span>
+                          <span className="text-right">
+                            <span className="inline-block min-w-[30px] text-center px-[7px] py-[2px] rounded-celda bg-acento-suave text-acento-fuerte font-semibold">
+                              {pad2(p.ganador)}
+                            </span>
+                          </span>
+                        </>
+                      )}
+
                       {filas.map(([etiqueta, valor]) => (
                         <Fila key={etiqueta} etiqueta={etiqueta} valor={valor} />
                       ))}
@@ -335,6 +386,15 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
                 );
               })}
             </div>
+
+            {periodos.length > visibles.length && (
+              <TarjetaNota>
+                Se dibujan las primeras {visibles.length} de {periodos.length} tarjetas. Las
+                cifras de arriba sí son del rango completo — lo que se recorta es el dibujo, no
+                la cuenta. Para ver el resto, acorte el rango o suba el corte a un grano más
+                grueso.
+              </TarjetaNota>
+            )}
           </>
         )}
       </div>

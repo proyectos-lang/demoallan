@@ -6,11 +6,14 @@ import { useTransition } from "react";
 import { cn } from "@/lib/cn";
 import { hora12 } from "@/lib/format";
 
-export type Grano = "dia" | "semana" | "mes" | "anio";
+export type Grano = "sorteo" | "dia" | "semana" | "mes" | "anio";
 export type OpcionVendedor = { id: string; codigo: string; nombre: string };
 export type Vista = { etiqueta: string; desde: string; hasta: string; grano: Grano };
 
 const GRANOS: { id: Grano; etiqueta: string }[] = [
+  // De lo fino a lo grueso. «Sorteo» es el suelo: debajo de un sorteo ya no
+  // hay resultado que analizar, hay tickets.
+  { id: "sorteo", etiqueta: "Sorteo por sorteo" },
   { id: "dia", etiqueta: "Día a día" },
   { id: "semana", etiqueta: "Semana a semana" },
   { id: "mes", etiqueta: "Mes a mes" },

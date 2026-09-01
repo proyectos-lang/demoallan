@@ -1,11 +1,12 @@
 /**
  * Análisis de resultados: que el grano reparta y no recalcule.
  *
- * `fn_analisis_resultados` corta el mismo período de cuatro maneras. La
- * propiedad que la hace confiable es que las cuatro sumen lo mismo: si el
- * total de un mes leído día por día no es idéntico —al céntimo— al de ese mes
- * leído de una sola tarjeta, entonces el corte está inventando o perdiendo
- * dinero en alguna frontera, y las tarjetas bonitas estarían mintiendo.
+ * `fn_analisis_resultados` corta el mismo período de cinco maneras —sorteo,
+ * día, semana, mes y año—. La propiedad que la hace confiable es que las cinco
+ * sumen lo mismo: si el total de un mes leído sorteo por sorteo no es idéntico
+ * —al céntimo— al de ese mes leído de una sola tarjeta, entonces el corte está
+ * inventando o perdiendo dinero en alguna frontera, y las tarjetas bonitas
+ * estarían mintiendo.
  *
  * Lo mismo con los filtros: las tres loterías por separado tienen que sumar el
  * total sin filtro, y los vendedores uno a uno también. Un filtro que reparte
@@ -96,6 +97,7 @@ try {
   console.log("\n2. El grano reparte el mismo total");
   const base = { p_desde: desde, p_hasta: hasta, p_vendedor_id: null, p_hora: null };
 
+  const porSorteo = await analizar({ ...base, p_grano: "sorteo" });
   const porDia = await analizar({ ...base, p_grano: "dia" });
   const porSemana = await analizar({ ...base, p_grano: "semana" });
   const porMes = await analizar({ ...base, p_grano: "mes" });
@@ -103,6 +105,11 @@ try {
 
   const tDia = totales(porDia);
   check("día a día devuelve tarjetas", porDia.length > 0, `${porDia.length}`);
+  check(
+    "sorteo por sorteo suma lo mismo que día a día",
+    iguales(tDia, totales(porSorteo)),
+    `\n        dia:    ${describir(tDia)}\n        sorteo: ${describir(totales(porSorteo))}`,
+  );
   check(
     "semana a semana suma lo mismo que día a día",
     iguales(tDia, totales(porSemana)),
@@ -124,15 +131,68 @@ try {
     `mes=${porMes.length} anio=${porAnio.length}`,
   );
 
+  // --- El suelo del análisis --------------------------------------------
+  // Debajo de un sorteo ya no hay resultado, hay tickets. Esta sección
+  // comprueba que a ese grano cada tarjeta sea de verdad UN sorteo.
+  console.log("\n3. Sorteo por sorteo es el grano más fino");
+  check(
+    "hay una tarjeta por sorteo liquidado",
+    porSorteo.length === tDia.sorteos,
+    `tarjetas=${porSorteo.length} sorteos=${tDia.sorteos}`,
+  );
+  check(
+    "cada tarjeta trae su lotería y su número ganador",
+    // Contra una versión vieja de la función estos campos llegan `undefined`,
+    // y `undefined !== null` es cierto: la comprobación aprobaría por ausencia.
+    // Por eso se exige el valor, no que no sea nulo.
+    porSorteo.every(
+      (f) =>
+        ["11:00", "15:00", "20:00"].includes(f.r_hora) &&
+        Number.isInteger(f.r_numero_ganador) &&
+        f.r_numero_ganador >= 0 &&
+        f.r_numero_ganador <= 99,
+    ),
+  );
+  check(
+    "cada tarjeta es un solo sorteo de un solo día",
+    porSorteo.every((f) => f.r_sorteos === 1 && f.r_dias === 1 && f.r_inicio === f.r_fin),
+  );
+  check(
+    "los días distintos coinciden con las tarjetas de día a día",
+    new Set(porSorteo.map((f) => f.r_inicio)).size === porDia.length,
+    `${new Set(porSorteo.map((f) => f.r_inicio)).size} vs ${porDia.length}`,
+  );
+  check(
+    "los granos más gruesos no traen hora ni número",
+    [...porDia, ...porSemana, ...porMes, ...porAnio].every(
+      (f) => f.r_hora === null && f.r_numero_ganador === null,
+    ),
+    "«el número ganador de agosto» no significa nada",
+  );
+  const soloUna = await analizar({ ...base, p_grano: "sorteo", p_hora: "15:00" });
+  check(
+    "filtrando una lotería sólo vienen sus sorteos",
+    soloUna.length > 0 && soloUna.every((f) => f.r_hora === "15:00"),
+    `${soloUna.length} tarjetas`,
+  );
+  check(
+    "las tarjetas de sorteo vienen en orden de día y hora",
+    porSorteo.every((f, i) => {
+      if (i === 0) return true;
+      const a = porSorteo[i - 1];
+      return f.r_inicio > a.r_inicio || (f.r_inicio === a.r_inicio && f.r_hora > a.r_hora);
+    }),
+  );
+
   // --- La utilidad es una resta, no una columna -------------------------
-  console.log("\n3. La utilidad se resta");
+  console.log("\n4. La utilidad se resta");
   const restaOk = porDia.every(
     (f) => cent(f.r_utilidad) === cent(f.r_venta) - cent(f.r_comision) - cent(f.r_premios),
   );
   check("utilidad = venta − comisión − premios en cada tarjeta", restaOk);
 
   // --- Los filtros reparten ---------------------------------------------
-  console.log("\n4. Los filtros reparten, no recalculan");
+  console.log("\n5. Los filtros reparten, no recalculan");
   const horas = ["11:00", "15:00", "20:00"];
   const porHora = [];
   for (const h of horas) porHora.push(await analizar({ ...base, p_grano: "dia", p_hora: h }));
@@ -159,7 +219,7 @@ try {
   );
 
   // --- Los bordes del período -------------------------------------------
-  console.log("\n5. El período que se enseña es el que se pidió");
+  console.log("\n6. El período que se enseña es el que se pidió");
   check(
     "ninguna tarjeta empieza antes del rango",
     porSemana.every((f) => f.r_inicio >= desde),
@@ -186,7 +246,7 @@ try {
   check("las tarjetas vienen en orden", porDia.every((f, i) => i === 0 || f.r_inicio > porDia[i - 1].r_inicio));
 
   // --- Un vendedor sin movimiento ---------------------------------------
-  console.log("\n6. Sin datos, ninguna tarjeta");
+  console.log("\n7. Sin datos, ninguna tarjeta");
   const vacio = await analizar({ ...base, p_desde: "2099-01-01", p_hasta: "2099-01-31", p_grano: "dia" });
   check("un rango sin liquidaciones devuelve cero filas", vacio.length === 0, `${vacio.length}`);
 } catch (e) {

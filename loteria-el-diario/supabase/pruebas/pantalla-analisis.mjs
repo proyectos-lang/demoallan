@@ -40,6 +40,8 @@ const cookie = `diario_sesion=${cuerpo}.${createHmac("sha256", secreto).update(c
 
 const CASOS = [
   ["mes por defecto", "/analisis"],
+  ["agosto sorteo a sorteo", "/analisis?desde=2026-08-01&hasta=2026-08-19&grano=sorteo"],
+  ["año sorteo a sorteo", "/analisis?desde=2026-01-01&hasta=2026-12-31&grano=sorteo"],
   ["agosto día a día", "/analisis?desde=2026-08-01&hasta=2026-08-19&grano=dia"],
   ["agosto semana a semana", "/analisis?desde=2026-08-01&hasta=2026-08-19&grano=semana"],
   ["semana cortada", "/analisis?desde=2026-08-05&hasta=2026-08-19&grano=semana"],
@@ -57,8 +59,9 @@ for (const [n, ruta] of CASOS) {
   const titulo = html.includes("Análisis de resultados");
   const tarjetas = (html.match(/Utilidad neta/g) ?? []).length;
   const vacio = html.includes("No hay ningún sorteo liquidado");
+  const topado = /Se dibujan las primeras/.test(html);
   if (r.status !== 200 || revento || !titulo) { fallos++; console.log(`  FALLA ${n.padEnd(24)} http=${r.status} ${revento ? "reventó" : !titulo ? "sin título" : ""}`); }
-  else console.log(`  ok    ${n.padEnd(24)} ${String(tarjetas).padStart(2)} tarjetas${vacio ? " (aviso de vacío)" : ""}  ${(html.length / 1024).toFixed(0)} kB`);
+  else console.log(`  ok    ${n.padEnd(24)} ${String(tarjetas).padStart(2)} tarjetas${vacio ? " (aviso de vacío)" : ""}${topado ? " (topado)" : ""}  ${(html.length / 1024).toFixed(0)} kB`);
 }
 console.log(fallos ? `\n=== ${fallos} fallos ===` : "\n=== todo servido ===");
 process.exit(fallos ? 1 : 0);

@@ -918,7 +918,7 @@ export type Database = {
         Args: {
           p_desde: string;
           p_hasta: string;
-          /** `dia` · `semana` · `mes` · `anio`. */
+          /** `sorteo` · `dia` · `semana` · `mes` · `anio`. */
           p_grano: string;
           p_vendedor_id?: string | null;
           p_hora?: HoraSorteo | null;
@@ -926,6 +926,10 @@ export type Database = {
         Returns: {
           r_inicio: string;
           r_fin: string;
+          /** Sólo con el grano `sorteo`; nulo en los demás. */
+          r_hora: HoraSorteo | null;
+          /** Sólo con el grano `sorteo`: a ese grano la tarjeta ES un sorteo. */
+          r_numero_ganador: number | null;
           r_dias: number;
           r_sorteos: number;
           r_venta: number;
