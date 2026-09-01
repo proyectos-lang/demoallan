@@ -1,4 +1,4 @@
-# Lotería El Diario
+# Sistema de Control de Tickets
 
 Sistema de control de ventas de lotería · Cortés, Honduras.
 

@@ -17,7 +17,7 @@ export const revalidate = 60;
 export async function generateMetadata(props: PageProps<"/r/[fecha]">): Promise<Metadata> {
   const { fecha } = await props.params;
   return {
-    title: `Resultados del ${fecha} · Lotería El Diario`,
+    title: `Resultados del ${fecha} · Sistema de Control de Tickets`,
     description: "Números ganadores de los sorteos de las 11:00, 15:00 y 20:00.",
   };
 }
@@ -57,7 +57,7 @@ export default async function ResultadosPublicosPage(props: PageProps<"/r/[fecha
             <AlignLeft size={20} color="#fff" strokeWidth={2} absoluteStrokeWidth />
           </span>
           <span className="block text-h2 font-semibold tracking-sutil">
-            Lotería El Diario
+            Sistema de Control de Tickets
           </span>
         </div>
 

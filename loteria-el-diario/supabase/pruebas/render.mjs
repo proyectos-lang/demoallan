@@ -130,7 +130,7 @@ for (const [ruta, esperados] of RUTAS) {
 // La barra lateral debe aparecer en todas.
 const shell = await fetch(BASE + "/tablero", { headers: { cookie } });
 const htmlShell = await shell.text();
-for (const t of ["Lotería El Diario", "OPERACIÓN", "ANÁLISIS", "CONFIGURACIÓN", "Administrador"]) {
+for (const t of ["Sistema de Control", "OPERACIÓN", "ANÁLISIS", "CONFIGURACIÓN", "Administrador"]) {
   if (htmlShell.includes(t)) { ok++; console.log(`  ok    shell: ${t}`); }
   else { fallos++; console.log(`  FALLA shell: falta ${t}`); }
 }

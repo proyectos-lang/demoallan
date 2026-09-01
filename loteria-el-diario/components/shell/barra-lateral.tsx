@@ -120,8 +120,10 @@ export function BarraLateral({
         >
           <AlignLeft size={20} color="#fff" strokeWidth={2} absoluteStrokeWidth />
         </span>
-        <span className="block text-h2 font-semibold tracking-sutil text-nav-titulo">
-          Lotería El Diario
+        <span className="block text-card font-semibold tracking-sutil text-nav-titulo leading-[1.25]">
+          Sistema de Control
+          <br />
+          de Tickets
         </span>
       </div>
 

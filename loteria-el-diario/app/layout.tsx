@@ -7,7 +7,7 @@ import "./globals.css";
 // (self-hosted) en vez de Google Fonts, para no depender de red en el build.
 
 export const metadata: Metadata = {
-  title: "Lotería El Diario",
+  title: "Sistema de Control de Tickets",
   description: "Sistema de control de ventas de lotería · Cortés, Honduras",
 };
 

@@ -179,7 +179,7 @@ export function TituloVendedor() {
   const actual = MODULOS.find((m) => ruta === m.href || ruta.startsWith(`${m.href}/`));
   return (
     <span className="block text-meta font-semibold text-nav-titulo truncate">
-      {actual?.etiqueta ?? "Lotería El Diario"}
+      {actual?.etiqueta ?? "Sistema de Control de Tickets"}
     </span>
   );
 }
