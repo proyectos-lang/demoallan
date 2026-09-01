@@ -912,6 +912,29 @@ export type Database = {
         }[];
       };
 
+      // --- Análisis de resultados (0038) --------------------------------
+      /** Una fila por período, al grano pedido. Sólo sorteos liquidados. */
+      fn_analisis_resultados: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          /** `dia` · `semana` · `mes` · `anio`. */
+          p_grano: string;
+          p_vendedor_id?: string | null;
+          p_hora?: HoraSorteo | null;
+        };
+        Returns: {
+          r_inicio: string;
+          r_fin: string;
+          r_dias: number;
+          r_sorteos: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_utilidad: number;
+        }[];
+      };
+
       // --- Venta de administración (0033) -------------------------------
       fn_recalcular_liquidacion: {
         Args: { p_sorteo_id: string; p_vendedor_id: string };
