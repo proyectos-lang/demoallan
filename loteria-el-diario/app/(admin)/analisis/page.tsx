@@ -4,10 +4,11 @@ import {
   type OpcionVendedor,
   type Vista,
 } from "@/components/analisis/filtros-analisis";
+import { TarjetaPeriodo } from "@/components/analisis/tarjeta-periodo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
-import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
+import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, fmtK, hora12, hoyHonduras, iso, mesNombre, pad2 } from "@/lib/format";
+import { fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -290,101 +291,29 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
             </h2>
 
             <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fill,minmax(298px,1fr))]">
-              {visibles.map((p, i) => {
-                const anterior = i > 0 ? periodos[i - 1] : null;
-                const dif = anterior ? p.utilidad - anterior.utilidad : null;
-                const margenP = p.venta ? (p.utilidad / p.venta) * 100 : 0;
-
-                const filas: [string, string][] = [
-                  ["Venta bruta", fmt(p.venta, false)],
-                  ["Comisiones", fmt(p.comision, false)],
-                  ["Premios", fmt(p.premios, false)],
-                ];
-
-                return (
-                  <Tarjeta key={`${p.inicio}-${p.hora ?? ""}`} padding="16px 18px">
-                    <div className="flex justify-between items-baseline border-b border-riel pb-3 gap-3">
-                      <span className="text-cta font-semibold tracking-sutil">
-                        {rotular(grano, p.inicio, p.fin)}
-                      </span>
-                      {/* A la derecha, lo que distingue a esta tarjeta de la
-                          de al lado: la lotería si el corte es por sorteo
-                          —donde «1 día» sería siempre igual y no diría nada—,
-                          y si no, cuánto abarca. */}
-                      <span className="text-micro text-secundario flex-none">
-                        {p.hora ? hora12(p.hora) : `${p.dias} ${p.dias === 1 ? "día" : "días"}`}
-                      </span>
-                    </div>
-
-                    <div className="grid [grid-template-columns:1fr_auto] gap-x-3 gap-y-[7px] mt-3">
-                      {/* A este grano la tarjeta es un sorteo, así que hay un
-                          número y es el que explica los premios de abajo. La
-                          misma píldora que en el reporte del vendedor: un
-                          número ganador se ve igual en todo el sistema. */}
-                      {p.ganador !== null && (
-                        <>
-                          <span className="text-tabla text-secundario">Número ganador</span>
-                          <span className="text-right">
-                            <span className="inline-block min-w-[30px] text-center px-[7px] py-[2px] rounded-celda bg-acento-suave text-acento-fuerte font-semibold">
-                              {pad2(p.ganador)}
-                            </span>
-                          </span>
-                        </>
-                      )}
-
-                      {filas.map(([etiqueta, valor]) => (
-                        <Fila key={etiqueta} etiqueta={etiqueta} valor={valor} />
-                      ))}
-
-                      <span className="text-tabla font-medium border-t border-riel pt-2">
-                        Utilidad neta
-                      </span>
-                      <span
-                        className={cn(
-                          "text-card font-semibold text-right border-t border-riel pt-2",
-                          p.utilidad < 0 ? "text-negativo" : "text-tinta",
-                        )}
-                      >
-                        {fmt(p.utilidad, false)}
-                      </span>
-
-                      <span className="text-tabla text-secundario">Margen</span>
-                      <span
-                        className={cn(
-                          "text-tabla text-right",
-                          margenP < 0 ? "text-negativo" : "text-cuerpo",
-                        )}
-                      >
-                        {margenP.toFixed(2)}%
-                      </span>
-                    </div>
-
-                    {/*
-                      El pie compara con el período ANTERIOR de la misma serie,
-                      que es lo que uno quiere saber al mirar un resultado. En
-                      el simulador este mismo sitio compara contra el escenario
-                      inventado; aquí no hay escenario, hay historia.
-                    */}
-                    <div className="flex justify-between border-t border-riel mt-3 pt-3">
-                      <span className="text-tabla text-secundario">
-                        {dif === null ? "Primero del rango" : "Contra el anterior"}
-                      </span>
-                      <strong
-                        className={cn(
-                          "text-card font-semibold",
-                          dif === null
-                            ? "text-mudo"
-                            : dif < 0
-                              ? "text-negativo"
-                              : "text-positivo",
-                        )}
-                      >
-                        {dif === null ? "—" : `${dif > 0 ? "+" : ""}${fmtK(dif)}`}
-                      </strong>
-                    </div>
-                  </Tarjeta>
-                );
-              })}
+              {visibles.map((p, i) => (
+                <TarjetaPeriodo
+                  key={`${p.inicio}-${p.hora ?? ""}`}
+                  p={{
+                    titulo: rotular(grano, p.inicio, p.fin),
+                    // A la derecha, lo que distingue a esta tarjeta de la de
+                    // al lado: la lotería si el corte es por sorteo —donde
+                    // «1 día» sería siempre igual y no diría nada—, y si no,
+                    // cuánto abarca.
+                    meta: p.hora ? hora12(p.hora) : `${p.dias} ${p.dias === 1 ? "día" : "días"}`,
+                    venta: p.venta,
+                    comision: p.comision,
+                    premios: p.premios,
+                    neto: p.utilidad,
+                    ganador: p.ganador,
+                  }}
+                  /* El pie compara con el período ANTERIOR de la misma serie,
+                     que es lo que uno quiere saber al mirar un resultado. En
+                     el simulador este mismo sitio compara contra el escenario
+                     inventado; aquí no hay escenario, hay historia. */
+                  anterior={i > 0 ? periodos[i - 1].utilidad : null}
+                />
+              ))}
             </div>
 
             {periodos.length > visibles.length && (
@@ -399,15 +328,5 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
         )}
       </div>
     </Pagina>
-  );
-}
-
-/** Una fila etiqueta–valor de la tarjeta. */
-function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  return (
-    <>
-      <span className="text-tabla text-secundario">{etiqueta}</span>
-      <span className="text-tabla text-right text-cuerpo">{valor}</span>
-    </>
   );
 }

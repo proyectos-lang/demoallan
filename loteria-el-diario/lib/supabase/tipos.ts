@@ -914,6 +914,75 @@ export type Database = {
 
       // --- Análisis de resultados (0038) --------------------------------
       /** Una fila por período, al grano pedido. Sólo sorteos liquidados. */
+      // --- Informes de gerencia por semana y por vendedor (0040) --------
+      fn_semanas_operadas: {
+        Args: Record<string, never>;
+        Returns: {
+          r_inicio: string;
+          r_fin: string;
+          r_semana: number;
+          r_anio: number;
+          r_dias: number;
+          r_sorteos: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_neto: number;
+        }[];
+      };
+
+      fn_resumen_semanal: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_nombre: string;
+          r_activo: boolean;
+          /** Fracción vigente al cerrar la semana: 0.15 = 15 %. Nulo si nunca tuvo parámetros. */
+          r_comision: number | null;
+          r_tope: number | null;
+          r_factor: number | null;
+          r_venta: number;
+          r_premiado: number;
+          r_pago: number;
+          /** La comisión en lempiras, no la tasa: la tasa es `r_comision`. */
+          r_comision_l: number;
+          r_bruto: number;
+          r_neto: number;
+        }[];
+      };
+
+      fn_historial_vendedor: {
+        Args: { p_vendedor_id: string };
+        Returns: {
+          r_inicio: string;
+          r_fin: string;
+          r_semana: number;
+          r_anio: number;
+          r_sorteos: number;
+          r_venta: number;
+          r_premiado: number;
+          r_premios: number;
+          r_comision: number;
+          r_neto: number;
+        }[];
+      };
+
+      // --- Resultado por día de la semana (0041) -------------------------
+      fn_resultado_por_dia_semana: {
+        Args: Record<string, never>;
+        Returns: {
+          /** 1 = lunes … 7 = domingo. */
+          r_dow: number;
+          r_dias: number;
+          r_sorteos: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_neto: number;
+        }[];
+      };
+
       fn_analisis_resultados: {
         Args: {
           p_desde: string;
