@@ -11,7 +11,14 @@ export type SemanaDelRiel = {
   fin: string;
   semana: number;
   anio: number;
-  neto: number;
+  /**
+   * La cifra que se enseña a la derecha de cada entrada. Se llama así y no
+   * `neto` porque no significa lo mismo en los dos módulos: en el informe es
+   * el resultado de la semana y en la liquidación es lo que falta por cobrar.
+   */
+  cifra: number;
+  /** Una marca corta debajo, cuando hay algo que decir: «pagada». */
+  nota?: string;
 };
 
 const MESES = [
@@ -43,10 +50,21 @@ function rango(inicio: string, fin: string): string {
 export function RielSemanas({
   semanas,
   activa,
+  titulo = "SEMANAS",
+  plantilla = "/informe?vista=semanal&semana={semana}",
 }: {
   semanas: SemanaDelRiel[];
   /** El lunes de la semana abierta. */
   activa: string;
+  titulo?: string;
+  /**
+   * A dónde lleva cada entrada, con `{semana}` donde va el lunes.
+   *
+   * Una PLANTILLA y no una función: quien usa el riel es un componente de
+   * servidor, y una función no cruza esa frontera —no se puede serializar—.
+   * Pasarla revienta el render entero con un error que no dice de dónde viene.
+   */
+  plantilla?: string;
 }) {
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
@@ -54,7 +72,7 @@ export function RielSemanas({
   return (
     <div className="w-[186px] flex-none bg-superficie border border-borde rounded-card shadow-card overflow-hidden self-start">
       <div className="px-[14px] py-[11px] border-b border-riel bg-tinte flex items-baseline justify-between gap-2">
-        <span className="text-th font-semibold tracking-th text-secundario">SEMANAS</span>
+        <span className="text-th font-semibold tracking-th text-secundario">{titulo}</span>
         <span className="text-th text-mudo">{semanas.length}</span>
       </div>
 
@@ -67,9 +85,7 @@ export function RielSemanas({
             <button
               key={s.inicio}
               type="button"
-              onClick={() =>
-                iniciar(() => router.push(`/informe?vista=semanal&semana=${s.inicio}`))
-              }
+              onClick={() => iniciar(() => router.push(plantilla.replace("{semana}", s.inicio)))}
               aria-current={abierta ? "true" : undefined}
               className={cn(
                 "w-full text-left px-[14px] py-[9px] border-b border-fondo cursor-pointer block",
@@ -89,10 +105,10 @@ export function RielSemanas({
                 <span
                   className={cn(
                     "text-th font-medium",
-                    s.neto < 0 ? "text-negativo" : "text-positivo",
+                    s.nota ? "text-mudo" : s.cifra < 0 ? "text-negativo" : "text-positivo",
                   )}
                 >
-                  {fmtK(s.neto)}
+                  {s.nota ?? fmtK(s.cifra)}
                 </span>
               </span>
             </button>

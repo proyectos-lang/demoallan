@@ -917,6 +917,29 @@ export type Database = {
       // --- Análisis de resultados (0038) --------------------------------
       /** Una fila por período, al grano pedido. Sólo sorteos liquidados. */
       // --- Informes de gerencia por semana y por vendedor (0040) --------
+      // --- Cobro semana a semana (0043) ---------------------------------
+      fn_liquidacion_por_semana: {
+        /** Sin vendedor, el negocio entero. */
+        Args: { p_vendedor_id?: string | null };
+        Returns: {
+          r_inicio: string;
+          r_fin: string;
+          r_semana: number;
+          r_anio: number;
+          r_sorteos: number;
+          r_liquidaciones: number;
+          r_pagadas: number;
+          r_pendientes: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          /** Todo lo de la semana: `r_pagado` + `r_pendiente`. */
+          r_saldo: number;
+          r_pagado: number;
+          r_pendiente: number;
+        }[];
+      };
+
       fn_semanas_operadas: {
         Args: Record<string, never>;
         Returns: {

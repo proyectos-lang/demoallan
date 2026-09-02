@@ -27,7 +27,7 @@ export async function VistaSemanal({ semanaPedida }: { semanaPedida: string }) {
     fin: s.r_fin,
     semana: s.r_semana,
     anio: s.r_anio,
-    neto: Number(s.r_neto),
+    cifra: Number(s.r_neto),
   }));
 
   if (errorSemanas) {

@@ -140,6 +140,50 @@ try {
   check("queda un solo día pendiente", (resto ?? []).length === 1, `hay ${resto?.length}`);
   check("el que queda es el tercero", resto?.[0]?.r_fecha === DIAS[2]);
 
+  // --- 3b. El corte por semana parte lo pagado de lo pendiente -----------
+  //
+  // Es la cuenta que alimentan el riel de semanas, los tres totales de la
+  // hoja y la pestaña de resumen. Con dos sorteos cobrados de tres, aquí se
+  // ve si de verdad reparte o si vuelve a sumarlo todo.
+  console.log("\n3b. Pagado y pendiente, semana a semana");
+  const { data: porSemana, error: eSemana } = await sb.rpc("fn_liquidacion_por_semana", {
+    p_vendedor_id: v.id,
+  });
+  check("fn_liquidacion_por_semana responde", !eSemana, eSemana?.message ?? "");
+
+  const semana = (porSemana ?? []).find((x) => x.r_inicio <= DIAS[0] && x.r_fin >= DIAS[0]);
+  check("la semana del montaje aparece", Boolean(semana), `${(porSemana ?? []).length} semanas`);
+
+  if (semana) {
+    const cent = (x) => Math.round(Number(x) * 100);
+    check(
+      "cuenta dos cobrados y uno pendiente",
+      semana.r_pagadas === 2 && semana.r_pendientes === 1,
+      `pagadas=${semana.r_pagadas} pendientes=${semana.r_pendientes}`,
+    );
+    check(
+      "pagado + pendiente da el saldo de la semana",
+      cent(semana.r_pagado) + cent(semana.r_pendiente) === cent(semana.r_saldo),
+      `${semana.r_pagado} + ${semana.r_pendiente} != ${semana.r_saldo}`,
+    );
+    check(
+      "lo pagado coincide con el saldo del corte",
+      cent(semana.r_pagado) === cent(corte[0].r_saldo),
+      `${semana.r_pagado} != ${corte[0].r_saldo}`,
+    );
+    check(
+      "lo pendiente coincide con lo que sigue en el informe",
+      cent(semana.r_pendiente) ===
+        (resto ?? []).reduce((a, f) => a + Math.round(Number(f.r_saldo) * 100), 0),
+    );
+  }
+
+  // Sin vendedor devuelve el negocio entero, que tiene que ser mayor o igual.
+  const { data: global } = await sb.rpc("fn_liquidacion_por_semana", { p_vendedor_id: null });
+  const suya = (porSemana ?? []).reduce((a, x) => a + Math.round(Number(x.r_saldo) * 100), 0);
+  const todas = (global ?? []).reduce((a, x) => a + Math.round(Number(x.r_saldo) * 100), 0);
+  check("el global incluye lo de este vendedor", todas >= suya, `${todas} < ${suya}`);
+
   // --- 4. No se puede pagar dos veces ------------------------------------
   console.log("\n4. Doble pago");
   const { error: eDoble } = await sb.rpc("fn_registrar_corte", {

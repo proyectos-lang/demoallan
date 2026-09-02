@@ -3,10 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { registrarCorte } from "@/app/(admin)/liquidacion/acciones";
+import { BotonImprimir } from "@/components/liquidacion/boton-imprimir";
 import { Boton } from "@/components/ui/boton";
 import { CampoModal, CLASE_CONTROL_MODAL, Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, hora12, pad2 } from "@/lib/format";
+import { fechaLarga, fmt, hora12, jornada, pad2 } from "@/lib/format";
 
 export type FilaLiquidacion = {
   liquidacionId: string;
@@ -39,6 +40,10 @@ export function HojaLiquidacion({
   desde,
   hasta,
   sinLiquidar,
+  factor,
+  comisionTasa,
+  semana,
+  yaPagados,
 }: {
   filas: FilaLiquidacion[];
   vendedorId: string;
@@ -47,6 +52,12 @@ export function HojaLiquidacion({
   hasta: string;
   /** Sorteos del rango que aún no tienen número ganador. */
   sinLiquidar: number;
+  /** Para la cabecera del papel: el factor y la comisión vigentes. */
+  factor: number | null;
+  comisionTasa: number | null;
+  semana: number | null;
+  /** Sorteos de esta semana ya cobrados: no salen en el papel, pero se dicen. */
+  yaPagados: number;
 }) {
   const [marcados, setMarcados] = useState<Set<string>>(
     () => new Set(filas.map((f) => f.liquidacionId)),
@@ -157,17 +168,24 @@ export function HojaLiquidacion({
 
       <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-tabla min-w-[760px]">
+          {/*
+            Compacta a propósito: una semana son veintiún sorteos y con la fila
+            alta no cabía una semana entera en pantalla. El día dejó de ser una
+            columna ancha repetida tres veces y pasó a ser una fila de grupo,
+            que además es donde tiene sentido la casilla que marca el día
+            entero y el subtotal.
+          */}
+          <table className="w-full border-collapse text-tabla min-w-[620px]">
             <thead>
               <tr className="bg-tinte">
-                {["", "DÍA", "SORTEO", "GANADOR", "VENTA", "COMISIÓN", "PREMIOS", "SALDO"].map(
+                {["", "SORTEO", "GANADOR", "VENTA", "COMISIÓN", "PREMIOS", "SALDO"].map(
                   (th, i) => (
                     <th
                       key={th || "marca"}
                       className={cn(
-                        "text-th font-semibold tracking-th text-secundario border-b border-riel py-[10px]",
-                        i >= 4 ? "text-right" : "text-left",
-                        i === 0 ? "pl-4 pr-2 w-10" : i === 7 ? "pl-3 pr-4" : "px-3",
+                        "text-th font-semibold tracking-th text-secundario border-b border-riel py-[8px]",
+                        i >= 3 ? "text-right" : "text-left",
+                        i === 0 ? "pl-4 pr-2 w-9" : i === 6 ? "pl-3 pr-4" : "px-3",
                       )}
                     >
                       {th}
@@ -178,16 +196,50 @@ export function HojaLiquidacion({
             </thead>
 
             {porDia.map(([fecha, delDia]) => {
-              const subtotal = delDia
-                .filter((f) => marcados.has(f.liquidacionId))
-                .reduce((a, f) => a + f.saldo, 0);
-              const todos = delDia.every((f) => marcados.has(f.liquidacionId));
+              const marcadasDelDia = delDia.filter((f) => marcados.has(f.liquidacionId));
+              const subtotal = marcadasDelDia.reduce((a, f) => a + f.saldo, 0);
+              const todos = marcadasDelDia.length === delDia.length;
+              const algunos = marcadasDelDia.length > 0 && !todos;
 
               return (
                 <tbody key={fecha}>
-                  {delDia.map((f, i) => (
-                    <tr key={f.liquidacionId} className={cn(!marcados.has(f.liquidacionId) && "opacity-45")}>
-                      <td className="border-b border-fondo py-[11px] pl-4 pr-2">
+                  <tr className="bg-tinte">
+                    <td className="border-b border-riel py-[6px] pl-4 pr-2">
+                      <input
+                        type="checkbox"
+                        checked={todos}
+                        // El estado intermedio no se puede poner por atributo:
+                        // es una propiedad del elemento y hay que escribirla.
+                        ref={(el) => {
+                          if (el) el.indeterminate = algunos;
+                        }}
+                        onChange={() => alternarDia(delDia)}
+                        aria-label={`Marcar el día ${fecha} entero`}
+                        className="w-4 h-4 accent-[var(--color-acento)]"
+                      />
+                    </td>
+                    <td colSpan={5} className="border-b border-riel py-[6px] px-3">
+                      <span className="text-meta font-semibold">{fechaLarga(fecha)}</span>
+                      <span className="text-th text-secundario ml-2">
+                        {marcadasDelDia.length} de {delDia.length}
+                      </span>
+                    </td>
+                    <td
+                      className={cn(
+                        "border-b border-riel py-[6px] pl-3 pr-4 text-right text-meta font-semibold",
+                        subtotal < 0 && "text-negativo",
+                      )}
+                    >
+                      {fmt(subtotal, false)}
+                    </td>
+                  </tr>
+
+                  {delDia.map((f) => (
+                    <tr
+                      key={f.liquidacionId}
+                      className={cn(!marcados.has(f.liquidacionId) && "opacity-45")}
+                    >
+                      <td className="border-b border-fondo py-[6px] pl-4 pr-2">
                         <input
                           type="checkbox"
                           checked={marcados.has(f.liquidacionId)}
@@ -196,41 +248,27 @@ export function HojaLiquidacion({
                           className="w-4 h-4 accent-[var(--color-acento)]"
                         />
                       </td>
-                      <td className="border-b border-fondo py-[11px] px-3 text-cuerpo">
-                        {i === 0 && (
-                          <button
-                            type="button"
-                            onClick={() => alternarDia(delDia)}
-                            className="text-left"
-                            title={todos ? "Quitar el día entero" : "Marcar el día entero"}
-                          >
-                            <span className="block font-medium">{fechaLarga(fecha)}</span>
-                            <span className="block text-label text-acento">
-                              {todos ? "quitar el día" : "marcar el día"}
-                            </span>
-                          </button>
-                        )}
+                      <td className="border-b border-fondo py-[6px] px-3 text-cuerpo">
+                        {jornada(f.hora)}
+                        <span className="text-th text-mudo ml-[6px]">{hora12(f.hora)}</span>
                       </td>
-                      <td className="border-b border-fondo py-[11px] px-3 text-cuerpo">
-                        {hora12(f.hora)}
-                      </td>
-                      <td className="border-b border-fondo py-[11px] px-3">
-                        <span className="inline-block min-w-[30px] text-center px-[7px] py-[2px] rounded-celda bg-acento-suave text-acento-fuerte font-semibold">
-                          {f.ganador === null ? "—" : pad2(f.ganador)}
+                      <td className="border-b border-fondo py-[6px] px-3">
+                        <span className="inline-block min-w-[28px] text-center px-[6px] py-px rounded-celda bg-acento-suave text-acento-fuerte text-meta font-semibold">
+                          {f.ganador === null ? "â" : pad2(f.ganador)}
                         </span>
                       </td>
-                      <td className="border-b border-fondo py-[11px] px-3 text-right">
+                      <td className="border-b border-fondo py-[6px] px-3 text-right">
                         {fmt(f.venta, false)}
                       </td>
-                      <td className="border-b border-fondo py-[11px] px-3 text-right text-cuerpo">
+                      <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
                         {fmt(f.comision, false)}
                       </td>
-                      <td className="border-b border-fondo py-[11px] px-3 text-right text-cuerpo">
+                      <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
                         {fmt(f.premios, false)}
                       </td>
                       <td
                         className={cn(
-                          "border-b border-fondo py-[11px] pl-3 pr-4 text-right font-semibold",
+                          "border-b border-fondo py-[6px] pl-3 pr-4 text-right font-semibold",
                           f.saldo < 0 && "text-negativo",
                         )}
                       >
@@ -238,15 +276,6 @@ export function HojaLiquidacion({
                       </td>
                     </tr>
                   ))}
-
-                  <tr className="bg-tinte">
-                    <td colSpan={7} className="border-b border-riel py-[7px] px-3 text-right text-label text-secundario">
-                      subtotal del día
-                    </td>
-                    <td className="border-b border-riel py-[7px] pl-3 pr-4 text-right text-meta font-semibold">
-                      {fmt(subtotal, false)}
-                    </td>
-                  </tr>
                 </tbody>
               );
             })}
@@ -293,6 +322,33 @@ export function HojaLiquidacion({
 
         <div className="flex items-center gap-[10px] flex-wrap">
           {error && <span className="text-meta text-negativo max-w-[280px]">{error}</span>}
+          {/*
+            El papel lleva TODO lo que sigue pendiente, no lo que está marcado:
+            es el documento que se le entrega al vendedor para cuadrar, y lo
+            marcado es lo que se va a cobrar ahora mismo. Lo ya cobrado no
+            aparece porque no llega hasta aquí — `fn_liquidacion_pendiente` lo
+            deja fuera desde la base.
+          */}
+          <BotonImprimir
+            hoja={{
+              vendedor: vendedorNombre,
+              factor,
+              comisionTasa,
+              desde,
+              hasta,
+              semana,
+              yaPagados,
+              lineas: filas.map((f) => ({
+                fecha: f.fecha,
+                hora: f.hora,
+                ganador: f.ganador,
+                venta: f.venta,
+                comision: f.comision,
+                premios: f.premios,
+                saldo: f.saldo,
+              })),
+            }}
+          />
           <Boton
             variante="ghost"
             onClick={() => setMarcados(new Set(filas.map((f) => f.liquidacionId)))}
