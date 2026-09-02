@@ -161,6 +161,26 @@ export type CorteVendedor = {
 };
 
 /** El `unique` de `liquidacion_id` es lo que impide pagar dos veces un sorteo. */
+/**
+ * Venta capturada por totales, sin detalle de números (0047).
+ *
+ * No es un ticket: es un ajuste que entra en la liquidación como una fuente
+ * más. Para el vendedor que trabajó en papel y entrega su cuenta al final.
+ */
+export type VentaTotal = {
+  id: string;
+  sorteo_id: string;
+  vendedor_id: string;
+  venta: number;
+  premios: number;
+  /** FRACCIÓN congelada al registrar: 0.15 = 15 %. */
+  comision_congelada: number;
+  nota: string | null;
+  creado_en: string;
+  creado_por: string | null;
+  anulado_en: string | null;
+};
+
 export type CorteDetalle = {
   corte_id: string;
   liquidacion_id: string;
@@ -277,6 +297,10 @@ export type Database = {
       liquidacion: Tabla<Liquidacion, "id" | "generada_en" | "usuario_id">;
       corte_vendedor: Tabla<CorteVendedor, "id" | "pagado_en" | "nota" | "usuario_id">;
       corte_detalle: Tabla<CorteDetalle, never>;
+      venta_total: Tabla<
+        VentaTotal,
+        "id" | "comision_congelada" | "nota" | "creado_en" | "creado_por" | "anulado_en"
+      >;
       lote_ocr: Tabla<
         LoteOcr,
         | "id" | "estado" | "creado_en" | "confianza_global" | "validado_por"
@@ -950,6 +974,24 @@ export type Database = {
           r_saldo: number;
           r_nota: string | null;
         }[];
+      };
+
+      // --- Venta por totales (0047 / 0049) -------------------------------
+      fn_registrar_venta_total: {
+        Args: {
+          p_sorteo_id: string;
+          p_vendedor_id: string;
+          p_venta: number;
+          p_premios: number;
+          p_nota?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: { r_id: string; r_comision: number; r_saldo: number }[];
+      };
+
+      fn_anular_venta_total: {
+        Args: { p_id: string; p_usuario_id?: string | null };
+        Returns: undefined;
       };
 
       fn_liquidacion_por_semana: {

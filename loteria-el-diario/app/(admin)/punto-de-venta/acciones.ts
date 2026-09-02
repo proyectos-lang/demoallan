@@ -136,3 +136,111 @@ export async function registrarVenta(
     total: filas.reduce((a, f) => a + Number(f.r_total), 0),
   };
 }
+
+export type ResultadoTotales =
+  | { ok: true; comision: number; saldo: number; mensaje: string }
+  | { ok: false; mensaje: string };
+
+/**
+ * Registra una venta por totales: sin números, sólo venta y premio.
+ *
+ * Es para cuando el vendedor no pasó por el portal —trabajó en papel y al
+ * final del día entrega su cuenta—. La captura entra en `allan.liquidacion`
+ * como una fuente más, así que la recogen el corte semanal, el informe de
+ * gerencia y el tablero sin distinguirla.
+ *
+ * SÓLO ADMINISTRADOR. No es una venta: es un ajuste contable que nadie puede
+ * contrastar contra números, y por eso no lo toca ni el vendedor ni el
+ * digitador. La comprobación va aquí y no en la base: desde la 0024 la
+ * aplicación habla como `service_role` y `fn_exige` no comprueba nada.
+ *
+ * La comisión NO viaja desde el navegador: la toma la base del parámetro
+ * vigente del vendedor y la congela en la fila. El premio sí se acepta tal
+ * cual —sin números no hay con qué verificarlo— y queda auditado.
+ */
+export async function registrarVentaPorTotales(
+  sorteoId: string,
+  vendedorId: string,
+  venta: number,
+  premios: number,
+  nota: string,
+): Promise<ResultadoTotales> {
+  const sesion = await sesionVigente();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede capturar por totales." };
+  }
+
+  if (!Number.isFinite(venta) || venta < 0) {
+    return { ok: false, mensaje: "La venta no puede ser negativa." };
+  }
+  if (!Number.isFinite(premios) || premios < 0) {
+    return { ok: false, mensaje: "El premio no puede ser negativo." };
+  }
+  if (venta === 0 && premios === 0) {
+    return { ok: false, mensaje: "No hay nada que registrar: venta y premio en cero." };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  const { data, error } = await supabase.rpc("fn_registrar_venta_total", {
+    p_sorteo_id: sorteoId,
+    p_vendedor_id: vendedorId,
+    p_venta: venta,
+    p_premios: premios,
+    p_nota: nota.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    // La restricción de una captura viva por vendedor y sorteo llega como
+    // 23505, y el mensaje crudo de Postgres no le dice nada a quien captura.
+    if (error.code === "23505") {
+      return {
+        ok: false,
+        mensaje:
+          "Ese vendedor ya tiene una captura en este sorteo. Anúlela antes de registrar otra.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const fila = data?.[0];
+  if (!fila) return { ok: false, mensaje: "El registro no devolvió resultado." };
+
+  revalidatePath("/punto-de-venta");
+  revalidatePath("/liquidacion");
+
+  const saldo = Number(fila.r_saldo);
+
+  return {
+    ok: true,
+    comision: Number(fila.r_comision),
+    saldo,
+    mensaje: `Registrado: venta ${venta.toLocaleString("en-US")}, premio ${premios.toLocaleString("en-US")}. ${
+      saldo >= 0 ? "El vendedor entrega" : "La empresa le entrega"
+    } ${Math.abs(saldo).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
+  };
+}
+
+/** Anula una captura por totales. No la borra: la marca y rehace la liquidación. */
+export async function anularVentaPorTotales(id: string): Promise<ResultadoTotales> {
+  const sesion = await sesionVigente();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede anular una captura." };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc("fn_anular_venta_total", {
+    p_id: id,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath("/punto-de-venta");
+  revalidatePath("/liquidacion");
+
+  return { ok: true, comision: 0, saldo: 0, mensaje: "Captura anulada." };
+}

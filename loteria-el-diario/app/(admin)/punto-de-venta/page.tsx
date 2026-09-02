@@ -1,3 +1,5 @@
+import { CapturaTotales, type CapturaExistente } from "@/components/pos/captura-totales";
+import { ModoCaptura } from "@/components/pos/modo-captura";
 import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
@@ -19,6 +21,15 @@ export default async function PuntoDeVentaPage({
 
   const params = await searchParams;
   const elegido = typeof params.sorteo === "string" ? params.sorteo : null;
+
+  /*
+   * Dos modos de captura, y sólo para administración.
+   *
+   * `totales` es para el vendedor que no pasó por el portal. No es una venta
+   * normal —no lleva números, no consume cupo— así que no comparte pantalla
+   * con la rejilla: se elige uno u otro, y el que elige es quien puede.
+   */
+  const porTotales = puedeForzar && params.modo === "totales";
 
   /*
    * Qué sorteos se ofrecen.
@@ -126,6 +137,33 @@ export default async function PuntoDeVentaPage({
     if (porNumero) porNumero[l.r_numero] += Number(l.r_vendido);
   }
 
+  /*
+   * Las capturas por totales vivas de este sorteo.
+   *
+   * Se piden siempre que el modo esté disponible, no sólo cuando está activo:
+   * son a lo sumo treinta filas y así el contador de la pestaña puede avisar
+   * de que hay capturas sin que haya que entrar a mirarlas.
+   */
+  const { data: capturasCrudas } = puedeForzar
+    ? await supabase
+        .from("venta_total")
+        .select("id, vendedor_id, venta, premios, comision_congelada")
+        .eq("sorteo_id", sorteo.id)
+        .is("anulado_en", null)
+    : { data: null };
+
+  const capturas: CapturaExistente[] = (capturasCrudas ?? []).map((c) => {
+    const v = vendedores.find((x) => x.id === c.vendedor_id);
+    return {
+      id: c.id,
+      vendedorId: c.vendedor_id,
+      vendedor: v ? `${v.codigo} · ${v.nombre}` : "—",
+      venta: Number(c.venta),
+      premios: Number(c.premios),
+      comision: Number(c.venta) * Number(c.comision_congelada),
+    };
+  });
+
   const datos: DatosPos = {
     sorteo,
     sorteos,
@@ -139,9 +177,28 @@ export default async function PuntoDeVentaPage({
     <Pagina>
       <EncabezadoPagina
         titulo="Punto de venta"
-        subtitulo="Captura de tickets con validación de cupo en vivo. Registrar número y monto debe costar el mínimo de toques posible."
+        subtitulo={
+          porTotales
+            ? "Venta y premio de un vendedor que no registró por el portal, sin el detalle de números."
+            : "Captura de tickets con validación de cupo en vivo. Registrar número y monto debe costar el mínimo de toques posible."
+        }
       />
-      <PuntoDeVenta datos={datos} />
+
+      {puedeForzar && (
+        <div className="mb-4">
+          <ModoCaptura
+            modo={porTotales ? "totales" : "detalle"}
+            sorteoId={sorteo.id}
+            capturas={capturas.length}
+          />
+        </div>
+      )}
+
+      {porTotales ? (
+        <CapturaTotales sorteo={sorteo} vendedores={vendedores} capturas={capturas} />
+      ) : (
+        <PuntoDeVenta datos={datos} />
+      )}
     </Pagina>
   );
 }
