@@ -9041,3 +9041,579 @@ comment on function allan.fn_abonos_semana(uuid, date, date) is
   'Los cortes que tocaron una semana, con la parte del saldo que corresponde a esa semana.';
 
 revoke execute on function allan.fn_abonos_semana(uuid, date, date) from public, anon;
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0047_venta_por_totales.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- Venta por totales: cuando el vendedor no pasó por el portal.
+--
+-- Hasta ahora toda venta entraba número a número, y de esas líneas salía todo:
+-- la liquidación, los cupos, el mapa de exposición y los informes. Pero hay un
+-- caso real que el sistema no cubría: el vendedor trabajó en papel y al final
+-- del día entrega su cuenta —«vendí 4.200, pagué 8.400 de premio»— sin el
+-- detalle. Sin una puerta para eso, ese día simplemente no existe en el
+-- sistema, y todos los indicadores mienten por omisión.
+--
+-- La puerta es esta tabla, y NO son tickets: son un ajuste de la liquidación.
+--
+-- POR QUÉ UNA TABLA APARTE Y NO TICKETS SIN LÍNEAS
+-- ------------------------------------------------
+-- Un ticket sin líneas rompería todo lo que da por hecho que un ticket tiene
+-- líneas —el detalle, la anulación, el recibo, el cupo— y obligaría a poner un
+-- `if` en cada sitio. Peor: haría indistinguible una venta detallada de una
+-- estimada, y eso es justo lo que hay que poder distinguir. Aquí queda en su
+-- propia tabla, con su propio origen, y quien quiera separarlas puede.
+--
+-- NO CONSUME CUPO, POR DECISIÓN
+-- -----------------------------
+-- No se sabe a qué números jugó, así que no hay cupo que descontar. La
+-- consecuencia hay que tenerla presente: el mapa de exposición del sorteo
+-- queda incompleto y el tope por número no protege esa venta. La pantalla lo
+-- advierte en cada captura. La alternativa —prohibirla en sorteos con cupo ya
+-- cargado— se descartó por rígida: obligaría a elegir entre los dos modos para
+-- todo el sorteo.
+--
+-- EL PREMIO SE ACEPTA TAL CUAL
+-- ----------------------------
+-- Sin números no hay forma de verificarlo contra el ganador: lo teclea quien
+-- registra y queda auditado. Es también lo que permite regularizar un día
+-- pasado, con el sorteo ya liquidado.
+--
+-- LA COMISIÓN SE CONGELA al registrar, tomada de `parametro_vendedor`, igual
+-- que hace cada línea al venderse. Así un cambio de comisión no reescribe el
+-- pasado.
+-- ===========================================================================
+
+create table if not exists allan.venta_total (
+  id                 uuid primary key default gen_random_uuid(),
+  sorteo_id          uuid not null references allan.sorteo(id),
+  vendedor_id        uuid not null references allan.vendedor(id),
+  venta              numeric(14,2) not null,
+  premios            numeric(14,2) not null,
+  comision_congelada numeric(6,5)  not null,
+  nota               text,
+  creado_en          timestamptz not null default now(),
+  creado_por         uuid,
+  anulado_en         timestamptz,
+
+  constraint venta_total_venta_positiva   check (venta >= 0),
+  constraint venta_total_premios_positivo check (premios >= 0),
+  constraint venta_total_comision_rango   check (comision_congelada >= 0 and comision_congelada <= 0.60),
+  -- Una sola captura viva por vendedor y sorteo: si hay que corregir, se anula
+  -- y se vuelve a registrar. Dos capturas del mismo día se sumarían en
+  -- silencio y nadie sabría cuál es la buena.
+  constraint venta_total_unica unique (sorteo_id, vendedor_id, anulado_en)
+);
+
+comment on table allan.venta_total is
+  'Venta capturada por totales, sin detalle de números. Para cuando el vendedor no usó el portal.';
+comment on column allan.venta_total.premios is
+  'El premio total de esa venta. No se verifica contra el número ganador: no hay números que verificar.';
+
+create index if not exists venta_total_sorteo on allan.venta_total (sorteo_id)
+  where anulado_en is null;
+create index if not exists venta_total_vendedor on allan.venta_total (vendedor_id, sorteo_id)
+  where anulado_en is null;
+
+
+-- --------------------------------------------------------------------------
+-- Registrar una venta por totales.
+--
+-- Deja la liquidación del sorteo al día en el acto: si el sorteo ya estaba
+-- liquidado, recalcula esa fila; si no, la captura se recogerá cuando se
+-- liquide. En los dos casos, todo lo que lee de `allan.liquidacion` —que es
+-- casi todo el sistema— la ve sin cambiar una línea de código.
+-- --------------------------------------------------------------------------
+create or replace function allan.fn_registrar_venta_total(
+  p_sorteo_id   uuid,
+  p_vendedor_id uuid,
+  p_venta       numeric,
+  p_premios     numeric,
+  p_nota        text default null,
+  p_usuario_id  uuid default null
+) returns table (r_id uuid, r_comision numeric, r_saldo numeric)
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_comision numeric(6,5);
+  v_id       uuid;
+  v_estado   allan.estado_sorteo;
+begin
+  if p_venta is null or p_venta < 0 then
+    raise exception 'La venta no puede ser negativa.';
+  end if;
+  if p_premios is null or p_premios < 0 then
+    raise exception 'El premio no puede ser negativo.';
+  end if;
+
+  select estado into v_estado from allan.sorteo where id = p_sorteo_id;
+  if v_estado is null then
+    raise exception 'El sorteo no existe.';
+  end if;
+
+  -- El vendedor tiene que estar vivo: un dado de baja no genera venta nueva.
+  perform 1 from allan.vendedor
+   where id = p_vendedor_id and activo and eliminado_en is null;
+  if not found then
+    raise exception 'El vendedor no está activo.';
+  end if;
+
+  select p.comision into v_comision
+  from allan.parametro_vendedor p
+  where p.vendedor_id = p_vendedor_id and p.vigente_hasta is null
+  order by p.vigente_desde desc
+  limit 1;
+
+  if v_comision is null then
+    raise exception 'El vendedor no tiene comisión vigente configurada.';
+  end if;
+
+  insert into allan.venta_total (
+    sorteo_id, vendedor_id, venta, premios, comision_congelada, nota, creado_por
+  ) values (
+    p_sorteo_id, p_vendedor_id, p_venta, p_premios, v_comision, nullif(btrim(p_nota), ''), p_usuario_id
+  )
+  returning id into v_id;
+
+  perform allan.fn_auditar(
+    'venta_total', v_id, 'registrar', 'venta',
+    null, p_venta::text, p_usuario_id
+  );
+
+  -- Si el sorteo ya estaba liquidado hay que rehacer su fila, o la captura no
+  -- aparecería hasta que alguien reliquidara.
+  if v_estado = 'liquidado' then
+    perform allan.fn_recalcular_liquidacion(p_sorteo_id, p_vendedor_id);
+  end if;
+
+  return query
+  select v_id,
+         round(p_venta * v_comision, 2),
+         round(p_venta - p_venta * v_comision - p_premios, 2);
+end;
+$$;
+
+comment on function allan.fn_registrar_venta_total(uuid, uuid, numeric, numeric, text, uuid) is
+  'Registra una venta por totales y deja al día la liquidación del sorteo si ya estaba liquidado.';
+
+revoke execute on function allan.fn_registrar_venta_total(uuid, uuid, numeric, numeric, text, uuid)
+  from public, anon;
+
+
+-- --------------------------------------------------------------------------
+-- Anular una captura por totales.
+--
+-- No se borra: se marca. El histórico de por qué una liquidación dijo lo que
+-- dijo tiene que poder reconstruirse.
+-- --------------------------------------------------------------------------
+create or replace function allan.fn_anular_venta_total(
+  p_id         uuid,
+  p_usuario_id uuid default null
+) returns void
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_sorteo uuid;
+  v_vend   uuid;
+  v_estado allan.estado_sorteo;
+begin
+  select vt.sorteo_id, vt.vendedor_id into v_sorteo, v_vend
+  from allan.venta_total vt
+  where vt.id = p_id and vt.anulado_en is null;
+
+  if v_sorteo is null then
+    raise exception 'Esa captura no existe o ya estaba anulada.';
+  end if;
+
+  update allan.venta_total set anulado_en = now() where id = p_id;
+
+  perform allan.fn_auditar('venta_total', p_id, 'anular', null, null, null, p_usuario_id);
+
+  select estado into v_estado from allan.sorteo where id = v_sorteo;
+  if v_estado = 'liquidado' then
+    perform allan.fn_recalcular_liquidacion(v_sorteo, v_vend);
+  end if;
+end;
+$$;
+
+revoke execute on function allan.fn_anular_venta_total(uuid, uuid) from public, anon;
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0048_liquidar_con_venta_por_totales.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- La liquidación suma las dos formas de vender.
+--
+-- La 0047 abrió la puerta a la venta por totales, pero mientras la liquidación
+-- se construya sólo desde `linea`, esa captura no existe para nadie: ni para
+-- el corte semanal, ni para el informe de gerencia, ni para el tablero.
+--
+-- Aquí se cambian las DOS funciones que escriben en `allan.liquidacion`, que
+-- son las únicas, y con eso el resto del sistema se entera sin tocar una línea
+-- más: veinticuatro migraciones leen de esa tabla ya agregada.
+--
+-- LO QUE SE SUMA
+-- --------------
+--   venta     = Σ líneas + Σ capturas por totales
+--   comisión  = Σ (monto × comisión congelada de la línea)
+--               + Σ (venta × comisión congelada de la captura)
+--   premios   = Σ premios de líneas ganadoras + Σ premios de las capturas
+--
+-- Cada parte conserva SU comisión congelada, la de la línea o la de la
+-- captura. No se recalcula ninguna con la tasa de hoy: eso reescribiría el
+-- pasado cada vez que a alguien se le cambia la comisión.
+--
+-- EL `full join` NO ES ADORNO. Un vendedor puede tener sólo líneas, sólo una
+-- captura por totales, o las dos —vendió por el portal media jornada y el
+-- resto en papel—. Con un `join` normal, el que tuviera sólo una de las dos
+-- desaparecería de la liquidación, que es exactamente el error que esta
+-- migración viene a evitar.
+--
+-- TODO LO DEMÁS DE `fn_liquidar_sorteo` SE CONSERVA LETRA POR LETRA: el nombre
+-- del parámetro —`p_numero_ganador`, no `p_numero`, o Postgres crearía una
+-- segunda función por sobrecarga y quedarían las dos vivas—, la guarda de que
+-- el sorteo esté `cerrado` y no meramente abierto, los `errcode`, el
+-- `liquidado_por` y el formato de la auditoría con `lpad`. Lo único que cambia
+-- es de dónde salen las cifras.
+-- ===========================================================================
+
+create or replace function allan.fn_liquidar_sorteo(
+  p_sorteo_id      uuid,
+  p_numero_ganador smallint
+) returns table (
+  total_vendedores       integer,
+  total_lineas_ganadoras integer,
+  total_premios          numeric
+)
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_estado     allan.estado_sorteo;
+  v_ganadoras  integer;
+  v_premios    numeric(14,2);
+  v_vendedores integer;
+begin
+  perform allan.fn_exige(array['administrador']::allan.rol_usuario[]);
+
+  if p_numero_ganador is null or p_numero_ganador < 0 or p_numero_ganador > 99 then
+    raise exception 'Número ganador fuera de rango: %.', p_numero_ganador
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  select estado into v_estado
+  from allan.sorteo where id = p_sorteo_id
+  for update;
+
+  if not found then
+    raise exception 'El sorteo % no existe.', p_sorteo_id
+      using errcode = 'no_data_found';
+  end if;
+
+  if v_estado <> 'cerrado' then
+    raise exception 'Sólo se liquida un sorteo cerrado; éste está %.', v_estado
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  update allan.linea l
+  set gana = true,
+      premio = l.monto * l.factor_congelado
+  from allan.ticket t
+  where t.id = l.ticket_id
+    and t.sorteo_id = p_sorteo_id
+    and t.anulado_en is null
+    and l.numero = p_numero_ganador;
+
+  get diagnostics v_ganadoras = row_count;
+
+  insert into allan.liquidacion (
+    sorteo_id, vendedor_id, venta, comision, premios, utilidad, usuario_id
+  )
+  select p_sorteo_id,
+         coalesce(d.vendedor_id, v.vendedor_id),
+         coalesce(d.venta, 0)    + coalesce(v.venta, 0),
+         coalesce(d.comision, 0) + coalesce(v.comision, 0),
+         coalesce(d.premios, 0)  + coalesce(v.premios, 0),
+         (coalesce(d.venta, 0)    + coalesce(v.venta, 0))
+       - (coalesce(d.comision, 0) + coalesce(v.comision, 0))
+       - (coalesce(d.premios, 0)  + coalesce(v.premios, 0)),
+         auth.uid()
+  from (
+    -- Lo vendido número a número.
+    select t.vendedor_id,
+           sum(l.monto)                        as venta,
+           sum(l.monto * l.comision_congelada) as comision,
+           sum(l.premio)                       as premios
+    from allan.linea l
+    join allan.ticket t on t.id = l.ticket_id
+    where t.sorteo_id = p_sorteo_id
+      and t.anulado_en is null
+    group by t.vendedor_id
+  ) d
+  full join (
+    -- Lo capturado por totales.
+    select vt.vendedor_id,
+           sum(vt.venta)                         as venta,
+           sum(vt.venta * vt.comision_congelada) as comision,
+           sum(vt.premios)                       as premios
+    from allan.venta_total vt
+    where vt.sorteo_id = p_sorteo_id
+      and vt.anulado_en is null
+    group by vt.vendedor_id
+  ) v on v.vendedor_id = d.vendedor_id;
+
+  get diagnostics v_vendedores = row_count;
+
+  -- Los premios del sorteo salen ahora de la liquidación recién escrita, que es
+  -- la que ya tiene las dos fuentes sumadas. Leerlos otra vez de `linea` dejaría
+  -- fuera los de las capturas por totales.
+  select coalesce(sum(lq.premios), 0) into v_premios
+  from allan.liquidacion lq
+  where lq.sorteo_id = p_sorteo_id;
+
+  update allan.sorteo
+  set estado = 'liquidado',
+      numero_ganador = p_numero_ganador,
+      liquidado_en = now(),
+      liquidado_por = auth.uid()
+  where id = p_sorteo_id;
+
+  perform allan.fn_auditar('sorteo', p_sorteo_id, 'liquidar', 'numero_ganador',
+                           null, lpad(p_numero_ganador::text, 2, '0'));
+
+  return query select v_vendedores, v_ganadoras, v_premios;
+end;
+$$;
+
+comment on function allan.fn_liquidar_sorteo(uuid, smallint) is
+  'Liquida un sorteo sumando la venta por líneas y la capturada por totales.';
+
+revoke execute on function allan.fn_liquidar_sorteo(uuid, smallint) from public, anon;
+
+
+-- --------------------------------------------------------------------------
+-- El recálculo de un vendedor, con las dos fuentes.
+--
+-- Se usa al vender sobre un sorteo ya liquidado y al registrar o anular una
+-- captura por totales. Misma cuenta que arriba, acotada a un vendedor.
+-- --------------------------------------------------------------------------
+create or replace function allan.fn_recalcular_liquidacion(
+  p_sorteo_id   uuid,
+  p_vendedor_id uuid
+) returns void
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_sorteo   record;
+  v_venta    numeric;
+  v_comision numeric;
+  v_premios  numeric;
+  v_pagada   boolean;
+begin
+  select id, numero_ganador, estado into v_sorteo
+  from allan.sorteo where id = p_sorteo_id;
+
+  if v_sorteo.id is null or v_sorteo.estado <> 'liquidado' then
+    return;
+  end if;
+
+  -- Lo ya pagado no se toca. Si se admitiera, el corte que el vendedor firmó
+  -- dejaría de coincidir con lo que dice la liquidación, y no hay manera
+  -- honesta de arreglarlo después.
+  select exists (
+    select 1
+    from allan.liquidacion lq
+    join allan.corte_detalle d on d.liquidacion_id = lq.id
+    where lq.sorteo_id = p_sorteo_id and lq.vendedor_id = p_vendedor_id
+  ) into v_pagada;
+
+  if v_pagada then
+    raise exception 'Ese sorteo ya se le pagó al vendedor; no admite más venta.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Las líneas nuevas que acertaron, con el factor congelado de cada una.
+  update allan.linea l
+  set gana = true,
+      premio = l.monto * l.factor_congelado
+  from allan.ticket t
+  where t.id = l.ticket_id
+    and t.sorteo_id = p_sorteo_id
+    and t.vendedor_id = p_vendedor_id
+    and t.anulado_en is null
+    and l.numero = v_sorteo.numero_ganador
+    and not l.gana;
+
+  select coalesce(sum(l.monto), 0),
+         coalesce(sum(l.monto * l.comision_congelada), 0),
+         coalesce(sum(l.premio), 0)
+    into v_venta, v_comision, v_premios
+  from allan.linea l
+  join allan.ticket t on t.id = l.ticket_id
+  where t.sorteo_id = p_sorteo_id
+    and t.vendedor_id = p_vendedor_id
+    and t.anulado_en is null;
+
+  -- Y lo capturado por totales para ese mismo vendedor y sorteo.
+  select v_venta    + coalesce(sum(vt.venta), 0),
+         v_comision + coalesce(sum(vt.venta * vt.comision_congelada), 0),
+         v_premios  + coalesce(sum(vt.premios), 0)
+    into v_venta, v_comision, v_premios
+  from allan.venta_total vt
+  where vt.sorteo_id = p_sorteo_id
+    and vt.vendedor_id = p_vendedor_id
+    and vt.anulado_en is null;
+
+  -- Sin nada de ninguna de las dos fuentes, la fila sobra.
+  if v_venta = 0 and v_premios = 0 then
+    delete from allan.liquidacion
+     where sorteo_id = p_sorteo_id and vendedor_id = p_vendedor_id;
+    return;
+  end if;
+
+  insert into allan.liquidacion (
+    sorteo_id, vendedor_id, venta, comision, premios, utilidad
+  ) values (
+    p_sorteo_id, p_vendedor_id, v_venta, v_comision, v_premios,
+    v_venta - v_comision - v_premios
+  )
+  on conflict (sorteo_id, vendedor_id) do update
+  set venta    = excluded.venta,
+      comision = excluded.comision,
+      premios  = excluded.premios,
+      utilidad = excluded.utilidad;
+end;
+$$;
+
+revoke execute on function allan.fn_recalcular_liquidacion(uuid, uuid) from public, anon;
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0049_corregir_auditoria_venta_total.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- Arreglo: `fn_auditar` toma seis argumentos, no siete.
+--
+-- La 0047 llamaba a `allan.fn_auditar(...)` pasándole el usuario como séptimo
+-- parámetro. Esa firma no existe —la de la 0002 termina en `p_valor_nuevo`— y
+-- Postgres no lo detecta al crear la función: falla en tiempo de EJECUCIÓN,
+-- así que `fn_registrar_venta_total` se creaba sin quejarse y reventaba al
+-- primer registro con «function allan.fn_auditar(...) does not exist».
+--
+-- Quien registra queda guardado igualmente: va en `venta_total.creado_por`,
+-- que es donde tiene que estar. La auditoría anota la acción, no el actor,
+-- porque bajo `service_role` `auth.uid()` es nulo y el actor real lo pone la
+-- capa de aplicación en la propia fila.
+-- ===========================================================================
+
+create or replace function allan.fn_registrar_venta_total(
+  p_sorteo_id   uuid,
+  p_vendedor_id uuid,
+  p_venta       numeric,
+  p_premios     numeric,
+  p_nota        text default null,
+  p_usuario_id  uuid default null
+) returns table (r_id uuid, r_comision numeric, r_saldo numeric)
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_comision numeric(6,5);
+  v_id       uuid;
+  v_estado   allan.estado_sorteo;
+begin
+  if p_venta is null or p_venta < 0 then
+    raise exception 'La venta no puede ser negativa.';
+  end if;
+  if p_premios is null or p_premios < 0 then
+    raise exception 'El premio no puede ser negativo.';
+  end if;
+
+  select estado into v_estado from allan.sorteo where id = p_sorteo_id;
+  if v_estado is null then
+    raise exception 'El sorteo no existe.';
+  end if;
+
+  -- El vendedor tiene que estar vivo: un dado de baja no genera venta nueva.
+  perform 1 from allan.vendedor
+   where id = p_vendedor_id and activo and eliminado_en is null;
+  if not found then
+    raise exception 'El vendedor no está activo.';
+  end if;
+
+  select p.comision into v_comision
+  from allan.parametro_vendedor p
+  where p.vendedor_id = p_vendedor_id and p.vigente_hasta is null
+  order by p.vigente_desde desc
+  limit 1;
+
+  if v_comision is null then
+    raise exception 'El vendedor no tiene comisión vigente configurada.';
+  end if;
+
+  insert into allan.venta_total (
+    sorteo_id, vendedor_id, venta, premios, comision_congelada, nota, creado_por
+  ) values (
+    p_sorteo_id, p_vendedor_id, p_venta, p_premios, v_comision, nullif(btrim(p_nota), ''), p_usuario_id
+  )
+  returning id into v_id;
+
+  perform allan.fn_auditar(
+    'venta_total', v_id, 'registrar', 'venta', null, p_venta::text
+  );
+
+  -- Si el sorteo ya estaba liquidado hay que rehacer su fila, o la captura no
+  -- aparecería hasta que alguien reliquidara.
+  if v_estado = 'liquidado' then
+    perform allan.fn_recalcular_liquidacion(p_sorteo_id, p_vendedor_id);
+  end if;
+
+  return query
+  select v_id,
+         round(p_venta * v_comision, 2),
+         round(p_venta - p_venta * v_comision - p_premios, 2);
+end;
+$$;
+
+revoke execute on function allan.fn_registrar_venta_total(uuid, uuid, numeric, numeric, text, uuid)
+  from public, anon;
+
+
+create or replace function allan.fn_anular_venta_total(
+  p_id         uuid,
+  p_usuario_id uuid default null
+) returns void
+language plpgsql
+security definer
+set search_path = allan, public
+as $$
+declare
+  v_sorteo uuid;
+  v_vend   uuid;
+  v_estado allan.estado_sorteo;
+begin
+  select vt.sorteo_id, vt.vendedor_id into v_sorteo, v_vend
+  from allan.venta_total vt
+  where vt.id = p_id and vt.anulado_en is null;
+
+  if v_sorteo is null then
+    raise exception 'Esa captura no existe o ya estaba anulada.';
+  end if;
+
+  update allan.venta_total set anulado_en = now() where id = p_id;
+
+  perform allan.fn_auditar('venta_total', p_id, 'anular', null, null, p_usuario_id::text);
+
+  select estado into v_estado from allan.sorteo where id = v_sorteo;
+  if v_estado = 'liquidado' then
+    perform allan.fn_recalcular_liquidacion(v_sorteo, v_vend);
+  end if;
+end;
+$$;
+
+revoke execute on function allan.fn_anular_venta_total(uuid, uuid) from public, anon;
