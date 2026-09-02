@@ -170,26 +170,57 @@ export async function crearVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   let aviso = "";
 
   if (vendedorId) {
-    usuario = codigo.replace("-", "").toLowerCase();
-    contrasena = generarContrasena();
+    /*
+     * A PARTIR DE AQUÍ EL VENDEDOR YA EXISTE, y nada puede tumbar la acción.
+     *
+     * Antes, `crearClienteServicio()` quedaba fuera de toda protección: lanza
+     * una excepción si falta `SUPABASE_SERVICE_ROLE_KEY` en el entorno, y
+     * `fn_crear_usuario` puede reventar por causas que no son un `error` de
+     * PostgREST —una caída de red, un tiempo de espera agotado—. Cualquiera de
+     * las dos convertía el alta en un 500 DESPUÉS de haber creado al vendedor:
+     * la pantalla decía que no se pudo, y el vendedor estaba creado.
+     *
+     * El `try` no esconde el fallo, lo degrada: el vendedor queda dado de alta
+     * —que es lo caro y ya está hecho— y el acceso se ofrece desde la tabla,
+     * que es lo que ya hacía cuando el error venía por el otro camino.
+     */
+    try {
+      usuario = codigo.replace("-", "").toLowerCase();
+      contrasena = generarContrasena();
 
-    const servicio = crearClienteServicio();
-    const { error: eAcceso } = await servicio.rpc("fn_crear_usuario", {
-      p_usuario: usuario,
-      p_contrasena: contrasena,
-      p_nombre: v.nombre.trim(),
-      p_rol: "vendedor",
-      p_vendedor_id: vendedorId,
-    });
+      const servicio = crearClienteServicio();
+      const { error: eAcceso } = await servicio.rpc("fn_crear_usuario", {
+        p_usuario: usuario,
+        p_contrasena: contrasena,
+        p_nombre: v.nombre.trim(),
+        p_rol: "vendedor",
+        p_vendedor_id: vendedorId,
+      });
 
-    if (eAcceso) {
+      if (eAcceso) {
+        usuario = undefined;
+        contrasena = undefined;
+        aviso = ` No se pudo crear su acceso (${eAcceso.message}); puede darlo de alta desde la tabla.`;
+      }
+    } catch (e) {
       usuario = undefined;
       contrasena = undefined;
-      aviso = " No se pudo crear su acceso; puede darlo de alta desde la tabla.";
+      // El motivo va en el aviso: sin él, quien lo ve no puede distinguir un
+      // usuario repetido de una variable de entorno que falta en el servidor.
+      aviso = ` No se pudo crear su acceso (${
+        e instanceof Error ? e.message : "error inesperado"
+      }); puede darlo de alta desde la tabla.`;
     }
   }
 
-  revalidatePath("/vendedores");
+  // Si el refresco de la pantalla falla, el alta ya se hizo: no puede
+  // convertirse en un error que haga pensar que no se creó nada.
+  try {
+    revalidatePath("/vendedores");
+  } catch {
+    // Sin nada que hacer: la lista se verá al recargar.
+  }
+
   return {
     ok: true,
     usuario,

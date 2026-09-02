@@ -40,10 +40,25 @@ export default function ErrorGlobal({
           </span>
         </div>
 
+        {/*
+          El texto NO adivina la causa.
+ 
+          Antes decía que «lo más común es que la consulta tardara más de lo que
+          la base permite». Esa frase mandó a buscar un problema de rendimiento
+          cuando lo que había era un fallo al guardar: la pantalla afirmaba una
+          causa que no podía conocer, y el diagnóstico se fue detrás. Aquí sólo
+          se dice lo que se sabe —que falló y si se guardó o no— y se señala el
+          registro, que es donde está el motivo de verdad.
+        */}
         <p className="text-base text-cuerpo leading-[1.6] mt-0 mb-3">
-          Algo falló en el servidor al preparar esta página. Lo más común con el histórico
-          completo cargado es que la consulta tardara más de lo que la base permite; en ese caso,
-          acortar el rango de fechas la resuelve.
+          Algo falló en el servidor al preparar esta pantalla. Si venía de guardar algo,{" "}
+          <strong>compruebe antes de repetirlo</strong>: el fallo puede haber ocurrido después de
+          que el dato quedara guardado.
+        </p>
+        <p className="text-meta text-secundario leading-[1.55] mt-0 mb-3">
+          El motivo exacto queda en el registro del servidor, no aquí —enviarlo al navegador
+          podría filtrar detalles internos—. Si es una consulta muy grande, acortar el rango de
+          fechas suele bastar.
         </p>
 
         {error.digest && (
