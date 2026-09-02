@@ -16,6 +16,13 @@
  * `any maskable` sin recortar nada.
  *
  *     node supabase/pruebas/_iconos.mjs
+ *
+ * NECESITA `sharp`, QUE NO ESTÁ DECLARADO en package.json: hoy está ahí
+ * porque Next lo instala por su cuenta para optimizar imágenes. En una
+ * instalación donde no quede colgando, este guion falla con «no se encuentra
+ * el módulo» — se resuelve con `npm i -D sharp`. No se declara porque los
+ * PNG ya están generados y versionados: esto se corre sólo si cambia el
+ * dibujo, y no vale una dependencia nativa permanente para eso.
  */
 import { writeFileSync } from "node:fs";
 import sharp from "sharp";
