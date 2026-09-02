@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { AlignLeft, Eye, EyeOff } from "lucide-react";
 
+import { BotonesApp } from "@/components/shell/instalar";
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
 import { entrar } from "./acciones";
@@ -112,6 +113,13 @@ export default function LoginPage() {
             que se la restablezca.
           </p>
         </form>
+
+        {/* Instalar se ofrece aquí además de dentro: es la primera pantalla que
+            ve un vendedor con un teléfono nuevo, y el momento en que quiere el
+            atajo es justo antes de entrar, no después. */}
+        <div className="px-7 pb-6 -mt-1">
+          <BotonesApp />
+        </div>
       </div>
     </div>
   );

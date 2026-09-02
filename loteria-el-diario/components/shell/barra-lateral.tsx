@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { BotonesApp } from "@/components/shell/instalar";
 import { cn } from "@/lib/cn";
 import type { RolUsuario } from "@/lib/supabase/tipos";
 
@@ -199,8 +200,10 @@ export function BarraLateral({
         </div>
       ))}
 
+      <BotonesApp variante="oscuro" className="mt-auto px-[10px] pb-2" />
+
       {/* Usuario */}
-      <div className="mt-auto flex items-center gap-[10px] px-[18px] py-[14px] border-t border-nav-linea">
+      <div className="flex items-center gap-[10px] px-[18px] py-[14px] border-t border-nav-linea">
         <span className="w-8 h-8 flex-none rounded-full bg-nav-chip text-nav-titulo text-meta font-semibold flex items-center justify-center">
           {iniciales}
         </span>

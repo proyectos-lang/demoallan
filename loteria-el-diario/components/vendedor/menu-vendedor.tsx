@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { BotonesApp } from "@/components/shell/instalar";
 import { cn } from "@/lib/cn";
 
 type Modulo = {
@@ -167,6 +168,11 @@ export function MenuVendedor({ nombre, codigo }: { nombre: string; codigo: strin
               );
             })}
           </nav>
+
+          {/* Al pie del cajón: no son módulos, son cosas que se hacen con la
+              aplicación. Y el vendedor opera desde un teléfono, que es donde
+              el atajo instalado se agradece. */}
+          <BotonesApp variante="oscuro" className="mt-auto p-3 border-t border-nav-linea" />
         </div>
       )}
     </>
