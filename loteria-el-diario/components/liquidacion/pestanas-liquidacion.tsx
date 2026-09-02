@@ -5,15 +5,17 @@ import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type VistaLiq = "hoja" | "resumen";
+export type VistaLiq = "hoja" | "resumen" | "saldos";
 
 const VISTAS: { id: VistaLiq; etiqueta: string }[] = [
   { id: "hoja", etiqueta: "Hoja del vendedor" },
   { id: "resumen", etiqueta: "Resumen por semana" },
+  { id: "saldos", etiqueta: "Saldos por vendedor" },
 ];
 
 /**
- * Las dos caras del módulo: cobrar y ver cómo va el cobro.
+ * Las tres caras del módulo: cobrar, ver cómo va el cobro y saber qué debe
+ * cada uno.
  *
  * La pestaña va en la dirección, como en el informe de gerencia. Cambiar de
  * pestaña conserva el vendedor —es lo que se está mirando en las dos— pero

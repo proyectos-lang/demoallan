@@ -994,6 +994,28 @@ export type Database = {
         Returns: undefined;
       };
 
+      // --- Saldos por vendedor (0051) ------------------------------------
+      fn_saldos_por_vendedor: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_nombre: string;
+          r_activo: boolean;
+          /** Pendiente de las semanas anteriores a `p_desde`. */
+          r_anterior: number;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          /** Saldo de la semana: venta − comisión − premios. */
+          r_semana: number;
+          r_liquidado: number;
+          r_pendiente: number;
+          /** `r_anterior` + `r_pendiente`. */
+          r_actual: number;
+        }[];
+      };
+
       fn_liquidacion_por_semana: {
         /** Sin vendedor, el negocio entero. */
         Args: { p_vendedor_id?: string | null };
