@@ -29,7 +29,10 @@ const ENCABEZADOS = [
   "PAGO PREMIADO",
   "COMISIÓN",
   "TOTAL BRUTO",
-  "TOTAL NETO",
+  // El gerente llama a esta casilla «total neto». Es el mismo número y el mismo
+  // signo; lo que cambia es de qué lado del mostrador se lee, y aquí el lector
+  // es el vendedor. La nota del pie lo dice para que puedan cuadrar por
+  // teléfono sin discutir el nombre.
   "LE CORRESPONDE",
 ];
 
@@ -77,13 +80,17 @@ function Dato({ etiqueta, valor, clase }: { etiqueta: string; valor: string; cla
  * vendedor cuadran por teléfono, los dos están mirando las mismas casillas con
  * los mismos nombres, que es la mitad de las discusiones.
  *
- * LA ÚLTIMA COLUMNA NO ESTÁ EN LA HOJA DEL GERENTE Y AQUÍ ES LA IMPORTANTE.
- * «Le corresponde» es comisión más premios: el vendedor cobra la venta en la
- * calle y paga los premios de su bolsillo, así que su dinero es lo que le toca
- * de comisión más lo que adelantó. El «total neto» de al lado es lo que gana o
- * pierde LA CASA con él, que es la misma cuenta mirada desde el otro lado. Las
- * dos van juntas a propósito: sumarlas sería el error, y por eso están
- * rotuladas para que no se confundan.
+ * «LE CORRESPONDE» ES EL SALDO DE LA LIQUIDACIÓN: venta − comisión − premios.
+ * Es la misma fórmula que usa el módulo de liquidación para cobrar, y a
+ * propósito: la cifra que el vendedor mira en su teléfono tiene que ser
+ * exactamente la que administración le va a decir por teléfono. Si aquí
+ * saliera otra cuenta —por buena que fuera— cada cierre empezaría discutiendo
+ * cuál de las dos vale.
+ *
+ * EL SIGNO DICE QUIÉN DEBE. Positivo, el vendedor le debe a la empresa y va en
+ * número normal; negativo, la empresa le debe a él y va en rojo. Un solo
+ * criterio en todo el sistema, que es lo que permite leer una pantalla sin
+ * preguntar en qué dirección está escrita.
  *
  * DOS DIBUJOS, UNO POR TAMAÑO. En un teléfono once columnas no se leen ni
  * arrastrando: debajo de `lg` cada sorteo es una tarjeta. Los dos se
@@ -113,8 +120,7 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
     );
 
   const periodo = sumar(filas);
-  const suyoPeriodo = periodo.comision + periodo.premios;
-  const netoPeriodo = periodo.venta - periodo.comision - periodo.premios;
+  const suyoPeriodo = periodo.venta - periodo.comision - periodo.premios;
 
   if (filas.length === 0) {
     return (
@@ -132,9 +138,20 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
         style={{ background: "var(--gradiente-dia)" }}
       >
         <span className="block text-eyebrow font-semibold tracking-seccion text-navy-etiqueta">
-          LE CORRESPONDE EN EL PERÍODO
+          {suyoPeriodo < 0 ? "LA EMPRESA LE DEBE" : "LE CORRESPONDE ENTREGAR"}
         </span>
-        <span className="block text-rapida font-semibold tracking-titular mt-1">
+        {/*
+          Sobre el marino el rojo del sistema no llega al contraste mínimo, así
+          que aquí va el rojo claro que ya se usa para las cifras negativas
+          sobre fondo oscuro. El criterio es el mismo; cambia el tono, no la
+          regla.
+        */}
+        <span
+          className={cn(
+            "block text-rapida font-semibold tracking-titular mt-1",
+            suyoPeriodo < 0 && "text-negativo-claro",
+          )}
+        >
           {fmt(suyoPeriodo)}
         </span>
 
@@ -156,16 +173,16 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
         </div>
 
         <span className="block text-label text-navy-nota mt-3 leading-[1.5]">
-          La venta no es suya: es lo que movió. Lo suyo es la comisión más los premios que
-          adelantó de su bolsillo.
+          {suyoPeriodo < 0
+            ? "Venta menos comisión menos premios. Sale negativo, así que en este período los premios que adelantó superaron su venta y la empresa le debe esa diferencia."
+            : "Venta menos comisión menos premios. Sale positivo, así que ése es el dinero que usted le entrega a la empresa al liquidar."}
         </span>
       </div>
 
       {/* --- Un bloque por día --- */}
       {porDia.map(([fecha, delDia]) => {
         const t = sumar(delDia);
-        const suyo = t.comision + t.premios;
-        const neto = t.venta - t.comision - t.premios;
+        const suyo = t.venta - t.comision - t.premios;
         const todoPagado = delDia.every((f) => f.pagado);
         const algoPagado = delDia.some((f) => f.pagado);
 
@@ -220,17 +237,17 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
                       valor={f.estado === "liquidado" ? fmt(f.premios, false) : "—"}
                     />
                     <Dato etiqueta="Total bruto" valor={fmt(f.venta - f.comision, false)} />
-                    <Dato
-                      etiqueta="Total neto"
-                      valor={fmt(f.venta - f.comision - f.premios, false)}
-                      clase={f.venta - f.comision - f.premios < 0 ? "text-negativo" : undefined}
-                    />
                   </div>
 
                   <div className="flex items-baseline justify-between gap-2 mt-[9px] pt-[9px] border-t border-riel">
                     <span className="text-meta font-medium">Le corresponde</span>
-                    <span className="text-pos font-semibold tracking-sutil">
-                      {fmt(f.comision + f.premios, false)}
+                    <span
+                      className={cn(
+                        "text-pos font-semibold tracking-sutil",
+                        f.venta - f.comision - f.premios < 0 && "text-negativo",
+                      )}
+                    >
+                      {fmt(f.venta - f.comision - f.premios, false)}
                     </span>
                   </div>
                 </div>
@@ -307,14 +324,11 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
                       </td>
                       <td
                         className={cn(
-                          "border-b border-fondo py-[11px] px-3 text-right",
-                          f.venta - f.comision - f.premios < 0 ? "text-negativo" : "text-cuerpo",
+                          "border-b border-fondo border-l border-riel py-[11px] pl-3 pr-4 text-right font-semibold",
+                          f.venta - f.comision - f.premios < 0 && "text-negativo",
                         )}
                       >
                         {fmt(f.venta - f.comision - f.premios, false)}
-                      </td>
-                      <td className="border-b border-fondo border-l border-riel py-[11px] pl-3 pr-4 text-right font-semibold">
-                        {fmt(f.comision + f.premios, false)}
                       </td>
                     </tr>
                   ))}
@@ -343,13 +357,10 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
                     </td>
                     <td
                       className={cn(
-                        "py-[10px] px-3 text-right",
-                        neto < 0 ? "text-negativo" : "text-cuerpo",
+                        "py-[10px] pl-3 pr-4 border-l border-riel text-right text-h2 font-semibold tracking-sutil",
+                        suyo < 0 && "text-negativo",
                       )}
                     >
-                      {fmt(neto, false)}
-                    </td>
-                    <td className="py-[10px] pl-3 pr-4 border-l border-riel text-right text-h2 font-semibold tracking-sutil">
                       {fmt(suyo, false)}
                     </td>
                   </tr>
@@ -362,18 +373,20 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
 
       <div className="bg-panel border border-borde rounded-card px-4 py-3 text-meta text-cuerpo leading-[1.55]">
         <p className="m-0">
-          <strong>Le corresponde</strong> es su comisión más los premios que pagó de su bolsillo:
-          es lo que la casa le devuelve. El <strong>total neto</strong> de al lado es lo que la
-          casa gana o pierde con usted —la misma cuenta desde el otro lado—, así que{" "}
-          <strong>no se suman</strong>.
+          <strong>Le corresponde</strong> es <strong>venta − comisión − premios</strong>, la misma
+          cuenta con la que se liquida. En <strong>negativo y en rojo</strong>, la empresa le debe
+          a usted: los premios que adelantó superaron su venta. En número normal, usted le entrega
+          esa cantidad a la empresa. Es la casilla que en la hoja de gerencia se llama{" "}
+          <strong>total neto</strong> —el mismo número y el mismo signo—, así que al cuadrar por
+          teléfono los dos están mirando lo mismo.
         </p>
         <p className="mt-2 mb-0">
           <strong>Premiado</strong> es lo que se apostó al número que salió y{" "}
           <strong>pago premiado</strong> lo que costó pagarlo; el <strong>factor</strong> es lo
           segundo entre lo primero. La comisión cuenta desde que vende —la tasa se congela en cada
           línea—, pero los premios de un sorteo sin número ganador todavía no existen: por eso van
-          con un guion, y lo que le corresponde en esa fila puede subir cuando se capture el
-          resultado. En el período de arriba: {fmt(netoPeriodo, false)} de neto para la casa.
+          con un guion, y lo que le corresponde en esa fila puede cambiar —incluso de signo— cuando
+          se capture el resultado.
         </p>
       </div>
     </div>

@@ -42,6 +42,7 @@ function permitida(ruta: string, rol: string): boolean {
       ruta.startsWith("/mi-digitalizacion") ||
       ruta.startsWith("/mi-dia") ||
       ruta.startsWith("/mi-reporte") ||
+      ruta.startsWith("/mi-liquidacion") ||
       ruta.startsWith("/clave")
     );
   }
@@ -52,7 +53,8 @@ function permitida(ruta: string, rol: string): boolean {
     ruta.startsWith("/mi-venta") ||
     ruta.startsWith("/mi-digitalizacion") ||
     ruta.startsWith("/mi-dia") ||
-    ruta.startsWith("/mi-reporte")
+    ruta.startsWith("/mi-reporte") ||
+    ruta.startsWith("/mi-liquidacion")
   ) {
     return false;
   }

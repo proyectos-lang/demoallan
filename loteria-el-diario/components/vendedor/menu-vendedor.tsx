@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  FileText,
   KeyRound,
   Menu,
   Receipt,
@@ -44,10 +45,16 @@ const MODULOS: Modulo[] = [
     Icono: CalendarDays,
   },
   {
-    href: "/mi-reporte",
-    etiqueta: "Liquidaciones e informes",
-    detalle: "Día, semana o el rango que elija, y qué le han pagado",
+    href: "/mi-liquidacion",
+    etiqueta: "Mi liquidación",
+    detalle: "Semana por semana: cuánto entrega o cuánto le entregan",
     Icono: Receipt,
+  },
+  {
+    href: "/mi-reporte",
+    etiqueta: "Informes por período",
+    detalle: "Día, semana o el rango que elija, sorteo por sorteo",
+    Icono: FileText,
   },
   {
     href: "/clave",

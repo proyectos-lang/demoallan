@@ -70,7 +70,16 @@ export function RielSemanas({
   const [pendiente, iniciar] = useTransition();
 
   return (
-    <div className="w-[186px] flex-none bg-superficie border border-borde rounded-card shadow-card overflow-hidden self-start">
+    /*
+     * A lo ancho en el teléfono y en columna a partir de `lg`.
+     *
+     * Con el ancho fijo de 186 px el riel se comía media pantalla de un
+     * móvil y dejaba la tabla en una rendija. El portal del vendedor se usa
+     * desde un teléfono, así que ahí ocupa todo el ancho y recorta su alto:
+     * la lista sigue siendo entera, sólo que se desplaza dentro de menos
+     * espacio.
+     */
+    <div className="w-full lg:w-[186px] flex-none bg-superficie border border-borde rounded-card shadow-card overflow-hidden self-start">
       <div className="px-[14px] py-[11px] border-b border-riel bg-tinte flex items-baseline justify-between gap-2">
         <span className="text-th font-semibold tracking-th text-secundario">{titulo}</span>
         <span className="text-th text-mudo">{semanas.length}</span>
@@ -78,7 +87,7 @@ export function RielSemanas({
 
       {/* Alto acotado y desplazamiento propio: con un año de operación son más
           de cincuenta entradas y el riel no debe estirar la página. */}
-      <div className="max-h-[560px] overflow-y-auto">
+      <div className="max-h-[220px] lg:max-h-[560px] overflow-y-auto">
         {semanas.map((s) => {
           const abierta = s.inicio === activa;
           return (

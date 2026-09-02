@@ -1,25 +1,19 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { registrarCorte } from "@/app/(admin)/liquidacion/acciones";
 import { BotonImprimir } from "@/components/liquidacion/boton-imprimir";
+import {
+  TablaSorteos,
+  type FilaLiquidacion,
+} from "@/components/liquidacion/tabla-sorteos";
+
+export type { FilaLiquidacion };
 import { Boton } from "@/components/ui/boton";
 import { CampoModal, CLASE_CONTROL_MODAL, Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, hora12, jornada, pad2 } from "@/lib/format";
-
-export type FilaLiquidacion = {
-  liquidacionId: string;
-  fecha: string;
-  hora: string;
-  ganador: number | null;
-  venta: number;
-  comision: number;
-  premios: number;
-  /** venta − comisión − premios. */
-  saldo: number;
-};
+import { fmt } from "@/lib/format";
 
 /**
  * La hoja semanal de un vendedor.
@@ -67,16 +61,6 @@ export function HojaLiquidacion({
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [pagando, iniciar] = useTransition();
-
-  const porDia = useMemo(() => {
-    const mapa = new Map<string, FilaLiquidacion[]>();
-    for (const f of filas) {
-      const lista = mapa.get(f.fecha) ?? [];
-      lista.push(f);
-      mapa.set(f.fecha, lista);
-    }
-    return [...mapa.entries()];
-  }, [filas]);
 
   const elegidas = filas.filter((f) => marcados.has(f.liquidacionId));
 
@@ -179,120 +163,7 @@ export function HojaLiquidacion({
       )}
 
       <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          {/*
-            Compacta a propósito: una semana son veintiún sorteos y con la fila
-            alta no cabía una semana entera en pantalla. El día dejó de ser una
-            columna ancha repetida tres veces y pasó a ser una fila de grupo,
-            que además es donde tiene sentido la casilla que marca el día
-            entero y el subtotal.
-          */}
-          <table className="w-full border-collapse text-tabla min-w-[620px]">
-            <thead>
-              <tr className="bg-tinte">
-                {["", "SORTEO", "GANADOR", "VENTA", "COMISIÓN", "PREMIOS", "SALDO"].map(
-                  (th, i) => (
-                    <th
-                      key={th || "marca"}
-                      className={cn(
-                        "text-th font-semibold tracking-th text-secundario border-b border-riel py-[8px]",
-                        i >= 3 ? "text-right" : "text-left",
-                        i === 0 ? "pl-4 pr-2 w-9" : i === 6 ? "pl-3 pr-4" : "px-3",
-                      )}
-                    >
-                      {th}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-
-            {porDia.map(([fecha, delDia]) => {
-              const marcadasDelDia = delDia.filter((f) => marcados.has(f.liquidacionId));
-              const subtotal = marcadasDelDia.reduce((a, f) => a + f.saldo, 0);
-              const todos = marcadasDelDia.length === delDia.length;
-              const algunos = marcadasDelDia.length > 0 && !todos;
-
-              return (
-                <tbody key={fecha}>
-                  <tr className="bg-tinte">
-                    <td className="border-b border-riel py-[6px] pl-4 pr-2">
-                      <input
-                        type="checkbox"
-                        checked={todos}
-                        // El estado intermedio no se puede poner por atributo:
-                        // es una propiedad del elemento y hay que escribirla.
-                        ref={(el) => {
-                          if (el) el.indeterminate = algunos;
-                        }}
-                        onChange={() => alternarDia(delDia)}
-                        aria-label={`Marcar el día ${fecha} entero`}
-                        className="w-4 h-4 accent-[var(--color-acento)]"
-                      />
-                    </td>
-                    <td colSpan={5} className="border-b border-riel py-[6px] px-3">
-                      <span className="text-meta font-semibold">{fechaLarga(fecha)}</span>
-                      <span className="text-th text-secundario ml-2">
-                        {marcadasDelDia.length} de {delDia.length}
-                      </span>
-                    </td>
-                    <td
-                      className={cn(
-                        "border-b border-riel py-[6px] pl-3 pr-4 text-right text-meta font-semibold",
-                        subtotal < 0 && "text-negativo",
-                      )}
-                    >
-                      {fmt(subtotal, false)}
-                    </td>
-                  </tr>
-
-                  {delDia.map((f) => (
-                    <tr
-                      key={f.liquidacionId}
-                      className={cn(!marcados.has(f.liquidacionId) && "opacity-45")}
-                    >
-                      <td className="border-b border-fondo py-[6px] pl-4 pr-2">
-                        <input
-                          type="checkbox"
-                          checked={marcados.has(f.liquidacionId)}
-                          onChange={() => alternar(f.liquidacionId)}
-                          aria-label={`Liquidar ${fecha} ${f.hora}`}
-                          className="w-4 h-4 accent-[var(--color-acento)]"
-                        />
-                      </td>
-                      <td className="border-b border-fondo py-[6px] px-3 text-cuerpo">
-                        {jornada(f.hora)}
-                        <span className="text-th text-mudo ml-[6px]">{hora12(f.hora)}</span>
-                      </td>
-                      <td className="border-b border-fondo py-[6px] px-3">
-                        <span className="inline-block min-w-[28px] text-center px-[6px] py-px rounded-celda bg-acento-suave text-acento-fuerte text-meta font-semibold">
-                          {f.ganador === null ? "â" : pad2(f.ganador)}
-                        </span>
-                      </td>
-                      <td className="border-b border-fondo py-[6px] px-3 text-right">
-                        {fmt(f.venta, false)}
-                      </td>
-                      <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
-                        {fmt(f.comision, false)}
-                      </td>
-                      <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
-                        {fmt(f.premios, false)}
-                      </td>
-                      <td
-                        className={cn(
-                          "border-b border-fondo py-[6px] pl-3 pr-4 text-right font-semibold",
-                          f.saldo < 0 && "text-negativo",
-                        )}
-                      >
-                        {fmt(f.saldo, false)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              );
-            })}
-          </table>
-        </div>
+        <TablaSorteos filas={filas} seleccion={{ marcados, alternar, alternarDia }} />
       </div>
 
       {/* --- El cierre --- */}
