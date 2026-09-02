@@ -25,8 +25,8 @@ const H = {
   apikey: K,
   Authorization: `Bearer ${K}`,
   "Content-Type": "application/json",
-  "Accept-Profile": "allan",
-  "Content-Profile": "allan",
+  "Accept-Profile": "public",
+  "Content-Profile": "public",
 };
 
 // comision va como FRACCIÓN: 12.5 % → 0.125

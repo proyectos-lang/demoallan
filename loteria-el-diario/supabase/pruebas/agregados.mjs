@@ -24,13 +24,13 @@ const env = Object.fromEntries(
 
 const U = env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY;
-const sb = createClient(U, SERVICE, { db: { schema: "allan" }, auth: { persistSession: false } });
+const sb = createClient(U, SERVICE, { db: { schema: "public" }, auth: { persistSession: false } });
 const admin = createClient(U, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-  db: { schema: "allan" },
+  db: { schema: "public" },
   auth: { persistSession: false },
 });
 const vend = createClient(U, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-  db: { schema: "allan" },
+  db: { schema: "public" },
   auth: { persistSession: false },
 });
 

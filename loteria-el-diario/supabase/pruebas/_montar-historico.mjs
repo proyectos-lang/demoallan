@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 const env=Object.fromEntries(readFileSync(new URL("../../.env.local", import.meta.url),"utf8").split("\n").filter(l=>l.includes("=")).map(l=>[l.slice(0,l.indexOf("=")),l.slice(l.indexOf("=")+1).trim()]));
-const sb=createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY,{db:{schema:"allan"},auth:{persistSession:false}});
+const sb=createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY,{db:{schema:"public"},auth:{persistSession:false}});
 const F=["2095-01-15","2095-02-15","2095-03-15"];
 const limpiar=async()=>{for(const f of F){const {data:ss}=await sb.from("sorteo").select("id").eq("fecha",f);
  for(const s of ss??[]){await sb.from("liquidacion").delete().eq("sorteo_id",s.id);

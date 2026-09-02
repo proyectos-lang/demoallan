@@ -28,7 +28,7 @@ const env = Object.fromEntries(
     .split("\n").filter((l) => l.includes("="))
     .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim()]));
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: "allan" }, auth: { persistSession: false } });
+  db: { schema: "public" }, auth: { persistSession: false } });
 const { data: u } = await sb.from("usuario").select("id, nombre, rol").eq("rol", "administrador").limit(1);
 const secreto = env.SESION_SECRETO && env.SESION_SECRETO.length >= 32
   ? env.SESION_SECRETO

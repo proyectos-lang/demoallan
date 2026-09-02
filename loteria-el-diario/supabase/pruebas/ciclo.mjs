@@ -21,11 +21,11 @@ const env = Object.fromEntries(
 
 const U = env.NEXT_PUBLIC_SUPABASE_URL;
 const sb = createClient(U, env.SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: "allan" },
+  db: { schema: "public" },
   auth: { persistSession: false },
 });
 const anon = createClient(U, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-  db: { schema: "allan" },
+  db: { schema: "public" },
   auth: { persistSession: false },
 });
 

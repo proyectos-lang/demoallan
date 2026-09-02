@@ -27,7 +27,7 @@ export function crearClienteServicio() {
   }
 
   return createClient<Database>(url, key, {
-    db: { schema: "allan" },
+    db: { schema: "public" },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

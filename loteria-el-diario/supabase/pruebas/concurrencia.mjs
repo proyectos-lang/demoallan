@@ -24,8 +24,8 @@ const H = {
   apikey: KEY,
   Authorization: `Bearer ${KEY}`,
   "Content-Type": "application/json",
-  "Accept-Profile": "allan",
-  "Content-Profile": "allan",
+  "Accept-Profile": "public",
+  "Content-Profile": "public",
 };
 
 async function rest(ruta, opciones = {}) {

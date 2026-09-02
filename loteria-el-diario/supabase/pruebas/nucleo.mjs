@@ -18,8 +18,8 @@ const H = {
   apikey: KEY,
   Authorization: `Bearer ${KEY}`,
   "Content-Type": "application/json",
-  "Accept-Profile": "allan",
-  "Content-Profile": "allan",
+  "Accept-Profile": "public",
+  "Content-Profile": "public",
 };
 
 let ok = 0;
@@ -55,7 +55,7 @@ const anon = (ruta) =>
     headers: {
       apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-      "Accept-Profile": "allan",
+      "Accept-Profile": "public",
     },
   });
 

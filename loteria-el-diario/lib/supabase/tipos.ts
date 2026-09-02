@@ -1,12 +1,12 @@
 /**
- * Tipos del esquema `allan`, derivados de supabase/migrations/.
+ * Tipos del esquema `public`, derivados de supabase/migrations/.
  *
  * Escritos a mano en vez de generados porque `supabase gen types` exige un
  * token personal o la contraseña de la base, que no tenemos. Si más adelante
  * hay alguno de los dos, este archivo se puede reemplazar por la salida de:
  *
  *     npx supabase gen types typescript \
- *       --project-id <ref> --schema allan > lib/supabase/tipos.ts
+ *       --project-id <ref> --schema public > lib/supabase/tipos.ts
  *
  * Mientras tanto: **al cambiar una migración, cambiar también este archivo.**
  */
@@ -237,7 +237,7 @@ export type Escenario = {
 
 /**
  * Cuenta de acceso. Sustituye a `auth.users`: los usuarios se gestionan en el
- * esquema `allan`, con la contraseña guardada como bcrypt (pgcrypto).
+ * esquema `public`, con la contraseña guardada como bcrypt (pgcrypto).
  *
  * El `hash` NO aparece aquí a propósito: ninguna consulta de la aplicación
  * debe traerlo, y omitirlo del tipo hace que el compilador lo recuerde.
@@ -279,7 +279,7 @@ type Tabla<Fila, Auto extends keyof Fila> = {
 };
 
 export type Database = {
-  allan: {
+  public: {
     Tables: {
       vendedor: Tabla<Vendedor, "id" | "activo" | "creado_en" | "eliminado_en">;
       parametro_vendedor: Tabla<ParametroVendedor, "id" | "vigente_desde" | "vigente_hasta" | "creado_por">;

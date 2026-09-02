@@ -42,7 +42,7 @@ if (!mime) {
 }
 
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: "allan" },
+  db: { schema: "public" },
   auth: { persistSession: false },
 });
 

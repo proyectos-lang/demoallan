@@ -19,9 +19,9 @@ const U = env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY;
 
-const admin = createClient(U, ANON, { db: { schema: "allan" }, auth: { persistSession: false } });
-const vendedor = createClient(U, ANON, { db: { schema: "allan" }, auth: { persistSession: false } });
-const servicio = createClient(U, SERVICE, { db: { schema: "allan" }, auth: { persistSession: false } });
+const admin = createClient(U, ANON, { db: { schema: "public" }, auth: { persistSession: false } });
+const vendedor = createClient(U, ANON, { db: { schema: "public" }, auth: { persistSession: false } });
+const servicio = createClient(U, SERVICE, { db: { schema: "public" }, auth: { persistSession: false } });
 
 const CORREO_V = "rosa.padilla@eldiario.hn";
 const CLAVE_V = "PruebaVendedor123";
@@ -52,8 +52,8 @@ const rest = (metodo, ruta, cuerpo) =>
       apikey: SERVICE,
       Authorization: `Bearer ${SERVICE}`,
       "Content-Type": "application/json",
-      "Accept-Profile": "allan",
-      "Content-Profile": "allan",
+      "Accept-Profile": "public",
+      "Content-Profile": "public",
       Prefer: "return=representation",
     },
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
