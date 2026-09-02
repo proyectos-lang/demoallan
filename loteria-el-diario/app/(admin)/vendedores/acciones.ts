@@ -106,6 +106,30 @@ export type NuevoVendedor = {
 };
 
 export async function crearVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
+  /*
+   * NADA DE AQUÍ DENTRO PUEDE DERRIBAR LA PANTALLA.
+   *
+   * Una acción que escribe y luego lanza deja lo peor de los dos mundos: el
+   * dato guardado y el usuario convencido de que no se guardó. Además, el
+   * motivo real no llega al navegador —Next sólo manda un `digest`—, así que
+   * desde fuera el fallo es indistinguible de una consulta lenta.
+   *
+   * Envolviendo aquí, cualquier fallo vuelve como texto en la pantalla, que es
+   * donde puede leerlo quien lo está sufriendo.
+   */
+  try {
+    return await altaDeVendedor(v);
+  } catch (e) {
+    return {
+      ok: false,
+      mensaje: `No se pudo completar el alta: ${
+        e instanceof Error ? e.message : String(e)
+      }. Compruebe en la lista si el vendedor quedó creado antes de repetir.`,
+    };
+  }
+}
+
+async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   // Mismo orden de validación y mismos mensajes que el prototipo.
   if (v.nombre.trim().length < 5) {
     return { ok: false, mensaje: "Escriba el nombre completo del vendedor." };
