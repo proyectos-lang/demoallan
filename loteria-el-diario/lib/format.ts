@@ -97,6 +97,20 @@ export function hora12(etiqueta: string): string {
   return `${doce}:${m ?? "00"} ${meridiano}`;
 }
 
+/**
+ * Cómo llama el negocio a cada sorteo: mañana, tarde y noche.
+ *
+ * Vive aquí y no junto a los filtros porque los filtros son un módulo de
+ * cliente, y todo lo que un componente de servidor importa de un `"use client"`
+ * le llega como referencia de cliente, no como el valor: indexar ese objeto
+ * devolvía `undefined` y el rótulo salía «Martes ·», sin la jornada.
+ */
+export function jornada(etiqueta: string): string {
+  const h = Number(etiqueta.split(":")[0]);
+  if (h < 12) return "Mañana";
+  return h < 18 ? "Tarde" : "Noche";
+}
+
 /** `h:mm AM` en hora de Honduras, a partir de un instante. */
 export function horaHonduras12(fecha: Date | string): string {
   return hora12(horaHonduras(fecha));

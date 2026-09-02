@@ -1,41 +1,63 @@
-import {
-  FiltrosInforme,
-  type Atajo,
-  type DiaDelRango,
-} from "@/components/informe/filtros-informe";
-import { TarjetaNota } from "@/components/ui/tarjeta";
+import { FiltrosDia, type SorteoDelDia } from "@/components/informe/filtros-dia";
+import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fechaLargaSinDia, fmt, hora12, hoyHonduras, iso, pad2 } from "@/lib/format";
+import { fechaLarga, fmt, hora12, hoyHonduras, iso, jornada, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-const RANGO = /^\d{4}-\d{2}-\d{2}$/;
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 const HORAS = ["11:00", "15:00", "20:00"] as const;
 const esHora = (v: string): v is (typeof HORAS)[number] => HORAS.some((h) => h === v);
 
-/** El lunes de la semana de una fecha. La semana del negocio va lunes a domingo. */
-function lunesDe(d: Date): Date {
-  const copia = new Date(d);
-  copia.setDate(copia.getDate() - ((copia.getDay() + 6) % 7));
-  return copia;
-}
+const ENCABEZADOS = [
+  "ITEM",
+  "VENDEDOR",
+  "VENTA",
+  "PREMIADO",
+  "F. PREM",
+  "%",
+  "PAGO PREMIADO",
+  "COMISIÓN",
+  "TOTAL BRUTO",
+  "TOTAL NETO",
+];
 
-function sumarDias(d: Date, n: number): Date {
-  const copia = new Date(d);
-  copia.setDate(copia.getDate() + n);
-  return copia;
+/** Una cifra del panel del sorteo, con su peso sobre la venta debajo. */
+function Cifra({
+  etiqueta,
+  valor,
+  pie,
+  color,
+}: {
+  etiqueta: string;
+  valor: string;
+  pie?: string;
+  color?: string;
+}) {
+  return (
+    <div>
+      <span className="block text-eyebrow font-semibold tracking-seccion text-secundario">
+        {etiqueta}
+      </span>
+      <span className={cn("block text-kpi font-semibold tracking-titular mt-[5px]", color)}>
+        {valor}
+      </span>
+      {pie && <span className="block text-label text-mudo mt-[1px]">{pie}</span>}
+    </div>
+  );
 }
 
 /**
- * El informe de gerencia.
+ * Captura diaria: un día, un sorteo, todo el padrón.
  *
- * Es la pestaña DASHBOARD de la hoja que el gerente abre cada mañana, con las
- * mismas columnas y en el mismo orden, para cualquier rango. Lo que cambia es
- * que las cifras salen de la base en vez de teclearse: la hoja se armaba a
- * mano cada semana desde veintiuna pestañas —tres sorteos por siete días.
+ * Es la hoja que el gerente abre después de cada sorteo. Antes esta pantalla
+ * pedía un rango con atajos y dos tiras de filtros; para un rango ya están las
+ * otras tres pestañas, y aquí la pregunta es siempre la misma —qué dejó ESTE
+ * sorteo—, así que el filtro se quedó en lo que de verdad cambia: la fecha y
+ * cuál de los tres.
  *
- * «Regalado» no está, por decisión del negocio. «Pasados» tampoco: en las
- * ciento cinco filas de la hoja de referencia sale en cero.
+ * «Regalado», «pasados» y el factor de regalía no están: el sistema no los
+ * registra. Una columna que siempre dice cero no es un dato.
  */
 export async function VistaDiaria({
   params,
@@ -44,118 +66,64 @@ export async function VistaDiaria({
 }) {
   const supabase = await crearClienteServidor();
 
-  const hoy = hoyHonduras();
-  const ayer = sumarDias(hoy, -1);
-  const lunes = lunesDe(hoy);
-  const mes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const mesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+  const texto = (clave: string) =>
+    typeof params[clave] === "string" ? (params[clave] as string) : "";
 
-  const atajos: Atajo[] = [
-    { etiqueta: "Hoy", grupo: "Día", desde: iso(hoy), hasta: iso(hoy) },
-    { etiqueta: "Ayer", grupo: "Día", desde: iso(ayer), hasta: iso(ayer) },
-    {
-      etiqueta: "Esta semana",
-      grupo: "Semana",
-      desde: iso(lunes),
-      hasta: iso(sumarDias(lunes, 6)),
-    },
-    {
-      etiqueta: "Semana pasada",
-      grupo: "Semana",
-      desde: iso(sumarDias(lunes, -7)),
-      hasta: iso(sumarDias(lunes, -1)),
-    },
-    {
-      etiqueta: "Hace dos semanas",
-      grupo: "Semana",
-      desde: iso(sumarDias(lunes, -14)),
-      hasta: iso(sumarDias(lunes, -8)),
-    },
-    { etiqueta: "Este mes", grupo: "Mes", desde: iso(mes), hasta: iso(hoy) },
-    {
-      etiqueta: "Mes anterior",
-      grupo: "Mes",
-      desde: iso(mesAnterior),
-      hasta: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 0)),
-    },
-  ];
+  /*
+   * Sin fecha en la dirección se abre el último día con resultado, no hoy.
+   * Hoy a media mañana todavía no hay nada liquidado y la pantalla arrancaría
+   * en ceros, que es la peor primera impresión posible para un informe.
+   */
+  const pedido = texto("dia");
+  let dia = FECHA.test(pedido) ? pedido : "";
+  if (!dia) {
+    const { data } = await supabase
+      .from("sorteo")
+      .select("fecha")
+      .eq("estado", "liquidado")
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    dia = data?.fecha ?? iso(hoyHonduras());
+  }
 
-  const texto = (k: string, omision: string) => {
-    const v = params[k];
-    return typeof v === "string" && RANGO.test(v) ? v : omision;
-  };
+  // Los tres sorteos del día, de una vez: sirven para las fichas del filtro y
+  // para el número ganador, que es la misma consulta hecha dos veces si no.
+  const { data: delDia } = await supabase
+    .from("sorteo")
+    .select("hora, estado, numero_ganador")
+    .eq("fecha", dia)
+    .order("hora");
 
-  let desde = texto("desde", atajos[2].desde);
-  let hasta = texto("hasta", atajos[2].hasta);
-  if (desde > hasta) [desde, hasta] = [hasta, desde];
+  const sorteos: SorteoDelDia[] = (delDia ?? []).map((s) => ({
+    hora: s.hora,
+    estado: s.estado,
+    ganador: s.numero_ganador,
+  }));
 
-  // Por omisión salen todos, como en la hoja. `?conventa=1` deja sólo a los
-  // que movieron algo.
+  /*
+   * Sin sorteo elegido se abre el último del día que ya tenga resultado. La
+   * captura se mira después de un sorteo, y el que se acaba de jugar es el que
+   * se viene a ver. Si no hay ninguno liquidado se enseña el día completo.
+   */
+  const horaPedida = texto("hora");
+  const ultimoConResultado = [...sorteos].reverse().find((s) => s.estado === "liquidado");
+  // La hora que llega de la base también se valida: viene tipada como texto y
+  // el parámetro de la consulta es el enum, así que pasa por el mismo cedazo
+  // que lo que llega por la dirección.
+  const hora = esHora(horaPedida)
+    ? horaPedida
+    : horaPedida === "todos"
+      ? ""
+      : ultimoConResultado && esHora(ultimoConResultado.hora)
+        ? ultimoConResultado.hora
+        : "";
+
   const soloConVenta = params.conventa === "1";
 
-  /*
-   * El desglose dentro del rango.
-   *
-   * El día no necesita parámetro en la base: un día es un rango de un día, así
-   * que se estrecha la consulta. El rango original se conserva en la URL
-   * porque es lo que dibuja la tira de días.
-   *
-   * Un día fuera del rango se ignora: llegaría de una dirección vieja y daría
-   * una tabla vacía sin explicar por qué.
-   */
-  const horaPedida = typeof params.hora === "string" ? params.hora : "";
-  const diaPedido = texto("dia", "");
-  const dia = diaPedido >= desde && diaPedido <= hasta ? diaPedido : "";
-
-  // Un predicado de tipo y no un `includes` suelto: `includes` devuelve un
-  // booleano y deja `hora` como `string`, y entonces cada uso contra la base
-  // necesita un `as`. Así la comprobación que ya se hacía también estrecha el
-  // tipo, y no queda ni un molde en el archivo.
-  const hora = esHora(horaPedida) ? horaPedida : "";
-
-  /*
-   * Los días del rango, para la tira.
-   *
-   * Con más de dos meses la tira deja de servir —sesenta y tantas fichas no se
-   * leen de un vistazo— y se esconde: para eso están los atajos de semana.
-   */
-  const DIAS_MAX = 62;
-  const dias: DiaDelRango[] = [];
-  const cursor = new Date(`${desde}T00:00:00`);
-  const fin = new Date(`${hasta}T00:00:00`);
-  while (cursor <= fin && dias.length <= DIAS_MAX) {
-    const f = iso(cursor);
-    // «lun 3» — el día de la semana en tres letras y el número, que es como se
-    // nombra un día cuando se tiene la semana delante.
-    const larga = fechaLarga(f);
-    dias.push({
-      fecha: f,
-      etiqueta: `${larga.slice(0, 3)} ${cursor.getDate()}`,
-    });
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  const tiraDeDias = dias.length <= DIAS_MAX ? dias : [];
-
-  /*
-   * El número ganador sólo tiene sentido con UN día y UNA lotería elegidos.
-   * En un rango hay tantos números como sorteos y enseñar uno cualquiera
-   * sería peor que no enseñar ninguno.
-   */
-  const { data: sorteoUnico } =
-    dia && hora
-      ? await supabase
-          .from("sorteo")
-          .select("numero_ganador")
-          .eq("fecha", dia)
-          .eq("hora", hora)
-          .maybeSingle()
-      : { data: null };
-
-  const ganador = sorteoUnico?.numero_ganador ?? null;
-
   const { data, error } = await supabase.rpc("fn_informe_gerencia", {
-    p_desde: dia || desde,
-    p_hasta: dia || hasta,
+    p_desde: dia,
+    p_hasta: dia,
     p_hora: hora || null,
   });
 
@@ -176,14 +144,6 @@ export async function VistaDiaria({
   const sinMovimiento = todas.filter((f) => f.venta === 0).length;
   const filas = soloConVenta ? todas.filter((f) => f.venta > 0) : todas;
 
-  /*
-   * Los totales se calculan sobre TODAS las filas, no sobre las visibles.
-   *
-   * Da lo mismo aritméticamente —quien no vendió aporta ceros—, pero deja el
-   * encabezado inmune al filtro: encender el interruptor no puede mover la
-   * venta total ni el resultado del período, y así se ve que el filtro sólo
-   * esconde filas, no cambia las cuentas.
-   */
   const total = todas.reduce(
     (a, f) => ({
       venta: a.venta + f.venta,
@@ -196,95 +156,103 @@ export async function VistaDiaria({
     { venta: 0, premiado: 0, pago: 0, comision: 0, bruto: 0, neto: 0 },
   );
 
-  const encabezados = [
-    "ITEM",
-    "VENDEDOR",
-    "VENTA",
-    "PREMIADO",
-    "FACTOR",
-    "PAGO PREMIADO",
-    "%",
-    "COMISIÓN",
-    "TOTAL BRUTO",
-    "TOTAL NETO",
-  ];
+  const pct = (v: number) => (total.venta ? `${((v / total.venta) * 100).toFixed(1)}% de la venta` : "—");
+
+  const elegido = hora ? sorteos.find((s) => s.hora === hora) : undefined;
+  const ganador = elegido?.estado === "liquidado" ? elegido.ganador : null;
+
+  // «martes 1 de septiembre de 2026» → «Martes».
+  const larga = fechaLarga(dia);
+  const nombreDia = larga.slice(0, 1).toUpperCase() + larga.slice(1, larga.indexOf(" "));
 
   return (
     <div className="flex flex-col gap-4">
-      {/* El período que se está mirando, en palabras. Los chips de abajo lo
-        dicen en fragmentos; esta línea lo dice entero. */}
-      <p className="text-tabla text-secundario m-0">
-      {dia
-        ? fechaLarga(dia)
-        : `${fechaLargaSinDia(desde)} — ${fechaLargaSinDia(hasta)}`}
-      {hora ? ` · lotería de las ${hora12(hora)}` : " · las tres loterías"}
-      {ganador !== null && (
-        <>
-          {" · número ganador "}
-          <span className="inline-block min-w-[30px] text-center px-[7px] py-[2px] rounded-celda bg-acento-suave text-acento-fuerte font-semibold">
-            {pad2(ganador)}
-          </span>
-        </>
-      )}
-      </p>
-      <FiltrosInforme
-        desde={desde}
-        hasta={hasta}
-        atajos={atajos}
-        ocultarSinMovimiento={soloConVenta}
-        sinMovimiento={sinMovimiento}
-        dias={tiraDeDias}
-        dia={dia}
-        hora={hora}
-      />
+      <Tarjeta padding="14px 18px">
+        <FiltrosDia
+          dia={dia}
+          hora={hora}
+          sorteos={sorteos}
+          soloConVenta={soloConVenta}
+          sinMovimiento={sinMovimiento}
+        />
+      </Tarjeta>
 
-      {/* Los cinco números que el gerente busca primero, antes de la tabla. */}
-      <div className="rounded-card px-[22px] py-5 text-nav-titulo" style={{ background: "var(--gradiente-dia)" }}>
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
-          {[
-            { etiqueta: "VENTA TOTAL", valor: total.venta },
-            { etiqueta: "COMISIONES", valor: total.comision },
-            { etiqueta: "SUBTOTAL", valor: total.bruto },
-            { etiqueta: "PREMIOS", valor: total.pago },
-          ].map((k) => (
-            <div key={k.etiqueta}>
-              <span className="block text-eyebrow font-semibold tracking-seccion text-navy-etiqueta">
-                {k.etiqueta}
+      {/* El panel del sorteo: qué salió y qué dejó. */}
+      <Tarjeta padding="16px 18px">
+        <div className="flex items-center gap-6 flex-wrap justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <span className="block text-eyebrow font-semibold tracking-seccion text-secundario">
+                NÚMERO GANADOR
               </span>
-              <span className="block text-h1 font-semibold tracking-titular mt-[6px]">
-                {fmt(k.valor)}
+              {ganador === null ? (
+                <span className="block text-ganador font-semibold text-mudo mt-[5px]">—</span>
+              ) : (
+                <span className="inline-block mt-[5px] min-w-[62px] text-center px-3 py-[2px] rounded-campo bg-acento-suave text-acento-fuerte text-ganador font-semibold tracking-titular">
+                  {pad2(ganador)}
+                </span>
+              )}
+            </div>
+
+            <div className="border-l border-riel pl-4">
+              <span className="block text-h2 font-semibold tracking-sutil">
+                {nombreDia}
+                {hora && <span className="text-secundario font-medium"> · {jornada(hora)}</span>}
+              </span>
+              <span className="block text-meta text-secundario mt-[2px]">
+                {larga}
+                {hora ? ` · ${hora12(hora)}` : " · los tres sorteos"}
               </span>
             </div>
-          ))}
-          <div>
-            <span className="block text-eyebrow font-semibold tracking-seccion text-navy-etiqueta">
-              TOTAL FINAL
-            </span>
-            {/*
-              El resultado del período. En negro si la casa gana y en rojo si
-              pierde — sobre el marino, el rojo del sistema no llega al
-              contraste mínimo, así que aquí la pérdida va en el rojo claro
-              que ya se usa para las cifras negativas sobre fondo oscuro.
-            */}
-            <span
-              className={cn(
-                "block text-h1 font-semibold tracking-titular mt-[6px]",
-                total.neto < 0 ? "text-negativo-claro" : "text-positivo-claro",
-              )}
-            >
-              {fmt(total.neto)}
-            </span>
+          </div>
+
+          <div className="flex gap-7 flex-wrap">
+            <Cifra etiqueta="VENTA TOTAL" valor={fmt(total.venta)} />
+            <Cifra etiqueta="PAGO PREMIOS" valor={fmt(total.pago)} pie={pct(total.pago)} />
+            <Cifra etiqueta="COMISIÓN" valor={fmt(total.comision)} pie={pct(total.comision)} />
+            <Cifra
+              etiqueta="TOTAL NETO"
+              valor={fmt(total.neto)}
+              pie={pct(total.neto)}
+              color={total.neto < 0 ? "text-negativo" : "text-positivo"}
+            />
           </div>
         </div>
-      </div>
+      </Tarjeta>
+
+      {/*
+        Un sorteo sin liquidar devuelve el padrón entero en cero, no cero filas,
+        así que el aviso de «no hay nada» de más abajo nunca se ve. Sin esta
+        línea, elegir «Noche · sin resultado» enseña treinta filas en cero sin
+        decir por qué, que se lee como una jornada desastrosa y no como una que
+        todavía no ha terminado.
+      */}
+      {sorteos.length === 0 ? (
+        <TarjetaNota>
+          Ese día no tiene sorteos programados, así que no hay nada que capturar.
+        </TarjetaNota>
+      ) : elegido && elegido.estado !== "liquidado" ? (
+        <TarjetaNota>
+          El sorteo de la {jornada(elegido.hora).toLowerCase()} todavía no está liquidado
+          {elegido.estado === "abierto" ? " — sigue abierto" : ""}. Sin número ganador no hay
+          premios que contar: las filas de abajo salen en cero porque aún no hay resultado, no
+          porque nadie haya vendido.
+        </TarjetaNota>
+      ) : hora === "" && !sorteos.some((x) => x.estado === "liquidado") ? (
+        <TarjetaNota>
+          Ninguno de los tres sorteos de ese día está liquidado todavía.
+        </TarjetaNota>
+      ) : null}
 
       {error ? (
         <TarjetaNota>No se pudo cargar el informe: {error.message}</TarjetaNota>
       ) : filas.length === 0 ? (
         <TarjetaNota>
           {soloConVenta && sinMovimiento > 0
-            ? `Ningún vendedor movió nada en este rango; hay ${sinMovimiento} en cero que el filtro está ocultando.`
-            : "No hay ningún sorteo liquidado en este rango. El informe se arma desde las liquidaciones, así que un sorteo sin número ganador todavía no cuenta."}
+            ? `Ningún vendedor movió nada aquí; hay ${sinMovimiento} en cero que el filtro está ocultando.`
+            : elegido && elegido.estado !== "liquidado"
+              ? `El sorteo de la ${jornada(elegido.hora).toLowerCase()} todavía no está liquidado: sin número ganador no hay premios que contar, y por eso no hay cifras.`
+              : "No hay ningún sorteo liquidado en este día. El informe se arma desde las liquidaciones, así que un sorteo sin número ganador todavía no cuenta."}
         </TarjetaNota>
       ) : (
         <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
@@ -298,7 +266,7 @@ export async function VistaDiaria({
                     colSpan={2}
                     className="text-left pl-4 pr-3 py-[11px] border-b border-riel text-th font-semibold tracking-subtotal text-secundario"
                   >
-                    TOTALES DEL RANGO · {todas.length} vendedores
+                    TOTALES · {todas.length} vendedores
                   </th>
                   <th className="text-right px-3 py-[11px] border-b border-riel text-h2 font-semibold">
                     {fmt(total.venta, false)}
@@ -307,10 +275,10 @@ export async function VistaDiaria({
                     {fmt(total.premiado, false)}
                   </th>
                   <th className="border-b border-riel" />
+                  <th className="border-b border-riel" />
                   <th className="text-right px-3 py-[11px] border-b border-riel text-h2 font-semibold">
                     {fmt(total.pago, false)}
                   </th>
-                  <th className="border-b border-riel" />
                   <th className="text-right px-3 py-[11px] border-b border-riel text-h2 font-semibold">
                     {fmt(total.comision, false)}
                   </th>
@@ -328,13 +296,13 @@ export async function VistaDiaria({
                 </tr>
 
                 <tr className="bg-tinte">
-                  {encabezados.map((h, i) => (
+                  {ENCABEZADOS.map((h, i) => (
                     <th
                       key={h}
                       className={cn(
                         "text-th font-semibold tracking-th text-secundario border-b border-riel py-[9px]",
                         i >= 2 ? "text-right" : "text-left",
-                        i === 0 ? "pl-4 pr-3" : i === encabezados.length - 1 ? "pl-3 pr-4" : "px-3",
+                        i === 0 ? "pl-4 pr-3" : i === ENCABEZADOS.length - 1 ? "pl-3 pr-4" : "px-3",
                       )}
                     >
                       {h}
@@ -349,8 +317,8 @@ export async function VistaDiaria({
                     key={f.id}
                     className={cn(
                       "hover:bg-tinte",
-                      // Presente pero apagado: que esté en cero es la
-                      // noticia; que compita por la mirada, no.
+                      // Presente pero apagado: que esté en cero es la noticia;
+                      // que compita por la mirada, no.
                       f.venta === 0 && "text-mudo",
                     )}
                   >
@@ -370,11 +338,11 @@ export async function VistaDiaria({
                     <td className="border-b border-fondo py-[10px] px-3 text-right text-secundario">
                       {f.factor > 0 ? f.factor.toFixed(0) : "—"}
                     </td>
-                    <td className="border-b border-fondo py-[10px] px-3 text-right text-cuerpo">
-                      {fmt(f.pago, false)}
-                    </td>
                     <td className="border-b border-fondo py-[10px] px-3 text-right text-secundario">
                       {(f.porcentaje * 100).toFixed(2)}%
+                    </td>
+                    <td className="border-b border-fondo py-[10px] px-3 text-right text-cuerpo">
+                      {fmt(f.pago, false)}
                     </td>
                     <td className="border-b border-fondo py-[10px] px-3 text-right text-cuerpo">
                       {fmt(f.comision, false)}
@@ -402,12 +370,12 @@ export async function VistaDiaria({
           </div>
 
           <div className="px-4 py-[13px] bg-tinte border-t border-riel text-meta text-cuerpo leading-[1.55]">
-            <strong className="text-tinta">Total neto</strong> = venta − comisión − pago
-            premiado. Es lo que la casa gana o pierde con ese vendedor en el rango. El{" "}
+            <strong className="text-tinta">Total neto</strong> = venta − comisión − pago premiado.
+            Es lo que la casa gana o pierde con ese vendedor en este sorteo. El{" "}
             <strong className="text-tinta">factor</strong> y el{" "}
-            <strong className="text-tinta">porcentaje</strong> son los efectivos del período,
-            calculados de lo que de verdad ocurrió: cada línea lleva congelados los suyos, así
-            que en un rango largo pueden no ser un número redondo.
+            <strong className="text-tinta">porcentaje</strong> son los efectivos, calculados de lo
+            que de verdad ocurrió: cada línea lleva congelados los suyos, así que pueden no ser un
+            número redondo.
           </div>
         </div>
       )}
