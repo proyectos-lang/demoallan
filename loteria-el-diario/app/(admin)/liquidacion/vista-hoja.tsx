@@ -294,6 +294,7 @@ export async function VistaHoja({
             comisionTasa={parametro ? Number(parametro.comision) : null}
             semana={abierta.semana}
             abonos={abonos}
+            arrastre={abierta.arrastre}
           />
 
           {(cortes?.length ?? 0) > 0 && (

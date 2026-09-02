@@ -41,6 +41,15 @@ export type HojaImpresa = {
   lineas: LineaImpresa[];
   /** Los cierres que ya tocaron esta semana, para dejar constancia. */
   abonos: AbonoImpreso[];
+  /**
+   * Lo que quedó sin liquidar de las semanas ANTERIORES a ésta.
+   *
+   * Va en la cabecera y no en el resumen a propósito: es una deuda que el
+   * vendedor trae puesta antes de que empiece esta hoja, y leerla al final
+   * —después de haber sumado la semana— invita a confundirla con parte de
+   * ella. Arriba se lee como lo que es: el punto de partida.
+   */
+  arrastre: number;
 };
 
 /** `2,590.00`. Dos decimales, como la hoja que los vendedores ya conocen. */
@@ -110,7 +119,17 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     .reduce((a, l) => a + l.saldo, 0);
   const pendiente = total.saldo - liquidado;
 
-  const entrega = pendiente >= 0;
+  /*
+   * La cuenta completa: lo que falta de esta semana MÁS lo que se traía.
+   *
+   * Sin el arrastre, el pie de la hoja anuncia una cantidad que no es la que
+   * se le va a pedir al vendedor, y él firma un papel que no cuadra con lo que
+   * entrega. Cuando no hay arrastre —la primera semana, o todo al día— la
+   * fila no se dibuja y el pendiente de la semana ES el cierre.
+   */
+  const conArrastre = Math.round(h.arrastre * 100) !== 0;
+  const acumulado = pendiente + h.arrastre;
+  const totalEntrega = acumulado >= 0;
 
   // Una fila por sorteo, con la fecha escrita sólo en el primero del día: es
   // como está la hoja de papel y hace la columna mucho más fácil de recorrer.
@@ -161,6 +180,8 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   .datos { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
   .datos td { padding: 4px 8px; border: 1px solid #999; font-size: 9.5pt; }
   .datos .et { background: #eee; font-weight: bold; width: 22%; }
+  .datos .destacado { font-weight: bold; font-size: 11pt; }
+  .datos .sub { font-weight: normal; font-size: 8.5pt; color: #555; }
   table.detalle { width: 100%; border-collapse: collapse; }
   table.detalle th {
     background: #eee; border: 1px solid #666; padding: 5px 6px;
@@ -222,6 +243,22 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     <td class="et">Semana</td>
     <td colspan="3">${h.semana === null ? "" : `#${h.semana} &middot; `}${esc(fechaLargaSinDia(h.desde))} &mdash; ${esc(fechaLargaSinDia(h.hasta))}</td>
   </tr>
+  ${
+    Math.round(h.arrastre * 100) === 0
+      ? ""
+      : `<tr>
+          <td class="et">Saldo anterior</td>
+          <td colspan="3" class="destacado ${h.arrastre < 0 ? "rojo" : ""}">L ${money(h.arrastre)}
+            <span class="sub">
+              &middot; ${
+                h.arrastre < 0
+                  ? "sin liquidar de semanas anteriores, lo entrega la empresa"
+                  : "sin liquidar de semanas anteriores, lo entrega el vendedor"
+              }
+            </span>
+          </td>
+        </tr>`
+  }
 </tbody></table>
 
 <table class="detalle">
@@ -261,10 +298,22 @@ export function documentoLiquidacion(h: HojaImpresa): string {
       ? ""
       : `<tr><td class="et">Ya liquidado</td><td class="n">L ${money(liquidado)}</td></tr>`
   }
-  <tr class="saldo">
-    <td class="et">${entrega ? "El vendedor entrega" : "La casa le entrega al vendedor"}</td>
-    <td class="n ${pendiente < 0 ? "rojo" : ""}">L ${money(Math.abs(pendiente))}</td>
+  <tr${conArrastre ? "" : ' class="saldo"'}>
+    <td class="et">Pendiente de esta semana</td>
+    <td class="n ${pendiente < 0 ? "rojo" : ""}">L ${money(pendiente)}</td>
   </tr>
+  ${
+    !conArrastre
+      ? ""
+      : `<tr>
+          <td class="et">Saldo anterior</td>
+          <td class="n ${h.arrastre < 0 ? "rojo" : ""}">L ${money(h.arrastre)}</td>
+        </tr>
+        <tr class="saldo">
+          <td class="et">${totalEntrega ? "El vendedor entrega" : "La empresa le entrega"}</td>
+          <td class="n ${acumulado < 0 ? "rojo" : ""}">L ${money(Math.abs(acumulado))}</td>
+        </tr>`
+  }
 </tbody></table>
 
 <p class="nota">
@@ -276,6 +325,11 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     liquidado === 0
       ? "Ninguno de los sorteos de la semana se ha liquidado todavía."
       : "Los renglones marcados <strong>liquidado</strong> ya se cerraron y se detallan abajo; se dejan a la vista para que la semana se vea completa."
+  }
+  ${
+    conArrastre
+      ? "El <strong>saldo anterior</strong> de la cabecera es lo que quedó sin liquidar de semanas previas: no forma parte de esta semana y por eso no entra en los totales de la tabla, pero sí en el cierre de abajo, que es la cantidad que de verdad se cuadra."
+      : ""
   }
 </p>
 

@@ -38,6 +38,7 @@ export function HojaLiquidacion({
   comisionTasa,
   semana,
   abonos,
+  arrastre,
 }: {
   filas: FilaLiquidacion[];
   vendedorId: string;
@@ -51,6 +52,8 @@ export function HojaLiquidacion({
   semana: number | null;
   /** Los cierres que ya tocaron esta semana, para el pie del papel. */
   abonos: AbonoImpreso[];
+  /** Lo pendiente de semanas anteriores, para la cabecera del papel. */
+  arrastre: number;
 }) {
   /*
    * Sólo lo PENDIENTE entra en la selección.
@@ -230,6 +233,7 @@ export function HojaLiquidacion({
               hasta,
               semana,
               abonos,
+              arrastre,
               lineas: filas.map((f) => ({
                 fecha: f.fecha,
                 hora: f.hora,
