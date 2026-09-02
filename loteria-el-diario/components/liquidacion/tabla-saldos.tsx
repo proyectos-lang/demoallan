@@ -4,7 +4,11 @@ import { Printer } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Boton } from "@/components/ui/boton";
-import { documentoSaldos, type HojaSaldos } from "@/components/liquidacion/imprimible-saldos";
+import {
+  documentoSaldos,
+  type HojaSaldos,
+  type Orientacion,
+} from "@/components/liquidacion/imprimible-saldos";
 import { cn } from "@/lib/cn";
 import { fmt } from "@/lib/format";
 
@@ -64,7 +68,7 @@ export function TablaSaldos({
   const porCobrar = visibles.reduce((a, f) => a + Math.max(f.actual, 0), 0);
   const porPagar = visibles.reduce((a, f) => a + Math.min(f.actual, 0), 0);
 
-  const imprimir = () => {
+  const imprimir = (orientacion: Orientacion) => {
     if (!marco.current) {
       const i = document.createElement("iframe");
       // `data-impresion` para que la regla de impresión de la aplicación no lo
@@ -87,6 +91,7 @@ export function TablaSaldos({
       semana,
       desde,
       hasta,
+      orientacion,
       // Se imprime lo que se ve: si el interruptor oculta a los de cero, la
       // hoja tampoco los lleva.
       filas: visibles.map((f) => ({
@@ -126,10 +131,22 @@ export function TablaSaldos({
               {verTodos ? `ocultar los ${enCero} en cero` : `ver los ${enCero} en cero`}
             </button>
           )}
-          <Boton variante="ghost" onClick={imprimir} className="ml-auto">
-            <Printer size={15} strokeWidth={2} absoluteStrokeWidth />
-            Imprimir
-          </Boton>
+          {/*
+            Dos botones y no un desplegable: elegir orientación debe costar un
+            solo toque. Con el padón actual el vertical cabe en una hoja y el
+            horizontal se parte en dos —un A4 apaisado gana ancho pero pierde
+            alto—, así que el vertical va primero.
+          */}
+          <span className="ml-auto flex items-center gap-2">
+            <Boton variante="ghost" onClick={() => imprimir("vertical")}>
+              <Printer size={15} strokeWidth={2} absoluteStrokeWidth />
+              Vertical
+            </Boton>
+            <Boton variante="ghost" onClick={() => imprimir("horizontal")}>
+              <Printer size={15} strokeWidth={2} absoluteStrokeWidth />
+              Horizontal
+            </Boton>
+          </span>
         </div>
 
         <div className="overflow-x-auto">

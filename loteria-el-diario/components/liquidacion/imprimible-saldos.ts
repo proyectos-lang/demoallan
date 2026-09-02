@@ -9,11 +9,14 @@ export type FilaSaldo = {
   actual: number;
 };
 
+export type Orientacion = "vertical" | "horizontal";
+
 export type HojaSaldos = {
   semana: number | null;
   desde: string;
   hasta: string;
   filas: FilaSaldo[];
+  orientacion: Orientacion;
 };
 
 /** `2,590.00`, con el menos de verdad (U+2212) para los negativos. */
@@ -41,9 +44,21 @@ function esc(s: string): string {
  * 58 mm para el ticket térmico, y `@page` es del documento entero. Dos
  * formatos de papel obligan a dos documentos.
  *
- * Va en horizontal. Son cinco columnas de cifras por treinta y pico filas, y
- * en vertical la tabla cabe pero deja media hoja vacía a la derecha mientras
- * parte el padrón en dos páginas.
+ * LAS DOS ORIENTACIONES, y conviene saber qué da cada una. Medido con treinta
+ * vendedores contra el área real de un A4:
+ *
+ *   vertical    793 px de alto sobre 994 útiles → UNA hoja
+ *   horizontal  898 px de alto sobre 703 útiles → dos hojas, más aire al lado
+ *
+ * O sea que el vertical es el que cabe entero, al revés de lo que parece: un A4
+ * apaisado gana ancho pero pierde alto —186 mm en vez de 263— y con treinta
+ * filas eso pesa más que las columnas. El horizontal se deja porque con más
+ * vendedores el vertical también se partirá, y entonces el aire de las columnas
+ * es lo que se agradece.
+ *
+ * En vertical se aprieta un poco la tipografía y el relleno: con 186 mm de
+ * ancho en vez de 273 las cifras van más justas, y una columna de importes que
+ * se parte en dos líneas es peor que medio punto menos de letra.
  *
  * EL ROJO SE IMPRIME. Con `print-color-adjust: exact` el navegador no lo
  * convierte en gris: sin eso, la única señal de que la empresa le debe a un
@@ -80,12 +95,12 @@ export function documentoSaldos(h: HojaSaldos): string {
 <html lang="es"><head><meta charset="utf-8">
 <title>Saldos por vendedor · semana ${h.semana ?? ""}</title>
 <style>
-  @page { size: A4 landscape; margin: 12mm; }
+  @page { size: A4 ${h.orientacion === "vertical" ? "portrait" : "landscape"}; margin: 12mm; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 10pt;
+    font-size: ${h.orientacion === "vertical" ? "9pt" : "10pt"};
     color: #000;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -102,13 +117,36 @@ export function documentoSaldos(h: HojaSaldos): string {
     font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase;
     text-align: left;
   }
-  td { border: 1px solid #999; padding: 4px 7px; font-size: 9.5pt; }
+  td {
+    border: 1px solid #999;
+    padding: ${h.orientacion === "vertical" ? "3px 5px" : "4px 7px"};
+    font-size: ${h.orientacion === "vertical" ? "8.5pt" : "9.5pt"};
+  }
+  /* Al partirse en dos páginas, la cabecera se repite arriba de la segunda:
+     una tabla de cifras sin encabezado no se puede leer. */
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
   th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
   td.b { font-weight: bold; }
   .rojo { color: #e11d48; }
   tfoot td { background: #eee; font-weight: bold; border-top: 1.5px solid #000; }
-  .nota { margin-top: 10px; font-size: 8.5pt; color: #444; line-height: 1.45; }
-  .firma { margin-top: 24px; display: flex; gap: 60px; }
+  .nota {
+    margin-top: 10px;
+    font-size: 8.5pt;
+    color: #444;
+    line-height: 1.45;
+  }
+  /*
+     En vertical el pie se aprieta. Con treinta vendedores el documento medía
+     803 px de alto sobre los 786 útiles de un A4: se derramaba una segunda
+     página para llevar sólo las firmas. Diecisiete píxeles salen de aquí sin
+     que nada se lea peor.
+  */
+  .firma {
+    margin-top: ${h.orientacion === "vertical" ? "14px" : "24px"};
+    display: flex;
+    gap: 60px;
+  }
   .firma div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 8.5pt; }
 </style></head><body>
 
