@@ -918,6 +918,40 @@ export type Database = {
       /** Una fila por período, al grano pedido. Sólo sorteos liquidados. */
       // --- Informes de gerencia por semana y por vendedor (0040) --------
       // --- Cobro semana a semana (0043) ---------------------------------
+      // --- La semana entera y sus abonos (0046) --------------------------
+      fn_semana_completa: {
+        Args: { p_vendedor_id: string; p_desde: string; p_hasta: string };
+        Returns: {
+          r_liquidacion_id: string;
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_numero_ganador: number | null;
+          r_venta: number;
+          /** Lo APOSTADO al número que salió. */
+          r_premiado: number;
+          /** Multiplicador efectivo del sorteo: premios / premiado. */
+          r_factor: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+          /** En qué corte se cerró. Nulo mientras siga pendiente. */
+          r_corte_id: string | null;
+          r_pagado_en: string | null;
+        }[];
+      };
+
+      fn_abonos_semana: {
+        Args: { p_vendedor_id: string; p_desde: string; p_hasta: string };
+        Returns: {
+          r_corte_id: string;
+          r_pagado_en: string;
+          r_sorteos: number;
+          /** La parte de ese corte que cae en esta semana, no el total. */
+          r_saldo: number;
+          r_nota: string | null;
+        }[];
+      };
+
       fn_liquidacion_por_semana: {
         /** Sin vendedor, el negocio entero. */
         Args: { p_vendedor_id?: string | null };
@@ -942,6 +976,10 @@ export type Database = {
           r_por_cobrar: number;
           /** De lo pendiente, lo que entrega la casa. Positivo. */
           r_por_pagar: number;
+          /** Lo pendiente de las semanas ANTERIORES, en neto. */
+          r_arrastre: number;
+          /** `r_arrastre` + `r_pendiente`: la cuenta completa a esa fecha. */
+          r_acumulado: number;
         }[];
       };
 

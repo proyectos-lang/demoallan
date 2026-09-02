@@ -54,6 +54,8 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
     saldo: Number(s.r_saldo),
     pagado: Number(s.r_pagado),
     pendiente: Number(s.r_pendiente),
+    arrastre: Number(s.r_arrastre),
+    acumulado: Number(s.r_acumulado),
   }));
 
   if (semanas.length === 0) {
@@ -82,8 +84,11 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
     nota: s.pendientes === 0 ? "liquidada" : undefined,
   }));
 
-  const [{ data: pendientes }, { data: cortes }] = await Promise.all([
-    supabase.rpc("fn_liquidacion_pendiente", {
+  // La semana entera, igual que en el panel: los días ya liquidados se quedan
+  // a la vista, marcados. Si desaparecieran, el vendedor abriría una semana a
+  // medias y no encontraría días que sí jugó.
+  const [{ data: completa }, { data: cortes }] = await Promise.all([
+    supabase.rpc("fn_semana_completa", {
       p_vendedor_id: vendedorId,
       p_desde: abierta.inicio,
       p_hasta: abierta.fin,
@@ -91,19 +96,26 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
     supabase.rpc("fn_cortes_vendedor", { p_vendedor_id: vendedorId, p_limite: 8 }),
   ]);
 
-  const filas: FilaLiquidacion[] = (pendientes ?? []).map((f) => ({
+  const filas: FilaLiquidacion[] = (completa ?? []).map((f) => ({
     liquidacionId: f.r_liquidacion_id,
     fecha: f.r_fecha,
     hora: f.r_hora,
     ganador: f.r_numero_ganador,
     venta: Number(f.r_venta),
+    premiado: Number(f.r_premiado),
+    factor: Number(f.r_factor),
     comision: Number(f.r_comision),
     premios: Number(f.r_premios),
     saldo: Number(f.r_saldo),
+    pagadoEn: f.r_pagado_en,
   }));
 
   const entrega = abierta.pendiente >= 0;
   const cerrada = abierta.pendientes === 0;
+  // El arrastre sólo se enseña si existe: una tarjeta en cero es ruido, y la
+  // primera semana de todas nunca arrastra nada.
+  const hayArrastre = Math.round(abierta.arrastre * 100) !== 0;
+  const debeAcumulado = abierta.acumulado >= 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,7 +160,9 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
               de las semanas van al revés.
             */}
             <Kpi
-              etiqueta={cerrada ? "PENDIENTE" : entrega ? "USTED ENTREGA" : "LE ENTREGAN"}
+              etiqueta={
+                cerrada ? "PENDIENTE DE LA SEMANA" : entrega ? "USTED ENTREGA" : "LE ENTREGAN"
+              }
               valor={fmt(Math.abs(abierta.pendiente))}
               pie={
                 cerrada
@@ -159,10 +173,36 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
             />
           </div>
 
+          {/*
+            Lo que viene de atrás, y la cuenta completa.
+
+            Una semana rara vez se cierra entera: se entrega lo que se alcanzó y
+            el resto queda. Sin esta fila, el vendedor mira la semana y le sale
+            una cifra que no es la que le van a pedir.
+          */}
+          {hayArrastre && (
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+              <Kpi
+                etiqueta="VIENE DE SEMANAS ANTERIORES"
+                valor={fmt(Math.abs(abierta.arrastre))}
+                pie={
+                  abierta.arrastre >= 0
+                    ? "sin liquidar, lo entrega usted"
+                    : "sin liquidar, se lo entregan"
+                }
+                color={abierta.arrastre < 0 ? "text-negativo" : undefined}
+              />
+              <Kpi
+                etiqueta={debeAcumulado ? "TOTAL QUE USTED ENTREGA" : "TOTAL QUE LE ENTREGAN"}
+                valor={fmt(Math.abs(abierta.acumulado))}
+                pie="esta semana más lo anterior"
+                color={debeAcumulado ? undefined : "text-negativo"}
+              />
+            </div>
+          )}
+
           {filas.length === 0 ? (
-            <TarjetaNota>
-              No queda nada por liquidar de esta semana: ya se cerró con administración.
-            </TarjetaNota>
+            <TarjetaNota>Esa semana no tiene sorteos liquidados.</TarjetaNota>
           ) : (
             <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
               <TablaSorteos filas={filas} />
@@ -227,8 +267,10 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
             El <strong>saldo</strong> de cada sorteo es su venta menos su comisión menos los
             premios que pagó de su bolsillo. Cuando sale positivo, ese dinero lo entrega usted;
             cuando sale negativo se lo entrega la casa, porque los premios superaron la venta.
-            Sólo aparecen los sorteos que todavía no se han cerrado: los cerrados pasan a{" "}
-            <strong>Ya liquidado</strong>.
+            Los sorteos que ya se cerraron con administración se quedan a la vista, marcados{" "}
+            <strong>liquidado</strong>: la semana se ve completa. Si de semanas anteriores quedó algo sin cerrar, se
+            suma —o se resta— arriba, y el <strong>total</strong> es lo que se cuadra de verdad
+            cuando administración le llame.
           </TarjetaNota>
         </div>
       </div>

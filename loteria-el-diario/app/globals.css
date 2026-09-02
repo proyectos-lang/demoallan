@@ -368,23 +368,44 @@ select:focus {
 }
 
 .ticket-encabezado {
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  /*
+     10.5px y sin interletraje.
+     
+     A 11px con 0.06em, la fila más larga —«EMITIDO» con la fecha y la hora—
+     medía 196,5 px sobre 196,5 útiles: cabía exactamente, con cero margen. En
+     una térmica cuyo ancho útil real sea un milímetro menor, o con el rollo
+     algo desalineado, esa fila se corta por la derecha y el ticket pierde la
+     hora.
+     
+     El interletraje era lo caro: 0.06em sobre 26 caracteres son casi 17 px de
+     puro aire. Quitarlo y bajar medio punto deja unos 30 px de margen sin que
+     el encabezado se lea distinto.
+  */
+  font-size: 10.5px;
 }
 
 /* El número jugado es lo primero que mira el comprador al reclamar. */
 .ticket-numero {
   /*
-     15px es el techo. A 11px de Courier caben 29 caracteres en los 52 mm
-     útiles; a 15px caben 21, y la fila más larga —«N.º 47» más «L 1,000»— son
-     14. Subir más desborda por la derecha y el texto se sale del papel.
+     20px, medido y no estimado.
+     
+     El techo de 15px de antes se calculó cuando la fila decía «N.º 47». Al
+     quitar ese prefijo la fila se acortó y sobró sitio: medida en Courier bold
+     sobre los 52 mm útiles —196,5 px—, la peor fila posible —«99» con
+     «L 10,000»— ocupa 124,6 px a 15px y 163,6 a 20px.
+     
+     Se para en 20 y no en 22, que también cabría: quedan 33 px de aire, un
+     17 %. El ancho útil real varía entre modelos de térmica y el rollo se
+     desalinea un par de milímetros; ese margen es lo que evita que un ticket
+     salga cortado por la derecha en una impresora distinta a la de prueba.
   */
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 20px;
+  line-height: 1.4;
 }
 
+/* El total va al mismo tamaño: es la cifra que se compara con el efectivo. */
 .ticket-total {
-  font-size: 15px;
+  font-size: 20px;
 }
 
 .ticket-mensaje {

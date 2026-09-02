@@ -1,26 +1,46 @@
-import { fechaLargaSinDia, hora12, jornada, pad2 } from "@/lib/format";
+import {
+  fechaHonduras,
+  fechaLargaSinDia,
+  hora12,
+  horaHonduras12,
+  jornada,
+  pad2,
+} from "@/lib/format";
 
 export type LineaImpresa = {
   fecha: string;
   hora: string;
   ganador: number | null;
   venta: number;
+  /** Lo APOSTADO al número que salió: premio ÷ factor. */
+  premiado: number;
+  /** El multiplicador efectivo de ese sorteo. */
+  factor: number;
   comision: number;
   premios: number;
   saldo: number;
+  /** Si ya se liquidó. El renglón se queda en el papel, marcado. */
+  pagado: boolean;
+};
+
+export type AbonoImpreso = {
+  pagadoEn: string;
+  sorteos: number;
+  saldo: number;
+  nota: string | null;
 };
 
 export type HojaImpresa = {
   vendedor: string;
-  factor: number | null;
   /** La tasa vigente, como fracción: 0.15 = 15 %. */
   comisionTasa: number | null;
   desde: string;
   hasta: string;
   semana: number | null;
+  /** La semana ENTERA, liquidados incluidos. */
   lineas: LineaImpresa[];
-  /** Sorteos de la semana que ya se pagaron y por eso no salen en el papel. */
-  yaPagados: number;
+  /** Los cierres que ya tocaron esta semana, para dejar constancia. */
+  abonos: AbonoImpreso[];
 };
 
 /** `2,590.00`. Dos decimales, como la hoja que los vendedores ya conocen. */
@@ -37,6 +57,12 @@ function money(n: number): string {
 function corta(iso: string): string {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
+}
+
+/** `dd/mm/aaaa h:mm AM` a partir de un instante, en hora de Honduras. */
+function instanteCorto(instante: string): string {
+  const [a, m, d] = fechaHonduras(instante).split("-");
+  return `${d}/${m}/${a} ${horaHonduras12(instante)}`;
 }
 
 /** Nada de lo que entra aquí es de confianza: el nombre lo teclea alguien. */
@@ -69,14 +95,22 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   const total = h.lineas.reduce(
     (a, l) => ({
       venta: a.venta + l.venta,
+      premiado: a.premiado + l.premiado,
       comision: a.comision + l.comision,
       premios: a.premios + l.premios,
       saldo: a.saldo + l.saldo,
     }),
-    { venta: 0, comision: 0, premios: 0, saldo: 0 },
+    { venta: 0, premiado: 0, comision: 0, premios: 0, saldo: 0 },
   );
 
-  const entrega = total.saldo >= 0;
+  // Lo liquidado y lo que falta, por separado: el total de la semana es la
+  // suma de los dos y el vendedor tiene que poder seguir esa resta.
+  const liquidado = h.lineas
+    .filter((l) => l.pagado)
+    .reduce((a, l) => a + l.saldo, 0);
+  const pendiente = total.saldo - liquidado;
+
+  const entrega = pendiente >= 0;
 
   // Una fila por sorteo, con la fecha escrita sólo en el primero del día: es
   // como está la hoja de papel y hace la columna mucho más fácil de recorrer.
@@ -85,14 +119,16 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     .map((l) => {
       const primera = l.fecha !== ultimaFecha;
       ultimaFecha = l.fecha;
-      return `<tr${primera ? ' class="dia"' : ""}>
+      return `<tr class="${primera ? "dia " : ""}${l.pagado ? "pagado" : ""}">
         <td class="f">${primera ? esc(fechaLargaSinDia(l.fecha)) : ""}</td>
-        <td>${esc(jornada(l.hora))}</td>
+        <td>${esc(jornada(l.hora))}${l.pagado ? ' <span class="sello">liquidado</span>' : ""}</td>
         <td class="c">${l.ganador === null ? "&mdash;" : pad2(l.ganador)}</td>
         <td class="n">${money(l.venta)}</td>
-        <td class="n">${money(l.comision)}</td>
+        <td class="n">${l.premiado > 0 ? money(l.premiado) : "&mdash;"}</td>
+        <td class="c">${l.factor > 0 ? l.factor.toFixed(0) : "&mdash;"}</td>
         <td class="n">${money(l.premios)}</td>
-        <td class="n b">${money(l.saldo)}</td>
+        <td class="n">${money(l.comision)}</td>
+        <td class="n b ${l.saldo < 0 ? "rojo" : ""}">${money(l.saldo)}</td>
       </tr>`;
     })
     .join("");
@@ -136,6 +172,22 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   td.c, th.c { text-align: center; }
   td.f { white-space: nowrap; }
   td.b { font-weight: bold; }
+  /*
+     El rojo del sistema. Funciona porque el body lleva print-color-adjust en
+     exacto: sin eso el navegador lo convierte en gris al imprimir, y la única
+     señal de que la empresa debe dinero desaparece justo en el papel.
+     
+     Sin acentos graves aquí dentro: este CSS vive en una plantilla de
+     JavaScript y un acento grave cierra la cadena.
+  */
+  .rojo { color: #e11d48; }
+  tr.pagado td { background: #f2f2f2; color: #555; }
+  tr.pagado td.b { color: #555; }
+  tr.pagado td.b.rojo { color: #b4415e; }
+  .sello {
+    font-size: 7pt; text-transform: uppercase; letter-spacing: 0.06em;
+    border: 1px solid #888; border-radius: 3px; padding: 0 3px; color: #555;
+  }
   tfoot td { background: #eee; font-weight: bold; border-top: 1.5px solid #000; }
   .resumen { margin-top: 14px; width: 62%; border-collapse: collapse; }
   .resumen td { padding: 5px 8px; border: 1px solid #999; font-size: 10pt; }
@@ -145,6 +197,7 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   .abonos { margin-top: 18px; width: 100%; border-collapse: collapse; }
   .abonos td { border: 1px solid #999; padding: 12px 8px; font-size: 9pt; }
   .abonos .et { background: #eee; font-weight: bold; width: 18%; padding: 6px 8px; }
+  .abonos .sub { color: #666; font-size: 8pt; }
   .firma { margin-top: 26px; display: flex; gap: 40px; }
   .firma div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 8.5pt; }
 </style></head><body>
@@ -162,13 +215,12 @@ export function documentoLiquidacion(h: HojaImpresa): string {
 <table class="datos"><tbody>
   <tr>
     <td class="et">Vendedor</td><td>${esc(h.vendedor)}</td>
-    <td class="et">Factor de premio</td><td>${h.factor === null ? "&mdash;" : h.factor.toFixed(2)}</td>
+    <td class="et">Comisión</td>
+    <td>${h.comisionTasa === null ? "&mdash;" : `${(h.comisionTasa * 100).toFixed(2)} %`}</td>
   </tr>
   <tr>
     <td class="et">Semana</td>
-    <td>${h.semana === null ? "" : `#${h.semana} &middot; `}${esc(fechaLargaSinDia(h.desde))} &mdash; ${esc(fechaLargaSinDia(h.hasta))}</td>
-    <td class="et">Comisión</td>
-    <td>${h.comisionTasa === null ? "&mdash;" : `${(h.comisionTasa * 100).toFixed(2)} %`}</td>
+    <td colspan="3">${h.semana === null ? "" : `#${h.semana} &middot; `}${esc(fechaLargaSinDia(h.desde))} &mdash; ${esc(fechaLargaSinDia(h.hasta))}</td>
   </tr>
 </tbody></table>
 
@@ -178,17 +230,21 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     <th style="text-align:left">Sorteo</th>
     <th class="c">Ganador</th>
     <th class="n">Venta</th>
-    <th class="n">Comisión</th>
+    <th class="n">Valor premiado</th>
+    <th class="c">Factor</th>
     <th class="n">Premios</th>
+    <th class="n">Comisión</th>
     <th class="n">Saldo</th>
   </tr></thead>
   <tbody>${filas}</tbody>
   <tfoot><tr>
     <td colspan="3">Totales</td>
     <td class="n">${money(total.venta)}</td>
-    <td class="n">${money(total.comision)}</td>
+    <td class="n">${money(total.premiado)}</td>
+    <td></td>
     <td class="n">${money(total.premios)}</td>
-    <td class="n">${money(total.saldo)}</td>
+    <td class="n">${money(total.comision)}</td>
+    <td class="n ${total.saldo < 0 ? "rojo" : ""}">${money(total.saldo)}</td>
   </tr></tfoot>
 </table>
 
@@ -196,25 +252,50 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   <tr><td class="et">Venta total</td><td class="n">L ${money(total.venta)}</td></tr>
   <tr><td class="et">Comisión</td><td class="n">L ${money(total.comision)}</td></tr>
   <tr><td class="et">Premios pagados</td><td class="n">L ${money(total.premios)}</td></tr>
+  <tr>
+    <td class="et">Saldo de la semana</td>
+    <td class="n ${total.saldo < 0 ? "rojo" : ""}">L ${money(total.saldo)}</td>
+  </tr>
+  ${
+    liquidado === 0
+      ? ""
+      : `<tr><td class="et">Ya liquidado</td><td class="n">L ${money(liquidado)}</td></tr>`
+  }
   <tr class="saldo">
     <td class="et">${entrega ? "El vendedor entrega" : "La casa le entrega al vendedor"}</td>
-    <td class="n">L ${money(Math.abs(total.saldo))}</td>
+    <td class="n ${pendiente < 0 ? "rojo" : ""}">L ${money(Math.abs(pendiente))}</td>
   </tr>
 </tbody></table>
 
 <p class="nota">
-  El saldo es la venta menos la comisión menos los premios que el vendedor pagó de su bolsillo.
+  El <strong>saldo</strong> es la venta menos la comisión menos los premios que el vendedor pagó
+  de su bolsillo. En rojo y en negativo, la empresa le debe a él; en negro, él le entrega esa
+  cantidad a la empresa. El <strong>valor premiado</strong> es lo que se apostó al número que
+  salió —premios entre factor—, para poder rehacer la cuenta del premio.
   ${
-    h.yaPagados > 0
-      ? `En esta hoja no aparecen ${h.yaPagados} ${h.yaPagados === 1 ? "sorteo ya liquidado" : "sorteos ya liquidados"} de esta misma semana: su cuenta ya se cerró y este documento es para cerrar la que queda.`
-      : "Aparecen todos los sorteos liquidados de la semana; ninguno se ha cerrado todavía."
+    liquidado === 0
+      ? "Ninguno de los sorteos de la semana se ha liquidado todavía."
+      : "Los renglones marcados <strong>liquidado</strong> ya se cerraron y se detallan abajo; se dejan a la vista para que la semana se vea completa."
   }
 </p>
 
 <table class="abonos"><tbody>
-  <tr><td class="et">Abono 1</td><td></td><td class="et">Fecha</td><td></td></tr>
-  <tr><td class="et">Abono 2</td><td></td><td class="et">Fecha</td><td></td></tr>
-  <tr><td class="et">Abono 3</td><td></td><td class="et">Fecha</td><td></td></tr>
+  ${
+    h.abonos.length === 0
+      ? `<tr><td class="et">Abono 1</td><td></td><td class="et">Fecha</td><td></td></tr>
+         <tr><td class="et">Abono 2</td><td></td><td class="et">Fecha</td><td></td></tr>
+         <tr><td class="et">Abono 3</td><td></td><td class="et">Fecha</td><td></td></tr>`
+      : h.abonos
+          .map(
+            (a, i) => `<tr>
+              <td class="et">Abono ${i + 1}</td>
+              <td class="n b ${a.saldo < 0 ? "rojo" : ""}">L ${money(a.saldo)}</td>
+              <td class="et">Fecha</td>
+              <td>${esc(instanteCorto(a.pagadoEn))}<span class="sub"> &middot; ${a.sorteos} ${a.sorteos === 1 ? "sorteo" : "sorteos"}${a.nota ? ` &middot; ${esc(a.nota)}` : ""}</span></td>
+            </tr>`,
+          )
+          .join("")
+  }
 </tbody></table>
 
 <div class="firma">

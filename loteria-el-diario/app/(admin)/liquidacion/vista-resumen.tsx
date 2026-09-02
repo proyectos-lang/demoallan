@@ -70,7 +70,18 @@ export async function VistaResumen({
     pendiente: Number(s.r_pendiente),
     porCobrar: Number(s.r_por_cobrar),
     porPagar: Number(s.r_por_pagar),
+    acumulado: Number(s.r_acumulado),
   }));
+
+  /*
+   * La cuenta corriente sólo se enseña con UN vendedor.
+   *
+   * Un acumulado es el saldo de una persona arrastrado en el tiempo. Sumando
+   * treinta cuentas distintas sale un número que no le corresponde a nadie y
+   * con el que no se puede hacer nada: para el padrón entero, lo accionable es
+   * «por cobrar» y «por pagar», que ya están.
+   */
+  const conAcumulado = vendedor !== null;
 
   const total = semanas.reduce(
     (a, s) => ({
@@ -171,15 +182,18 @@ export async function VistaResumen({
                       "LIQUIDADO",
                       "POR COBRAR",
                       "POR PAGAR",
-                    ].map((th, i) => (
+                      ...(conAcumulado ? ["ACUMULADO"] : []),
+                    ].map((th, i, todos) => (
                       <th
                         key={th}
                         className={cn(
                           "text-th font-semibold tracking-th text-secundario border-b border-riel py-[9px]",
                           i === 0 ? "text-left pl-4 pr-3" : "text-right",
-                          i === 8 ? "pl-3 pr-4" : i > 0 ? "px-3" : "",
+                          i === todos.length - 1 ? "pl-3 pr-4" : i > 0 ? "px-3" : "",
                           // El filete separa lo que había de cómo va el cierre.
                           th === "LIQUIDADO" && "border-l border-riel",
+                          // Y éste, la semana de la cuenta corriente.
+                          th === "ACUMULADO" && "border-l border-riel",
                         )}
                       >
                         {th}
@@ -245,12 +259,28 @@ export async function VistaResumen({
                         </td>
                         <td
                           className={cn(
-                            "pl-3 pr-4 py-[8px] border-b border-fondo text-right font-semibold",
+                            "py-[8px] border-b border-fondo text-right font-semibold",
+                            conAcumulado ? "px-3" : "pl-3 pr-4",
                             s.porPagar > 0 && !cerrada && "text-negativo",
                           )}
                         >
                           {cerrada || s.porPagar === 0 ? "—" : fmt(s.porPagar, false)}
                         </td>
+                        {/*
+                          Lo que se debía a esa altura, contando lo que venía de
+                          atrás. Es la única columna que no se lee sola: sube y
+                          baja con lo que se fue cobrando.
+                        */}
+                        {conAcumulado && (
+                          <td
+                            className={cn(
+                              "pl-3 pr-4 py-[8px] border-b border-fondo border-l border-riel text-right font-semibold",
+                              s.acumulado < 0 && "text-negativo",
+                            )}
+                          >
+                            {fmt(s.acumulado, false)}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -282,12 +312,24 @@ export async function VistaResumen({
                     </td>
                     <td
                       className={cn(
-                        "pl-3 pr-4 py-[10px] text-right text-h2 font-semibold",
+                        "py-[10px] text-right text-h2 font-semibold",
+                        conAcumulado ? "px-3" : "pl-3 pr-4",
                         total.porPagar > 0 && "text-negativo",
                       )}
                     >
                       {fmt(total.porPagar, false)}
                     </td>
+                    {/* El acumulado no se suma: la última fila YA es el total. */}
+                    {conAcumulado && (
+                      <td
+                        className={cn(
+                          "pl-3 pr-4 py-[10px] border-l border-riel text-right text-h2 font-semibold",
+                          total.pendiente < 0 && "text-negativo",
+                        )}
+                      >
+                        {fmt(total.pendiente, false)}
+                      </td>
+                    )}
                   </tr>
                 </tfoot>
               </table>
@@ -305,6 +347,15 @@ export async function VistaResumen({
             es que esos sorteos quedaron cerrados, y el signo dice quién sacó la cartera. Que una
             liquidación no entre en dos cierres lo impide la base, y es lo que hace posible cerrar
             el lunes y el martes hoy y el resto el jueves.
+            {conAcumulado && (
+              <>
+                {" "}
+                <strong>Acumulado</strong> es lo que se debía a esa altura contando lo que venía
+                de atrás, así que no se suma: la última fila ya es el total. Sólo aparece con un
+                vendedor elegido, porque una cuenta corriente es de una persona — sumando treinta
+                sale un número que no le corresponde a nadie.
+              </>
+            )}
           </TarjetaNota>
         </>
       )}

@@ -82,6 +82,8 @@ export async function VistaHoja({
     saldo: Number(s.r_saldo),
     pagado: Number(s.r_pagado),
     pendiente: Number(s.r_pendiente),
+    arrastre: Number(s.r_arrastre),
+    acumulado: Number(s.r_acumulado),
   }));
 
   // Un fallo de la consulta y un vendedor sin semanas se ven igual desde
@@ -131,9 +133,27 @@ export async function VistaHoja({
     nota: s.pendientes === 0 ? "pagada" : undefined,
   }));
 
-  const [{ data: pendientes }, { data: sinNumero }, { data: cortes }, { data: parametro }] =
-    await Promise.all([
-      supabase.rpc("fn_liquidacion_pendiente", {
+  const [
+    { data: completa },
+    { data: abonosRaw },
+    { data: sinNumero },
+    { data: cortes },
+    { data: parametro },
+  ] = await Promise.all([
+      /*
+       * La semana ENTERA, no sólo lo pendiente.
+       *
+       * `fn_liquidacion_pendiente` sigue siendo la que manda al liquidar —lo ya
+       * cerrado no puede volver a marcarse—, pero para mirar hacía desaparecer
+       * los días cobrados y con ellos su venta. Aquí se traen todos y cada uno
+       * dice si ya se cerró.
+       */
+      supabase.rpc("fn_semana_completa", {
+        p_vendedor_id: vendedor.id,
+        p_desde: abierta.inicio,
+        p_hasta: abierta.fin,
+      }),
+      supabase.rpc("fn_abonos_semana", {
         p_vendedor_id: vendedor.id,
         p_desde: abierta.inicio,
         p_hasta: abierta.fin,
@@ -156,18 +176,30 @@ export async function VistaHoja({
         .maybeSingle(),
     ]);
 
-  const filas: FilaLiquidacion[] = (pendientes ?? []).map((f) => ({
+  const filas: FilaLiquidacion[] = (completa ?? []).map((f) => ({
     liquidacionId: f.r_liquidacion_id,
     fecha: f.r_fecha,
     hora: f.r_hora,
     ganador: f.r_numero_ganador,
     venta: Number(f.r_venta),
+    premiado: Number(f.r_premiado),
+    factor: Number(f.r_factor),
     comision: Number(f.r_comision),
     premios: Number(f.r_premios),
     saldo: Number(f.r_saldo),
+    pagadoEn: f.r_pagado_en,
+  }));
+
+  const abonos = (abonosRaw ?? []).map((a) => ({
+    pagadoEn: a.r_pagado_en,
+    sorteos: a.r_sorteos,
+    saldo: Number(a.r_saldo),
+    nota: a.r_nota,
   }));
 
   const entrega = abierta.pendiente >= 0;
+  // Una tarjeta en cero es ruido: la primera semana nunca arrastra nada.
+  const hayArrastre = Math.round(abierta.arrastre * 100) !== 0;
 
   return (
     <>
@@ -225,6 +257,33 @@ export async function VistaHoja({
             />
           </div>
 
+          {/*
+            El arrastre va ENTRE las cifras de la semana y la hoja de cobro, no
+            dentro de ella: la hoja cierra sorteos de esta semana y lo de atrás
+            se cierra en su propia semana. Aquí sólo se dice, para que quien
+            cobra sepa la cuenta completa antes de llamar.
+          */}
+          {hayArrastre && (
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+              <Kpi
+                etiqueta="ARRASTRE DE SEMANAS ANTERIORES"
+                valor={fmt(abierta.arrastre)}
+                pie={
+                  abierta.arrastre >= 0
+                    ? "lo entrega el vendedor"
+                    : "lo entrega la casa"
+                }
+                color={abierta.arrastre < 0 ? "text-negativo" : undefined}
+              />
+              <Kpi
+                etiqueta="TOTAL ACUMULADO"
+                valor={fmt(abierta.acumulado)}
+                pie="esta semana más lo que viene de atrás"
+                color={abierta.acumulado < 0 ? "text-negativo" : undefined}
+              />
+            </div>
+          )}
+
           <HojaLiquidacion
             filas={filas}
             vendedorId={vendedor.id}
@@ -232,10 +291,9 @@ export async function VistaHoja({
             desde={abierta.inicio}
             hasta={abierta.fin}
             sinLiquidar={sinNumero?.length ?? 0}
-            factor={parametro ? Number(parametro.factor_pago) : null}
             comisionTasa={parametro ? Number(parametro.comision) : null}
             semana={abierta.semana}
-            yaPagados={abierta.pagadas}
+            abonos={abonos}
           />
 
           {(cortes?.length ?? 0) > 0 && (

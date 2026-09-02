@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { registrarCorte } from "@/app/(admin)/liquidacion/acciones";
 import { BotonImprimir } from "@/components/liquidacion/boton-imprimir";
+import type { AbonoImpreso } from "@/components/liquidacion/imprimible";
 import {
   TablaSorteos,
   type FilaLiquidacion,
@@ -34,10 +35,9 @@ export function HojaLiquidacion({
   desde,
   hasta,
   sinLiquidar,
-  factor,
   comisionTasa,
   semana,
-  yaPagados,
+  abonos,
 }: {
   filas: FilaLiquidacion[];
   vendedorId: string;
@@ -46,15 +46,25 @@ export function HojaLiquidacion({
   hasta: string;
   /** Sorteos del rango que aún no tienen número ganador. */
   sinLiquidar: number;
-  /** Para la cabecera del papel: el factor y la comisión vigentes. */
-  factor: number | null;
+  /** Para la cabecera del papel: la comisión vigente. */
   comisionTasa: number | null;
   semana: number | null;
-  /** Sorteos de esta semana ya cobrados: no salen en el papel, pero se dicen. */
-  yaPagados: number;
+  /** Los cierres que ya tocaron esta semana, para el pie del papel. */
+  abonos: AbonoImpreso[];
 }) {
+  /*
+   * Sólo lo PENDIENTE entra en la selección.
+   *
+   * Desde que la tabla enseña la semana entera, `filas` incluye los sorteos ya
+   * liquidados. Marcarlos por omisión mandaría sus identificadores al servidor
+   * y `fn_registrar_corte` los rechazaría —el `unique (liquidacion_id)` no deja
+   * meterlos en dos cortes—, así que el botón fallaría siempre en cuanto una
+   * semana tuviera un solo día cobrado.
+   */
+  const pendientes = useMemo(() => filas.filter((f) => !f.pagadoEn), [filas]);
+
   const [marcados, setMarcados] = useState<Set<string>>(
-    () => new Set(filas.map((f) => f.liquidacionId)),
+    () => new Set(pendientes.map((f) => f.liquidacionId)),
   );
   const [confirmando, setConfirmando] = useState(false);
   const [nota, setNota] = useState("");
@@ -62,7 +72,7 @@ export function HojaLiquidacion({
   const [aviso, setAviso] = useState("");
   const [pagando, iniciar] = useTransition();
 
-  const elegidas = filas.filter((f) => marcados.has(f.liquidacionId));
+  const elegidas = pendientes.filter((f) => marcados.has(f.liquidacionId));
 
   const total = elegidas.reduce(
     (a, f) => ({
@@ -130,7 +140,7 @@ export function HojaLiquidacion({
     });
   };
 
-  if (filas.length === 0) {
+  if (pendientes.length === 0 && filas.length === 0) {
     return (
       <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-8 text-center">
         <p className="text-base text-cuerpo m-0">
@@ -170,7 +180,7 @@ export function HojaLiquidacion({
       <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5 flex flex-wrap gap-8 items-end justify-between">
         <div className="min-w-[280px]">
           <div className="text-eyebrow font-semibold tracking-seccion text-secundario mb-3">
-            {elegidas.length} DE {filas.length} SORTEOS MARCADOS
+            {elegidas.length} DE {pendientes.length} SORTEOS MARCADOS
           </div>
 
           <div className="grid grid-cols-[1fr_auto] gap-x-8 gap-y-[6px] items-baseline">
@@ -206,36 +216,38 @@ export function HojaLiquidacion({
         <div className="flex items-center gap-[10px] flex-wrap">
           {error && <span className="text-meta text-negativo max-w-[280px]">{error}</span>}
           {/*
-            El papel lleva TODO lo que sigue pendiente, no lo que está marcado:
-            es el documento que se le entrega al vendedor para cuadrar, y lo
-            marcado es lo que se va a liquidar ahora mismo. Lo ya liquidado no
-            aparece porque no llega hasta aquí — `fn_liquidacion_pendiente` lo
-            deja fuera desde la base.
+            El papel lleva la SEMANA ENTERA, liquidados incluidos y marcados.
+            Antes llevaba sólo lo pendiente, y una semana a medias salía sin dos
+            días que el vendedor sí había jugado: le faltaba su propia venta.
+            Lo que está marcado en pantalla es otra cosa —lo que se va a cerrar
+            ahora— y no cambia el papel.
           */}
           <BotonImprimir
             hoja={{
               vendedor: vendedorNombre,
-              factor,
               comisionTasa,
               desde,
               hasta,
               semana,
-              yaPagados,
+              abonos,
               lineas: filas.map((f) => ({
                 fecha: f.fecha,
                 hora: f.hora,
                 ganador: f.ganador,
                 venta: f.venta,
+                premiado: f.premiado ?? 0,
+                factor: f.factor ?? 0,
                 comision: f.comision,
                 premios: f.premios,
                 saldo: f.saldo,
+                pagado: Boolean(f.pagadoEn),
               })),
             }}
           />
           <Boton
             variante="ghost"
-            onClick={() => setMarcados(new Set(filas.map((f) => f.liquidacionId)))}
-            disabled={elegidas.length === filas.length}
+            onClick={() => setMarcados(new Set(pendientes.map((f) => f.liquidacionId)))}
+            disabled={elegidas.length === pendientes.length}
           >
             Marcar todo
           </Boton>

@@ -11,6 +11,18 @@ export type FilaLiquidacion = {
   premios: number;
   /** venta − comisión − premios. */
   saldo: number;
+  /**
+   * Cuándo se liquidó ese sorteo, si ya se liquidó.
+   *
+   * Los liquidados YA NO DESAPARECEN de la tabla: la semana se mira entera y
+   * ellos salen marcados. Antes se caían de la vista en cuanto se cobraban y
+   * con ellos se caía la venta de esos días, así que la hoja de una semana a
+   * medias no se parecía a la semana que el vendedor había jugado.
+   */
+  pagadoEn?: string | null;
+  /** Lo apostado al número que salió, y el multiplicador de ese sorteo. */
+  premiado?: number;
+  factor?: number;
 };
 
 export type Seleccion = {
@@ -82,10 +94,15 @@ export function TablaSorteos({
         </thead>
 
         {porDia.map(([fecha, delDia]) => {
-          const marcadasDelDia = delDia.filter((f) => marcada(f.liquidacionId));
-          const subtotal = marcadasDelDia.reduce((a, f) => a + f.saldo, 0);
-          const todos = marcadasDelDia.length === delDia.length;
+          // Sólo se puede marcar lo que sigue pendiente.
+          const marcables = delDia.filter((f) => !f.pagadoEn);
+          const marcadasDelDia = marcables.filter((f) => marcada(f.liquidacionId));
+          // El subtotal es del DÍA entero, liquidado incluido: es el resumen de
+          // lo que pasó ese día, no de lo que se va a cobrar ahora.
+          const subtotal = delDia.reduce((a, f) => a + f.saldo, 0);
+          const todos = marcables.length > 0 && marcadasDelDia.length === marcables.length;
           const algunos = marcadasDelDia.length > 0 && !todos;
+          const cerradas = delDia.filter((f) => f.pagadoEn).length;
 
           return (
             <tbody key={fecha}>
@@ -95,12 +112,13 @@ export function TablaSorteos({
                     <input
                       type="checkbox"
                       checked={todos}
+                      disabled={marcables.length === 0}
                       // El estado intermedio no se puede poner por atributo: es
                       // una propiedad del elemento y hay que escribirla.
                       ref={(el) => {
                         if (el) el.indeterminate = algunos;
                       }}
-                      onChange={() => seleccion.alternarDia(delDia)}
+                      onChange={() => seleccion.alternarDia(marcables)}
                       aria-label={`Marcar el día ${fecha} entero`}
                       className="w-4 h-4 accent-[var(--color-acento)]"
                     />
@@ -114,9 +132,16 @@ export function TablaSorteos({
                   )}
                 >
                   <span className="text-meta font-semibold">{fechaLarga(fecha)}</span>
-                  {seleccion && (
+                  {seleccion && marcables.length > 0 && (
                     <span className="text-th text-secundario ml-2">
-                      {marcadasDelDia.length} de {delDia.length}
+                      {marcadasDelDia.length} de {marcables.length}
+                    </span>
+                  )}
+                  {cerradas > 0 && (
+                    <span className="text-th text-positivo ml-2">
+                      {cerradas === delDia.length
+                        ? "liquidado"
+                        : `${cerradas} liquidado${cerradas === 1 ? "" : "s"}`}
                     </span>
                   )}
                 </td>
@@ -133,17 +158,25 @@ export function TablaSorteos({
               {delDia.map((f) => (
                 <tr
                   key={f.liquidacionId}
-                  className={cn(!marcada(f.liquidacionId) && "opacity-45")}
+                  className={cn(
+                    // Un sorteo ya liquidado se queda a la vista pero apagado:
+                    // es historial, no trabajo pendiente.
+                    f.pagadoEn ? "bg-tinte/60" : !marcada(f.liquidacionId) && "opacity-45",
+                  )}
                 >
                   {seleccion && (
                     <td className="border-b border-fondo py-[6px] pl-4 pr-2">
-                      <input
-                        type="checkbox"
-                        checked={marcada(f.liquidacionId)}
-                        onChange={() => seleccion.alternar(f.liquidacionId)}
-                        aria-label={`Liquidar ${fecha} ${f.hora}`}
-                        className="w-4 h-4 accent-[var(--color-acento)]"
-                      />
+                      {f.pagadoEn ? (
+                        <span className="block w-4 h-4" aria-hidden="true" />
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={marcada(f.liquidacionId)}
+                          onChange={() => seleccion.alternar(f.liquidacionId)}
+                          aria-label={`Liquidar ${fecha} ${f.hora}`}
+                          className="w-4 h-4 accent-[var(--color-acento)]"
+                        />
+                      )}
                     </td>
                   )}
                   <td
@@ -154,6 +187,9 @@ export function TablaSorteos({
                   >
                     {jornada(f.hora)}
                     <span className="text-th text-mudo ml-[6px]">{hora12(f.hora)}</span>
+                    {f.pagadoEn && (
+                      <span className="block text-th text-positivo font-medium">liquidado</span>
+                    )}
                   </td>
                   <td className="border-b border-fondo py-[6px] px-3">
                     <span className="inline-block min-w-[28px] text-center px-[6px] py-px rounded-celda bg-acento-suave text-acento-fuerte text-meta font-semibold">
