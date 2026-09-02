@@ -9,16 +9,21 @@ import { fechaLargaSinDia, fmt } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 /**
- * Cómo va el cobro, semana a semana.
+ * Cómo va la liquidación, semana a semana.
  *
  * Misma forma que el detalle por semana del análisis financiero —una fila por
- * semana, de la más vieja a la más nueva— pero con las columnas del cobro:
- * cuánto había, cuánto se cobró y cuánto falta. Sin vendedor es el negocio
+ * semana, de la más vieja a la más nueva— pero con las columnas del cierre:
+ * cuánto había, cuánto se cerró y cuánto falta. Sin vendedor es el negocio
  * entero; con vendedor, lo suyo.
  *
- * La fila se pinta según lo que FALTA, no según el saldo: una semana con saldo
- * grande ya cobrada no es una noticia, y una de cien lempiras sin cobrar de
- * hace dos meses sí.
+ * LO QUE FALTA VA EN DOS COLUMNAS, no en una. Una semana puede dejar dinero
+ * por cobrar a unos vendedores y dinero por pagar a otros, y restarlos da un
+ * neto que esconde las dos cifras: con «pendiente: 0» nadie sale a cobrar ni
+ * prepara efectivo. La base ya las separa; aquí sólo se enseñan.
+ *
+ * La fila se apaga cuando la semana está cerrada: una semana grande ya
+ * liquidada no es una noticia, y una de cien lempiras abierta de hace dos
+ * meses sí.
  */
 export async function VistaResumen({
   params,
@@ -63,6 +68,8 @@ export async function VistaResumen({
     saldo: Number(s.r_saldo),
     pagado: Number(s.r_pagado),
     pendiente: Number(s.r_pendiente),
+    porCobrar: Number(s.r_por_cobrar),
+    porPagar: Number(s.r_por_pagar),
   }));
 
   const total = semanas.reduce(
@@ -73,8 +80,19 @@ export async function VistaResumen({
       saldo: a.saldo + s.saldo,
       pagado: a.pagado + s.pagado,
       pendiente: a.pendiente + s.pendiente,
+      porCobrar: a.porCobrar + s.porCobrar,
+      porPagar: a.porPagar + s.porPagar,
     }),
-    { venta: 0, comision: 0, premios: 0, saldo: 0, pagado: 0, pendiente: 0 },
+    {
+      venta: 0,
+      comision: 0,
+      premios: 0,
+      saldo: 0,
+      pagado: 0,
+      pendiente: 0,
+      porCobrar: 0,
+      porPagar: 0,
+    },
   );
 
   const semanasAbiertas = semanas.filter((s) => s.pendientes > 0).length;
@@ -104,29 +122,43 @@ export async function VistaResumen({
               pie={`${semanas.length} ${semanas.length === 1 ? "semana" : "semanas"}${vendedor ? "" : " · todo el padrón"}`}
             />
             <Kpi
-              etiqueta="VALOR PAGADO"
+              etiqueta="YA LIQUIDADO"
               valor={fmt(total.pagado)}
               pie={
                 total.saldo
-                  ? `${((total.pagado / total.saldo) * 100).toFixed(1)} % de lo liquidado`
+                  ? `${((total.pagado / total.saldo) * 100).toFixed(1)} % de lo que hay`
                   : "—"
               }
             />
+            {/*
+              Lo pendiente va en DOS cifras y no en una.
+
+              Restarlas esconde el trabajo: un vendedor que debe 5.000 y otro al
+              que se le deben 5.000 dan un neto de cero, y con ese cero nadie
+              sale a cobrar ni prepara efectivo para pagar. Son diez mil
+              lempiras de movimiento en dos direcciones.
+            */}
             <Kpi
-              etiqueta="VALOR PENDIENTE"
-              valor={fmt(total.pendiente)}
-              color={total.pendiente < 0 ? "text-negativo" : undefined}
+              etiqueta="POR COBRAR"
+              valor={fmt(total.porCobrar)}
               pie={
                 semanasAbiertas === 0
-                  ? "no queda nada por cobrar"
-                  : `en ${semanasAbiertas} ${semanasAbiertas === 1 ? "semana" : "semanas"}`
+                  ? "no queda nada abierto"
+                  : "lo entregan los vendedores"
               }
+              color={total.porCobrar === 0 ? "text-mudo" : undefined}
+            />
+            <Kpi
+              etiqueta="POR PAGAR"
+              valor={fmt(total.porPagar)}
+              pie="lo entrega la casa"
+              color={total.porPagar === 0 ? "text-mudo" : "text-negativo"}
             />
           </div>
 
           <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-tabla min-w-[900px]">
+              <table className="w-full border-collapse text-tabla min-w-[1060px]">
                 <thead>
                   <tr className="bg-tinte">
                     {[
@@ -136,17 +168,18 @@ export async function VistaResumen({
                       "COMISIÓN",
                       "PREMIOS",
                       "A LIQUIDAR",
-                      "PAGADO",
-                      "PENDIENTE",
+                      "LIQUIDADO",
+                      "POR COBRAR",
+                      "POR PAGAR",
                     ].map((th, i) => (
                       <th
                         key={th}
                         className={cn(
                           "text-th font-semibold tracking-th text-secundario border-b border-riel py-[9px]",
                           i === 0 ? "text-left pl-4 pr-3" : "text-right",
-                          i === 7 ? "pl-3 pr-4" : i > 0 ? "px-3" : "",
-                          // El filete separa lo que se debía de cómo va el cobro.
-                          th === "PAGADO" && "border-l border-riel",
+                          i === 8 ? "pl-3 pr-4" : i > 0 ? "px-3" : "",
+                          // El filete separa lo que había de cómo va el cierre.
+                          th === "LIQUIDADO" && "border-l border-riel",
                         )}
                       >
                         {th}
@@ -165,7 +198,7 @@ export async function VistaResumen({
                       >
                         <td className="pl-4 pr-3 py-[8px] border-b border-fondo">
                           <span className="font-medium">Semana #{s.semana}</span>
-                          <span className="text-th text-mudo ml-2">
+                          <span className="text-th text-mudo ml-2 whitespace-nowrap">
                             {fechaLargaSinDia(s.inicio)} — {fechaLargaSinDia(s.fin)}
                           </span>
                         </td>
@@ -184,7 +217,11 @@ export async function VistaResumen({
                         <td
                           className={cn(
                             "px-3 py-[8px] border-b border-fondo text-right font-semibold",
-                            s.saldo < 0 && !cerrada && "text-negativo",
+                            // Rojo por el SIGNO, cerrada o no: la regla dice que
+                            // un negativo es dinero que puso la empresa, y eso
+                            // sigue siendo cierto después de liquidar. La fila
+                            // apagada ya dice que no hay nada que hacer.
+                            s.saldo < 0 && "text-negativo",
                           )}
                         >
                           {fmt(s.saldo, false)}
@@ -193,20 +230,26 @@ export async function VistaResumen({
                           {s.pagado === 0 ? "—" : fmt(s.pagado, false)}
                         </td>
                         {/*
-                          La única columna con estado: verde cuando la semana ya
-                          se cerró, roja cuando lo que falta lo pone la casa.
+                          Las dos direcciones, separadas. En una semana del
+                          padrón entero conviven vendedores que deben y
+                          vendedores a los que se debe, y el neto los tapa.
                         */}
+                        <td className="px-3 py-[8px] border-b border-fondo text-right font-semibold">
+                          {cerrada ? (
+                            <span className="text-positivo font-medium">liquidada</span>
+                          ) : s.porCobrar === 0 ? (
+                            "—"
+                          ) : (
+                            fmt(s.porCobrar, false)
+                          )}
+                        </td>
                         <td
                           className={cn(
                             "pl-3 pr-4 py-[8px] border-b border-fondo text-right font-semibold",
-                            cerrada
-                              ? "text-positivo"
-                              : s.pendiente < 0
-                                ? "text-negativo"
-                                : "text-tinta",
+                            s.porPagar > 0 && !cerrada && "text-negativo",
                           )}
                         >
-                          {cerrada ? "pagada" : fmt(s.pendiente, false)}
+                          {cerrada || s.porPagar === 0 ? "—" : fmt(s.porPagar, false)}
                         </td>
                       </tr>
                     );
@@ -234,13 +277,16 @@ export async function VistaResumen({
                     <td className="px-3 py-[10px] border-l border-riel text-right text-h2 font-semibold">
                       {fmt(total.pagado, false)}
                     </td>
+                    <td className="px-3 py-[10px] text-right text-h2 font-semibold">
+                      {fmt(total.porCobrar, false)}
+                    </td>
                     <td
                       className={cn(
                         "pl-3 pr-4 py-[10px] text-right text-h2 font-semibold",
-                        total.pendiente < 0 && "text-negativo",
+                        total.porPagar > 0 && "text-negativo",
                       )}
                     >
-                      {fmt(total.pendiente, false)}
+                      {fmt(total.porPagar, false)}
                     </td>
                   </tr>
                 </tfoot>
@@ -249,11 +295,16 @@ export async function VistaResumen({
           </div>
 
           <TarjetaNota>
-            <strong>A liquidar</strong> es venta menos comisión menos premios de toda la semana;{" "}
-            <strong>pagado</strong> es la parte que ya se cerró en un corte y{" "}
-            <strong>pendiente</strong> el resto. Los dos suman siempre el primero — lo garantiza la
-            base, que no deja meter una misma liquidación en dos cortes, y es lo que hace posible
-            cobrar el lunes y el martes hoy y el resto el jueves.
+            <strong>A liquidar</strong> es venta menos comisión menos premios de toda la semana y{" "}
+            <strong>liquidado</strong> la parte que ya se cerró. Lo que falta va en dos columnas
+            porque tiene dos direcciones: <strong>por cobrar</strong> es lo que entregan los
+            vendedores que deben, y <strong>por pagar</strong> lo que entrega la casa a aquellos
+            cuyos premios superaron su venta. Restarlas daría un neto que esconde las dos: cinco
+            mil por un lado y cinco mil por el otro no son cero, son diez mil de movimiento.{" "}
+            <strong>Liquidar es un solo gesto</strong> en las dos direcciones — lo que se registra
+            es que esos sorteos quedaron cerrados, y el signo dice quién sacó la cartera. Que una
+            liquidación no entre en dos cierres lo impide la base, y es lo que hace posible cerrar
+            el lunes y el martes hoy y el resto el jueves.
           </TarjetaNota>
         </>
       )}

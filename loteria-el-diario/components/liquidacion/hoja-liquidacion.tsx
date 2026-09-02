@@ -90,9 +90,21 @@ export function HojaLiquidacion({
     { venta: 0, comision: 0, premios: 0, saldo: 0 },
   );
 
-  // El signo decide quién le paga a quién, y el rótulo tiene que decirlo: un
-  // «total» a secas en una hoja de cobro se lee mal en las dos direcciones.
+  /*
+   * UNA SOLA ACCIÓN, DOS DIRECCIONES.
+   *
+   * Una semana acaba de dos maneras: el vendedor entrega dinero, o la casa se
+   * lo entrega a él porque los premios que pagó de su bolsillo superaron su
+   * venta. Las dos son LIQUIDAR —cerrar la cuenta de esos sorteos— y por eso
+   * el botón es uno: partirlo en «pagar» y «cobrar» obligaría a elegir antes
+   * de mirar el signo, y quien elige mal registra el gesto contrario al que
+   * hizo.
+   *
+   * Lo que SÍ cambia con el signo es el rótulo de la cifra, en la pantalla y
+   * en el papel: un «total» a secas se lee mal en una de las dos direcciones.
+   */
   const entregaElVendedor = total.saldo >= 0;
+  const rotuloSaldo = entregaElVendedor ? "EL VENDEDOR ENTREGA" : "LA CASA LE PAGA";
 
   const alternar = (id: string) =>
     setMarcados((s) => {
@@ -114,7 +126,7 @@ export function HojaLiquidacion({
     });
   };
 
-  const pagar = () => {
+  const liquidar = () => {
     setError("");
     iniciar(async () => {
       const r = await registrarCorte(
@@ -138,12 +150,12 @@ export function HojaLiquidacion({
     return (
       <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-8 text-center">
         <p className="text-base text-cuerpo m-0">
-          No queda nada por pagarle a <strong>{vendedorNombre}</strong> en este rango.
+          No queda nada por liquidar con <strong>{vendedorNombre}</strong> en esta semana.
         </p>
         {sinLiquidar > 0 && (
           <p className="text-meta text-secundario mt-2 mb-0">
             Quedan {sinLiquidar} {sinLiquidar === 1 ? "sorteo" : "sorteos"} de la semana sin
-            liquidar: hasta que se les capture el número ganador no se pueden pagar.
+            liquidar: hasta que se les capture el número ganador no se pueden cerrar.
           </p>
         )}
       </div>
@@ -161,7 +173,7 @@ export function HojaLiquidacion({
       {sinLiquidar > 0 && (
         <div className="rounded-banner bg-ambar-fondo text-ambar-texto px-[13px] py-[11px] text-tabla font-medium leading-[1.45]">
           La semana no está completa: quedan {sinLiquidar}{" "}
-          {sinLiquidar === 1 ? "sorteo" : "sorteos"} sin liquidar. Se puede pagar lo que ya
+          {sinLiquidar === 1 ? "sorteo" : "sorteos"} sin liquidar. Se puede cerrar lo que ya
           está y lo demás aparecerá aquí en cuanto se capture su número ganador.
         </div>
       )}
@@ -244,7 +256,7 @@ export function HojaLiquidacion({
                           type="checkbox"
                           checked={marcados.has(f.liquidacionId)}
                           onChange={() => alternar(f.liquidacionId)}
-                          aria-label={`Pagar ${fecha} ${f.hora}`}
+                          aria-label={`Liquidar ${fecha} ${f.hora}`}
                           className="w-4 h-4 accent-[var(--color-acento)]"
                         />
                       </td>
@@ -307,7 +319,7 @@ export function HojaLiquidacion({
 
           <div className="border-t border-riel mt-3 pt-3 flex items-baseline justify-between gap-8">
             <span className="text-eyebrow font-semibold tracking-seccion text-secundario">
-              {entregaElVendedor ? "EL VENDEDOR ENTREGA" : "LA CASA LE PAGA"}
+              {rotuloSaldo}
             </span>
             <span
               className={cn(
@@ -325,7 +337,7 @@ export function HojaLiquidacion({
           {/*
             El papel lleva TODO lo que sigue pendiente, no lo que está marcado:
             es el documento que se le entrega al vendedor para cuadrar, y lo
-            marcado es lo que se va a cobrar ahora mismo. Lo ya cobrado no
+            marcado es lo que se va a liquidar ahora mismo. Lo ya liquidado no
             aparece porque no llega hasta aquí — `fn_liquidacion_pendiente` lo
             deja fuera desde la base.
           */}
@@ -357,7 +369,7 @@ export function HojaLiquidacion({
             Marcar todo
           </Boton>
           <Boton onClick={() => setConfirmando(true)} disabled={elegidas.length === 0 || pagando}>
-            Registrar pago
+            Liquidar
           </Boton>
         </div>
       </div>
@@ -365,7 +377,7 @@ export function HojaLiquidacion({
       <Modal
         abierto={confirmando}
         eyebrow={vendedorNombre}
-        titulo="Registrar el pago"
+        titulo="Liquidar estos sorteos"
         onCerrar={() => setConfirmando(false)}
         error={error}
         ancho={560}
@@ -374,8 +386,8 @@ export function HojaLiquidacion({
             <Boton variante="ghost" onClick={() => setConfirmando(false)} disabled={pagando}>
               Cancelar
             </Boton>
-            <Boton onClick={pagar} disabled={pagando}>
-              {pagando ? "Registrando…" : "Confirmar pago"}
+            <Boton onClick={liquidar} disabled={pagando}>
+              {pagando ? "Liquidando…" : "Confirmar liquidación"}
             </Boton>
           </>
         }
@@ -385,7 +397,9 @@ export function HojaLiquidacion({
             Se cierran <strong>{elegidas.length}</strong>{" "}
             {elegidas.length === 1 ? "sorteo" : "sorteos"} por{" "}
             <strong>{fmt(Math.abs(total.saldo))}</strong>{" "}
-            {entregaElVendedor ? "que entrega el vendedor" : "que le paga la casa"}.
+            {entregaElVendedor
+              ? "que entrega el vendedor"
+              : "que le entrega la casa al vendedor"}.
           </p>
 
           <p className="text-meta text-secundario leading-[1.55] m-0 bg-panel border border-borde rounded-card px-4 py-3">
@@ -397,7 +411,7 @@ export function HojaLiquidacion({
             <input
               value={nota}
               onChange={(e) => setNota(e.target.value)}
-              placeholder="Recibo 0142, entregado en efectivo…"
+              placeholder="Recibo 0142, en efectivo…"
               className={CLASE_CONTROL_MODAL}
             />
           </CampoModal>

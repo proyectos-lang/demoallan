@@ -202,18 +202,18 @@ export async function VistaHoja({
               pie={`${abierta.sorteos} ${abierta.sorteos === 1 ? "sorteo" : "sorteos"} de la semana`}
             />
             <Kpi
-              etiqueta="VALOR PAGADO"
+              etiqueta="YA LIQUIDADO"
               valor={fmt(abierta.pagado)}
-              pie={`${abierta.pagadas} ${abierta.pagadas === 1 ? "sorteo cobrado" : "sorteos cobrados"}`}
+              pie={`${abierta.pagadas} ${abierta.pagadas === 1 ? "sorteo cerrado" : "sorteos cerrados"}`}
               color={abierta.pagado === 0 ? "text-mudo" : undefined}
             />
             <Kpi
-              etiqueta="VALOR PENDIENTE"
+              etiqueta="PENDIENTE POR LIQUIDAR"
               valor={fmt(abierta.pendiente)}
               pie={
                 abierta.pendientes === 0
                   ? "la semana está cerrada"
-                  : `${abierta.pendientes} ${abierta.pendientes === 1 ? "sorteo" : "sorteos"} · ${entrega ? "entrega el vendedor" : "le paga la casa"}`
+                  : `${abierta.pendientes} ${abierta.pendientes === 1 ? "sorteo" : "sorteos"} · ${entrega ? "lo entrega el vendedor" : "lo entrega la casa"}`
               }
               color={
                 abierta.pendientes === 0
@@ -241,24 +241,26 @@ export async function VistaHoja({
           {(cortes?.length ?? 0) > 0 && (
             <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
               <div className="px-[18px] py-[13px] border-b border-riel">
-                <h2 className="text-h2 font-semibold tracking-sutil m-0">Pagos anteriores</h2>
+                <h2 className="text-h2 font-semibold tracking-sutil m-0">
+                  Liquidaciones anteriores
+                </h2>
                 <p className="text-meta text-secundario mt-[4px] mb-0">
-                  Lo que ya se cerró con {vendedor.nombre}. Sus sorteos no vuelven al informe ni
-                  salen en el papel.
+                  Lo que ya se cerró con {vendedor.nombre}, en las dos direcciones. Sus sorteos no
+                  vuelven al informe ni salen en el papel.
                 </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-tabla min-w-[640px]">
                   <thead>
                     <tr className="bg-tinte">
-                      {["RANGO", "SORTEOS", "VENTA", "COMISIÓN", "PREMIOS", "SALDO", "NOTA"].map(
+                      {["RANGO", "SORTEOS", "VENTA", "COMISIÓN", "PREMIOS", "SALDO", "QUIÉN ENTREGÓ", "NOTA"].map(
                         (th, i) => (
                           <th
                             key={th}
                             className={cn(
                               "text-th font-semibold tracking-th text-secundario border-b border-riel py-[8px]",
                               i >= 1 && i <= 5 ? "text-right" : "text-left",
-                              i === 0 ? "pl-4 pr-3" : i === 6 ? "pl-3 pr-4" : "px-3",
+                              i === 0 ? "pl-4 pr-3" : i === 7 ? "pl-3 pr-4" : "px-3",
                             )}
                           >
                             {th}
@@ -285,8 +287,19 @@ export async function VistaHoja({
                         <td className="border-b border-fondo py-[7px] px-3 text-right text-cuerpo">
                           {fmt(Number(c.r_premios), false)}
                         </td>
-                        <td className="border-b border-fondo py-[7px] px-3 text-right font-semibold">
-                          {fmt(Number(c.r_saldo), false)}
+                        <td
+                          className={cn(
+                            "border-b border-fondo py-[7px] px-3 text-right font-semibold",
+                            Number(c.r_saldo) < 0 && "text-negativo",
+                          )}
+                        >
+                          {fmt(Math.abs(Number(c.r_saldo)), false)}
+                        </td>
+                        {/* El signo del saldo no basta: en una tabla de cierres
+                            hay que poder leer de un vistazo en qué dirección
+                            se movió el dinero. */}
+                        <td className="border-b border-fondo py-[7px] px-3 text-meta">
+                          {Number(c.r_saldo) < 0 ? "la casa" : "el vendedor"}
                         </td>
                         <td className="border-b border-fondo py-[7px] pl-3 pr-4 text-label text-secundario">
                           {c.r_nota ?? "—"}

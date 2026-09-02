@@ -176,6 +176,27 @@ try {
       cent(semana.r_pendiente) ===
         (resto ?? []).reduce((a, f) => a + Math.round(Number(f.r_saldo) * 100), 0),
     );
+
+    // Las dos direcciones. Con un solo vendedor la semana va entera a un lado
+    // o al otro, así que una de las dos tiene que ser cero: si las dos
+    // salieran con valor, la clasificación estaría mirando el sorteo en vez
+    // del saldo de la semana, y se cobraría y se pagaría al mismo vendedor la
+    // misma semana.
+    check(
+      "por cobrar menos por pagar da lo pendiente",
+      cent(semana.r_por_cobrar) - cent(semana.r_por_pagar) === cent(semana.r_pendiente),
+      `${semana.r_por_cobrar} - ${semana.r_por_pagar} != ${semana.r_pendiente}`,
+    );
+    check(
+      "ninguna de las dos direcciones es negativa",
+      Number(semana.r_por_cobrar) >= 0 && Number(semana.r_por_pagar) >= 0,
+      `${semana.r_por_cobrar} / ${semana.r_por_pagar}`,
+    );
+    check(
+      "con un vendedor, la semana va entera a un lado",
+      cent(semana.r_por_cobrar) === 0 || cent(semana.r_por_pagar) === 0,
+      `${semana.r_por_cobrar} / ${semana.r_por_pagar}`,
+    );
   }
 
   // Sin vendedor devuelve el negocio entero, que tiene que ser mayor o igual.

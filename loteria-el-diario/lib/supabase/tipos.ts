@@ -936,7 +936,12 @@ export type Database = {
           /** Todo lo de la semana: `r_pagado` + `r_pendiente`. */
           r_saldo: number;
           r_pagado: number;
+          /** En neto: `r_por_cobrar` − `r_por_pagar`. */
           r_pendiente: number;
+          /** De lo pendiente, lo que entregan los vendedores que deben. */
+          r_por_cobrar: number;
+          /** De lo pendiente, lo que entrega la casa. Positivo. */
+          r_por_pagar: number;
         }[];
       };
 

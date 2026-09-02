@@ -10,7 +10,12 @@ export type ResultadoCorte =
   | { ok: false; mensaje: string };
 
 /**
- * Cierra el pago de una semana —o de los días que se hayan marcado.
+ * Liquida una semana —o los días que se hayan marcado.
+ *
+ * LIQUIDAR ES UN SOLO GESTO en las dos direcciones. El saldo puede salir a
+ * favor de la casa o del vendedor, y en los dos casos lo que se registra es lo
+ * mismo: que esos sorteos quedaron cerrados. El signo se guarda en
+ * `corte_vendedor.saldo` y lo lee cada pantalla para decir quién entrega.
  *
  * Lo que viaja son IDENTIFICADORES de liquidación, no cifras: los totales los
  * recalcula `fn_registrar_corte` desde la base. Si aquí se aceptaran los
@@ -32,11 +37,11 @@ export async function registrarCorte(
   const sesion = await sesionActual();
   if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
   if (sesion.rol !== "administrador") {
-    return { ok: false, mensaje: "Sólo un administrador puede registrar un pago." };
+    return { ok: false, mensaje: "Sólo un administrador puede liquidar." };
   }
 
   if (liquidacionIds.length === 0) {
-    return { ok: false, mensaje: "No se marcó ningún sorteo para pagar." };
+    return { ok: false, mensaje: "No se marcó ningún sorteo para liquidar." };
   }
 
   const supabase = crearClienteServicio();
@@ -53,7 +58,7 @@ export async function registrarCorte(
   if (error) return { ok: false, mensaje: error.message };
 
   const fila = data?.[0];
-  if (!fila) return { ok: false, mensaje: "El pago no devolvió resultado." };
+  if (!fila) return { ok: false, mensaje: "La liquidación no devolvió resultado." };
 
   revalidatePath("/liquidacion");
 
@@ -64,6 +69,11 @@ export async function registrarCorte(
     ok: true,
     sorteos,
     saldo,
-    mensaje: `Pago registrado: ${sorteos} ${sorteos === 1 ? "sorteo" : "sorteos"}. Ya no volverán a aparecer en el informe.`,
+    // El mensaje dice la dirección porque es lo primero que se comprueba
+    // después de cerrar: si dice «entregó» y el dinero salió de la caja, hay
+    // algo mal y conviene verlo en ese momento y no en el arqueo.
+    mensaje: `Liquidados ${sorteos} ${sorteos === 1 ? "sorteo" : "sorteos"}: ${
+      saldo >= 0 ? "el vendedor entregó" : "la casa le entregó"
+    } ${Math.abs(saldo).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Ya no vuelven a aparecer.`,
   };
 }

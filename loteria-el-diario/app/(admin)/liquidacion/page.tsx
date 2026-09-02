@@ -13,9 +13,9 @@ import { VistaResumen } from "./vista-resumen";
 export const dynamic = "force-dynamic";
 
 const SUBTITULO: Record<VistaLiq, string> = {
-  hoja: "Semana por semana y sorteo por sorteo, lo que queda por cuadrar con un vendedor. Un sorteo pagado no vuelve a aparecer, así que un corte parcial —lunes y martes hoy, el resto el jueves— deja la hoja limpia.",
+  hoja: "Semana por semana y sorteo por sorteo, lo que queda por cuadrar con un vendedor. Liquidar cierra esos sorteos en la dirección que toque —los entrega el vendedor o los entrega la casa— y no vuelven a aparecer, así que un cierre parcial deja la hoja limpia.",
   resumen:
-    "Cómo va el cobro, semana a semana: cuánto había, cuánto se cobró y cuánto falta. Sin vendedor es el padrón entero.",
+    "Cómo va la liquidación, semana a semana: cuánto había, cuánto se cerró, y lo que falta separado en lo que se cobra y lo que se paga. Sin vendedor es el padrón entero.",
 };
 
 export default async function LiquidacionPage({ searchParams }: PageProps<"/liquidacion">) {

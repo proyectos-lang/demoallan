@@ -12,7 +12,7 @@ export type OpcionVendedorLiq = {
   nombre: string;
   activo: boolean;
   eliminado: boolean;
-  /** Sorteos liquidados que todavía no se le han pagado. */
+  /** Sorteos liquidados que todavía no se le han cerrado. */
   pendientes: number;
 };
 
@@ -34,7 +34,7 @@ const CLASE_CONTROL =
  * hay y cuál tiene saldo: dos formas de elegir lo mismo son una de más, y la
  * que se quedó dice además dónde hay que mirar.
  *
- * La cuenta se cierra con un vendedor a la vez porque el pago es un gesto por
+ * La cuenta se cierra con un vendedor a la vez porque liquidar es un gesto por
  * persona, no un total del padrón.
  */
 export function FiltrosLiquidacion({
@@ -71,7 +71,7 @@ export function FiltrosLiquidacion({
             <option key={v.id} value={v.id}>
               {v.codigo} · {v.nombre}
               {v.eliminado ? " (eliminado)" : v.activo ? "" : " (inactivo)"}
-              {v.pendientes > 0 ? ` — ${v.pendientes} sin pagar` : ""}
+              {v.pendientes > 0 ? ` — ${v.pendientes} sin liquidar` : ""}
             </option>
           ))}
         </select>
@@ -85,8 +85,8 @@ export function FiltrosLiquidacion({
 
       <span className="text-meta text-secundario pb-[10px]">
         {conSaldo === 0
-          ? "Nadie tiene sorteos sin pagar."
-          : `${conSaldo} de ${vendedores.length} ${conSaldo === 1 ? "tiene" : "tienen"} sorteos sin pagar.`}
+          ? "Nadie tiene sorteos sin liquidar."
+          : `${conSaldo} de ${vendedores.length} ${conSaldo === 1 ? "tiene" : "tienen"} sorteos sin liquidar.`}
       </span>
 
       {pendiente && <span className="text-meta text-secundario pb-[10px]">Cargando…</span>}

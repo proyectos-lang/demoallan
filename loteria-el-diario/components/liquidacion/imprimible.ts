@@ -197,7 +197,7 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   <tr><td class="et">Comisión</td><td class="n">L ${money(total.comision)}</td></tr>
   <tr><td class="et">Premios pagados</td><td class="n">L ${money(total.premios)}</td></tr>
   <tr class="saldo">
-    <td class="et">${entrega ? "El vendedor entrega" : "La casa le paga"}</td>
+    <td class="et">${entrega ? "El vendedor entrega" : "La casa le entrega al vendedor"}</td>
     <td class="n">L ${money(Math.abs(total.saldo))}</td>
   </tr>
 </tbody></table>
@@ -206,8 +206,8 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   El saldo es la venta menos la comisión menos los premios que el vendedor pagó de su bolsillo.
   ${
     h.yaPagados > 0
-      ? `En esta hoja no aparecen ${h.yaPagados} ${h.yaPagados === 1 ? "sorteo ya pagado" : "sorteos ya pagados"} de esta misma semana: ya se cobraron y este documento es de cobro.`
-      : "Aparecen todos los sorteos liquidados de la semana; ninguno se ha cobrado todavía."
+      ? `En esta hoja no aparecen ${h.yaPagados} ${h.yaPagados === 1 ? "sorteo ya liquidado" : "sorteos ya liquidados"} de esta misma semana: su cuenta ya se cerró y este documento es para cerrar la que queda.`
+      : "Aparecen todos los sorteos liquidados de la semana; ninguno se ha cerrado todavía."
   }
 </p>
 
