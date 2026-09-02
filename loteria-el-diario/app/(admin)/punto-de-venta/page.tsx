@@ -32,6 +32,18 @@ export default async function PuntoDeVentaPage({
   const porTotales = puedeForzar && params.modo === "totales";
 
   /*
+   * La captura por totales puede mirar OTRO día, no sólo hoy.
+   *
+   * Es su caso de uso central: el vendedor trabajó en papel y entrega su hoja
+   * al día siguiente, o el lunes trae la del sábado. Con la rejilla no hace
+   * falta —ahí se vende en vivo— y por eso la fecha sólo se ofrece en este
+   * modo.
+   */
+  const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+  const fechaPedida = typeof params.fecha === "string" ? params.fecha : "";
+  const dia = porTotales && FECHA.test(fechaPedida) ? fechaPedida : fechaHonduras();
+
+  /*
    * Qué sorteos se ofrecen.
    *
    * Para vendedor y digitador, el de siempre: el abierto que cierra antes, y
@@ -48,7 +60,7 @@ export default async function PuntoDeVentaPage({
     .order("hora_cierre");
 
   const { data: crudos } = puedeForzar
-    ? await consulta.eq("fecha", fechaHonduras()).in("estado", ["abierto", "cerrado", "liquidado"])
+    ? await consulta.eq("fecha", dia).in("estado", ["abierto", "cerrado", "liquidado"])
     : await consulta.eq("estado", "abierto").gt("hora_cierre", new Date().toISOString()).limit(1);
 
   const sorteos: SorteoPos[] = (crudos ?? []).map((s) => ({
@@ -81,6 +93,11 @@ export default async function PuntoDeVentaPage({
           titulo="Punto de venta"
           subtitulo="Captura de tickets con validación de cupo en vivo."
         />
+        {porTotales && (
+          <div className="mb-4">
+            <ModoCaptura modo="totales" sorteoId="" capturas={0} fecha={dia} />
+          </div>
+        )}
         <TarjetaNota>
           No hay ningún sorteo abierto en este momento, así que no se puede vender. El ciclo
           automático programa y abre los del día cada cinco minutos; si hace falta forzarlo,{" "}
@@ -190,12 +207,19 @@ export default async function PuntoDeVentaPage({
             modo={porTotales ? "totales" : "detalle"}
             sorteoId={sorteo.id}
             capturas={capturas.length}
+            fecha={dia}
           />
         </div>
       )}
 
       {porTotales ? (
-        <CapturaTotales sorteo={sorteo} vendedores={vendedores} capturas={capturas} />
+        <CapturaTotales
+          sorteo={sorteo}
+          sorteos={sorteos}
+          fecha={dia}
+          vendedores={vendedores}
+          capturas={capturas}
+        />
       ) : (
         <PuntoDeVenta datos={datos} />
       )}

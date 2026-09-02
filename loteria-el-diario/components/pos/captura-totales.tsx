@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
@@ -43,35 +44,70 @@ function limpiar(v: string): string {
  * tomada, no un descuido, pero quien captura tiene que verla cada vez: por eso
  * el aviso es fijo y no se puede cerrar.
  *
- * El premio se acepta tal cual. Sin números no hay con qué contrastarlo contra
- * el ganador, así que la responsabilidad es de quien teclea; queda auditado y
- * se puede anular.
+ * SE TECLEA LO PREMIADO, NO LO PAGADO. El vendedor apunta en su hoja cuánto le
+ * jugaron al número que salió; multiplicar por el factor es aritmética, y la
+ * aritmética la hace la máquina. Pedir el premio ya multiplicado obligaba a
+ * quien captura a sacar la calculadora y a acertar con el factor de ESE
+ * vendedor, que no es 70 para todos.
+ *
+ * El resultado se acepta tal cual: sin números no hay con qué contrastarlo
+ * contra el ganador, así que la responsabilidad de lo premiado es de quien
+ * teclea. Queda auditado y se puede anular.
  */
 export function CapturaTotales({
   sorteo,
+  sorteos,
+  fecha,
   vendedores,
   capturas,
 }: {
   sorteo: SorteoPos;
+  /** Los tres del día elegido, con su estado. */
+  sorteos: SorteoPos[];
+  fecha: string;
   vendedores: VendedorPos[];
   capturas: CapturaExistente[];
 }) {
+  const router = useRouter();
   const [vendedorId, setVendedorId] = useState("");
   const [venta, setVenta] = useState("");
-  const [premios, setPremios] = useState("");
+  const [premiado, setPremiado] = useState("");
   const [nota, setNota] = useState("");
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [enviando, iniciar] = useTransition();
 
+  /*
+   * La fecha y el sorteo viven en la dirección, no en estado local.
+   *
+   * Cambiarlos tiene que volver a pedir al servidor las capturas de ESE
+   * sorteo: si sólo cambiara un estado de React, la lista de abajo seguiría
+   * enseñando las del sorteo anterior y se anularía la que no era.
+   */
+  const irA = (nuevaFecha: string, nuevoSorteo: string) => {
+    const p = new URLSearchParams({ modo: "totales", fecha: nuevaFecha });
+    if (nuevoSorteo) p.set("sorteo", nuevoSorteo);
+    iniciar(() => router.push(`/punto-de-venta?${p.toString()}`));
+  };
+
   const vendedor = vendedores.find((v) => v.id === vendedorId);
   const nVenta = Number(venta || 0);
-  const nPremios = Number(premios || 0);
+  const nPremiado = Number(premiado || 0);
+
+  /*
+   * El premio pagado sale de multiplicar lo premiado por el factor del
+   * vendedor, que es lo que hace la base con cada línea ganadora. Aquí se
+   * calcula sólo para enseñarlo antes de confirmar; lo que viaja al servidor es
+   * este mismo número, porque `venta_total` guarda el premio ya pagado —así la
+   * liquidación suma sin tener que saber de dónde vino cada parte.
+   */
+  const factor = vendedor?.factor_pago ?? 0;
+  const nPremios = nPremiado * factor;
 
   // La misma cuenta que hará la base, para que no haya sorpresa al confirmar.
   const comision = vendedor ? nVenta * vendedor.comision : 0;
   const saldo = nVenta - comision - nPremios;
-  const listo = Boolean(vendedorId) && (nVenta > 0 || nPremios > 0);
+  const listo = Boolean(vendedorId) && (nVenta > 0 || nPremiado > 0);
 
   const registrar = () => {
     setError("");
@@ -84,7 +120,7 @@ export function CapturaTotales({
       }
       setAviso(r.mensaje);
       setVenta("");
-      setPremios("");
+      setPremiado("");
       setNota("");
       setVendedorId("");
     });
@@ -106,9 +142,9 @@ export function CapturaTotales({
         <div>
           <h2 className="text-h2 font-semibold tracking-sutil m-0">Captura por totales</h2>
           <p className="text-meta text-secundario mt-[5px] mb-0 leading-[1.5]">
-            Para el vendedor que no registró por el portal: se anota lo que vendió y lo que pagó
-            de premio, sin el detalle de números. Entra en la liquidación como cualquier otra
-            venta.
+            Para el vendedor que no registró por el portal: se anota lo que vendió y cuánto le
+            jugaron al número que salió, sin el detalle. El premio pagado lo calcula el sistema
+            con el factor del vendedor. Entra en la liquidación como cualquier otra venta.
           </p>
         </div>
 
@@ -119,8 +155,40 @@ export function CapturaTotales({
         <p className="text-meta text-ambar-texto bg-ambar-fondo rounded-banner px-[13px] py-[10px] m-0 leading-[1.5]">
           Esta captura <strong>no consume cupo</strong>: como no se sabe a qué números jugó, el
           mapa de exposición del sorteo queda incompleto y el tope por número no protege esta
-          venta. El premio se registra tal cual, sin contrastarlo con el número ganador.
+          venta. Lo premiado se registra tal cual, sin contrastarlo con el número ganador.
         </p>
+
+        {/*
+          A qué sorteo pertenece. Se elige aquí y no se hereda de la rejilla:
+          el caso normal de esta pantalla es regularizar algo de ayer, y la
+          fecha por omisión —hoy— casi nunca es la buena.
+        */}
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))] pb-4 border-b border-riel">
+          <label className="block">
+            <span className="block text-label text-secundario font-medium mb-[6px]">Fecha</span>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => e.target.value && irA(e.target.value, "")}
+              className="w-full px-3 py-[11px] border border-borde-campo rounded-campo text-base outline-none bg-superficie text-tinta"
+            />
+          </label>
+
+          <label className="block">
+            <span className="block text-label text-secundario font-medium mb-[6px]">Sorteo</span>
+            <select
+              value={sorteo.id}
+              onChange={(e) => irA(fecha, e.target.value)}
+              className="w-full px-3 py-[11px] border border-borde-campo rounded-campo text-base outline-none bg-superficie text-tinta"
+            >
+              {sorteos.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {jornada(s.hora)} · {hora12(s.hora)} · {s.estado}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
           <label className="block">
@@ -154,15 +222,21 @@ export function CapturaTotales({
 
           <label className="block">
             <span className="block text-label text-secundario font-medium mb-[6px]">
-              Premio pagado
+              Valor premiado{" "}
+              <span className="text-mudo">(lo que le jugaron al ganador)</span>
             </span>
             <input
               inputMode="decimal"
-              value={premios}
-              onChange={(e) => setPremios(limpiar(e.target.value))}
+              value={premiado}
+              onChange={(e) => setPremiado(limpiar(e.target.value))}
               placeholder="0"
               className={CLASE_CAMPO}
             />
+            {vendedor && nPremiado > 0 && (
+              <span className="block text-label text-secundario mt-[5px]">
+                × {factor.toFixed(0)} de factor = {fmt(nPremios)} de premio pagado
+              </span>
+            )}
           </label>
 
           <label className="block">
@@ -193,7 +267,12 @@ export function CapturaTotales({
             </span>
             <span className="text-tabla text-right font-medium">{fmt(comision, false)}</span>
 
-            <span className="text-tabla text-cuerpo">Premio pagado</span>
+            <span className="text-tabla text-cuerpo">
+              Premio pagado{" "}
+              <span className="text-label text-mudo">
+                ({fmt(nPremiado, false)} × {factor.toFixed(0)})
+              </span>
+            </span>
             <span className="text-tabla text-right font-medium">{fmt(nPremios, false)}</span>
 
             <span className="text-eyebrow font-semibold tracking-seccion text-secundario border-t border-riel pt-2">
@@ -218,10 +297,12 @@ export function CapturaTotales({
         )}
 
         <div className="flex items-center gap-[10px] flex-wrap">
-          <span className="text-meta text-secundario">
-            {jornada(sorteo.hora)} · {hora12(sorteo.hora)}
-            {sorteo.estado !== "abierto" && ` · sorteo ${sorteo.estado}`}
-          </span>
+          {sorteo.estado === "liquidado" && (
+            <span className="text-meta text-ambar-texto">
+              Ese sorteo ya está liquidado: la captura se sumará y su liquidación se rehará en el
+              acto.
+            </span>
+          )}
           <Boton onClick={registrar} disabled={!listo || enviando} className="ml-auto">
             {enviando ? "Registrando…" : "Registrar"}
           </Boton>

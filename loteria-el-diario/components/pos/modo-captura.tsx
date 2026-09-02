@@ -22,18 +22,32 @@ export function ModoCaptura({
   modo,
   sorteoId,
   capturas,
+  fecha,
 }: {
   modo: "detalle" | "totales";
   sorteoId: string;
   /** Cuántas capturas por totales vivas tiene este sorteo. */
   capturas: number;
+  /** El día que se está mirando. Sólo viaja en el modo por totales. */
+  fecha: string;
 }) {
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
 
   const ir = (m: "detalle" | "totales") => {
-    const p = new URLSearchParams({ sorteo: sorteoId });
-    if (m === "totales") p.set("modo", "totales");
+    const p = new URLSearchParams();
+    if (sorteoId) p.set("sorteo", sorteoId);
+    if (m === "totales") {
+      p.set("modo", "totales");
+      p.set("fecha", fecha);
+    } else {
+      p.delete("sorteo");
+    }
+    /*
+     * Al volver a la rejilla se suelta la fecha y el sorteo: la rejilla vende
+     * en vivo y sólo tiene sentido sobre los sorteos de hoy. Arrastrar ahí un
+     * sorteo de la semana pasada la dejaría pidiendo cupo de un día cerrado.
+     */
     iniciar(() => router.push(`/punto-de-venta?${p.toString()}`));
   };
 
