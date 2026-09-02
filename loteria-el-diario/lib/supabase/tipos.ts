@@ -884,6 +884,8 @@ export type Database = {
           r_ganador: number | null;
           r_tickets: number;
           r_venta: number;
+          /** Lo APOSTADO al número que salió; `r_premios` es lo que costó pagarlo. */
+          r_premiado: number;
           r_comision: number;
           r_premios: number;
           r_pagado: boolean;

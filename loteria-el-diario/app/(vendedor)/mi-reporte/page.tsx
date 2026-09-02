@@ -88,17 +88,19 @@ export default async function MiReportePage({ searchParams }: PageProps<"/mi-rep
     estado: f.r_estado,
     ganador: f.r_ganador,
     venta: Number(f.r_venta),
+    premiado: Number(f.r_premiado),
     comision: Number(f.r_comision),
     premios: Number(f.r_premios),
     pagado: f.r_pagado,
   }));
 
   return (
-    <div className="px-4 py-5 flex flex-col gap-4 max-w-[820px] mx-auto">
+    <div className="px-4 py-5 flex flex-col gap-4 max-w-[820px] lg:max-w-[1180px] mx-auto">
       <div>
         <h1 className="text-h1 font-semibold tracking-titular m-0">Liquidaciones e informes</h1>
         <p className="text-meta text-secundario mt-[5px] mb-0">
-          Día por día y lotería por lotería, lo que le corresponde.
+          Día por día y sorteo por sorteo, con las mismas columnas que mira la gerencia —pero
+          sólo con lo suyo.
         </p>
       </div>
 
