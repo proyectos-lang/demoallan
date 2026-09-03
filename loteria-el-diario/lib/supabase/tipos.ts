@@ -348,6 +348,41 @@ export type Database = {
         };
         Returns: { ticket_id: string; ticket_folio: string; ticket_total: number }[];
       };
+      // --- Ventas futuras (0060) ----------------------------------------
+      /** Los sorteos de un rango, existan o no. Los que faltan salen con r_id nulo. */
+      fn_sorteos_disponibles: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          r_id: string | null;
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo | null;
+          r_hora_cierre: string;
+          /** Si admite venta: o no existe aún, o está abierto y sin vencer. */
+          r_vendible: boolean;
+          r_existe: boolean;
+        }[];
+      };
+      /** Venta a otra fecha. Crea el sorteo si hace falta y registra igual. */
+      fn_registrar_venta_futura: {
+        Args: {
+          p_fecha: string;
+          p_hora: HoraSorteo;
+          p_vendedor_id: string;
+          p_tickets: { numero: number; monto: number }[][];
+          p_lat?: number | null;
+          p_lng?: number | null;
+          p_usuario_id?: string | null;
+          p_envio_id?: string | null;
+        };
+        Returns: {
+          r_folio: string;
+          r_total: number;
+          r_creado_en: string;
+          r_repetido: boolean;
+        }[];
+      };
+
       fn_registrar_tanda: {
         Args: {
           p_sorteo_id: string;

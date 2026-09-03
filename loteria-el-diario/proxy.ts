@@ -34,28 +34,35 @@ function esPublica(ruta: string): boolean {
  */
 const SOLO_ADMINISTRADOR = ["/liquidacion"];
 
+/*
+ * Las pantallas del portal del vendedor.
+ *
+ * En UN sitio y no en dos: la lista se usa para decir qué ve el vendedor y qué
+ * NO ven los demás, y estaba escrita dos veces. Añadir una pantalla y
+ * olvidarse de la segunda copia produce un fallo mudo — la ruta existe,
+ * compila, y el proxy rebota al vendedor sin decir por qué. Pasó al añadir
+ * «Ventas futuras».
+ */
+const DEL_VENDEDOR = [
+  "/mi-venta",
+  "/mis-ventas-futuras",
+  "/mi-digitalizacion",
+  "/mi-dia",
+  "/mi-reporte",
+  "/mi-liquidacion",
+];
+
 /** Lo que puede tocar cada rol. Un vendedor sólo ve lo suyo. */
 function permitida(ruta: string, rol: string): boolean {
   if (rol === "vendedor") {
     return (
-      ruta.startsWith("/mi-venta") ||
-      ruta.startsWith("/mi-digitalizacion") ||
-      ruta.startsWith("/mi-dia") ||
-      ruta.startsWith("/mi-reporte") ||
-      ruta.startsWith("/mi-liquidacion") ||
-      ruta.startsWith("/clave")
+      DEL_VENDEDOR.some((r) => ruta.startsWith(r)) || ruta.startsWith("/clave")
     );
   }
 
   // El resto de perfiles no entra en las pantallas del vendedor, que están
   // atadas a un vendedor concreto y para ellos no significan nada.
-  if (
-    ruta.startsWith("/mi-venta") ||
-    ruta.startsWith("/mi-digitalizacion") ||
-    ruta.startsWith("/mi-dia") ||
-    ruta.startsWith("/mi-reporte") ||
-    ruta.startsWith("/mi-liquidacion")
-  ) {
+  if (DEL_VENDEDOR.some((r) => ruta.startsWith(r))) {
     return false;
   }
 

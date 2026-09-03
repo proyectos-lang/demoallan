@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  CalendarPlus,
   FileText,
   KeyRound,
   Menu,
@@ -31,6 +32,12 @@ const MODULOS: Modulo[] = [
     etiqueta: "Vender",
     detalle: "Registrar tickets del sorteo abierto",
     Icono: Smartphone,
+  },
+  {
+    href: "/mis-ventas-futuras",
+    etiqueta: "Ventas futuras",
+    detalle: "Apuestas para sorteos de más tarde o de otro día",
+    Icono: CalendarPlus,
   },
   {
     href: "/mi-digitalizacion",

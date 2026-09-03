@@ -175,6 +175,98 @@ export async function registrarVenta(
   };
 }
 
+
+/**
+ * Venta a un sorteo de otra fecha, o de más tarde del mismo día.
+ *
+ * Se manda FECHA y FRANJA en vez del identificador del sorteo, porque el
+ * sorteo puede no existir todavía: `fn_registrar_venta_futura` lo crea con su
+ * cupo en ese momento. Sólo existen los días que alguien usa, y así el resto
+ * del sistema sigue distinguiendo cuál es el sorteo de ahora.
+ *
+ * Las guardas son las mismas que la venta normal, y por la misma razón: el
+ * vendedor que llega aquí vende SIEMPRE como él mismo, se mande lo que se
+ * mande desde el navegador.
+ *
+ * Lo que NO se hereda es `p_forzar`: una venta futura nunca levanta el corte
+ * de hora. Si el sorteo elegido ya cerró, se rechaza igual que cualquier venta
+ * tardía —forzar es una decisión de administración, y esta puerta la usa el
+ * vendedor—.
+ */
+export async function registrarVentaFutura(
+  fecha: string,
+  hora: string,
+  vendedorId: string,
+  tickets: LineaVenta[][],
+  coordenada?: { lat: number; lng: number },
+  envioId?: string,
+): Promise<ResultadoVenta> {
+  const conLineas = tickets.filter((t) => t.length > 0);
+
+  if (conLineas.length === 0) {
+    return { ok: false, mensaje: "No hay ningún ticket con líneas." };
+  }
+  if (conLineas.length > MAX_TICKETS) {
+    return {
+      ok: false,
+      mensaje: `Una tanda no puede llevar más de ${MAX_TICKETS} tickets.`,
+    };
+  }
+
+  const sesion = await sesionVigente();
+  if (!sesion) {
+    return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  }
+
+  let vendedorEfectivo = vendedorId;
+
+  if (sesion.rol === "vendedor") {
+    if (!sesion.vendedor_id) {
+      return { ok: false, mensaje: "Su cuenta no está enlazada a ningún vendedor." };
+    }
+    vendedorEfectivo = sesion.vendedor_id;
+  } else if (sesion.rol !== "administrador" && sesion.rol !== "digitador") {
+    return { ok: false, mensaje: "Su perfil no puede registrar ventas." };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  const { data, error } = await supabase.rpc("fn_registrar_venta_futura", {
+    p_fecha: fecha,
+    p_hora: hora as "11:00" | "15:00" | "21:00",
+    p_vendedor_id: vendedorEfectivo,
+    p_tickets: conLineas,
+    p_lat: coordenada?.lat ?? null,
+    p_lng: coordenada?.lng ?? null,
+    p_usuario_id: sesion.id,
+    p_envio_id: envioId ?? null,
+  });
+
+  if (error) {
+    return { ok: false, mensaje: error.message };
+  }
+
+  const filas = data ?? [];
+  if (filas.length === 0) {
+    return { ok: false, mensaje: "La venta no devolvió folio." };
+  }
+
+  revalidatePath("/mis-ventas-futuras");
+  revalidatePath("/mi-dia");
+  revalidatePath("/mi-reporte");
+
+  return {
+    ok: true,
+    tickets: filas.map((f, i) => ({
+      folio: f.r_folio,
+      total: Number(f.r_total),
+      creadoEn: f.r_creado_en,
+      lineas: conLineas[i] ?? [],
+    })),
+    total: filas.reduce((a, f) => a + Number(f.r_total), 0),
+  };
+}
+
 export type ResultadoTotales =
   | { ok: true; comision: number; saldo: number; mensaje: string }
   | { ok: false; mensaje: string };

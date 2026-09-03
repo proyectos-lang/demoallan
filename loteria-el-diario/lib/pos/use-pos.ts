@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   registrarVenta,
+  registrarVentaFutura,
   type LineaVenta,
   type TicketRegistrado,
 } from "@/app/(admin)/punto-de-venta/acciones";
@@ -43,6 +44,15 @@ export type DatosPos = {
   disponibleCasa: number[];
   /** Por vendedor y número: lo que ese vendedor ya vendió. */
   vendidoPropio: Record<string, number[]>;
+  /**
+   * Venta a un sorteo de otra fecha.
+   *
+   * Cuando viene, la venta se manda por FECHA y FRANJA en vez de por el
+   * identificador del sorteo: ese sorteo puede no existir todavía y la base lo
+   * crea al registrar. Es lo único que distingue una venta futura de una
+   * normal — todo lo demás, incluida esta pantalla, es idéntico.
+   */
+  futura?: { fecha: string; hora: string };
   /**
    * Modo del propio vendedor: el selector desaparece porque el vendedor sale
    * de la sesión, no de una lista. Quién vende de verdad lo decide el servidor
@@ -563,9 +573,16 @@ export function usePos(datos: DatosPos) {
     const enviar = (coord?: { lat: number; lng: number }) =>
       iniciar(async () => {
         try {
-          const r = await registrarVenta(
-            datos.sorteo.id, vendedor.id, tickets, coord, envio.current ?? undefined,
-          );
+          // Dos puertas para la misma venta: la futura manda fecha y franja
+          // porque el sorteo puede no existir todavía.
+          const r = datos.futura
+            ? await registrarVentaFutura(
+                datos.futura.fecha, datos.futura.hora, vendedor.id, tickets,
+                coord, envio.current ?? undefined,
+              )
+            : await registrarVenta(
+                datos.sorteo.id, vendedor.id, tickets, coord, envio.current ?? undefined,
+              );
           if (!r.ok) return setErrorVenta(r.mensaje);
           // La venta entró: la marca ya cumplió y la siguiente necesita otra.
           envio.current = null;
