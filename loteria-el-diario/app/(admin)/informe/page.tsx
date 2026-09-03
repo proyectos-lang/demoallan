@@ -1,6 +1,7 @@
 import { Pestanas, type Vista } from "@/components/informe/pestanas";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 
+import { VistaDetalle } from "./vista-detalle";
 import { VistaDiaria } from "./vista-diaria";
 import { VistaFinanciera } from "./vista-financiera";
 import { VistaSemanal } from "./vista-semanal";
@@ -8,11 +9,13 @@ import { VistaVendedor } from "./vista-vendedor";
 
 export const dynamic = "force-dynamic";
 
-const VISTAS: Vista[] = ["diaria", "semanal", "vendedor", "financiera"];
+const VISTAS: Vista[] = ["diaria", "detalle", "semanal", "vendedor", "financiera"];
 
 const SUBTITULO: Record<Vista, string> = {
   diaria:
     "Un día y un sorteo, vendedor por vendedor: venta, lo apostado al número que salió, lo que costó pagarlo, la comisión y lo que queda.",
+  detalle:
+    "Cada venta, una a una: el folio, la hora, los números jugados y lo que se pagó. Elija un día y los vendedores que quiera comparar.",
   semanal:
     "Los cinco números de la semana y el padrón con los parámetros con los que se jugó. Las semanas de la izquierda son todas las que tienen movimiento liquidado.",
   vendedor:
@@ -24,7 +27,7 @@ const SUBTITULO: Record<Vista, string> = {
 /**
  * Informe de gerencia.
  *
- * Cuatro informes distintos bajo el mismo techo, porque los cuatro contestan a
+ * Cinco informes distintos bajo el mismo techo, porque los cuatro contestan a
  * la misma persona y sobre los mismos datos, sólo que cortados de otra manera:
  * un día, una semana, un vendedor, o toda la operación de una vez.
  *
@@ -50,6 +53,7 @@ export default async function InformePage({ searchParams }: PageProps<"/informe"
         <Pestanas vista={vista} />
 
         {vista === "diaria" && <VistaDiaria params={params} />}
+        {vista === "detalle" && <VistaDetalle params={params} />}
         {vista === "semanal" && <VistaSemanal semanaPedida={texto("semana")} />}
         {vista === "vendedor" && <VistaVendedor vendedorPedido={texto("vendedor")} />}
         {vista === "financiera" && <VistaFinanciera />}

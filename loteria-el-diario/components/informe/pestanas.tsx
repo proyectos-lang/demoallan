@@ -5,17 +5,18 @@ import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type Vista = "diaria" | "semanal" | "vendedor" | "financiera";
+export type Vista = "diaria" | "detalle" | "semanal" | "vendedor" | "financiera";
 
 const VISTAS: { id: Vista; etiqueta: string }[] = [
   { id: "diaria", etiqueta: "Captura diaria" },
+  { id: "detalle", etiqueta: "Detalle de venta" },
   { id: "semanal", etiqueta: "Resumen semanal" },
   { id: "vendedor", etiqueta: "Análisis de vendedores" },
   { id: "financiera", etiqueta: "Análisis financiero" },
 ];
 
 /**
- * Las cuatro pestañas del informe de gerencia.
+ * Las cinco pestañas del informe de gerencia.
  *
  * La pestaña vive en la dirección y no en el estado del componente: así una
  * vista concreta se puede compartir por chat, que es como circula esto entre

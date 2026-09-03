@@ -927,6 +927,43 @@ export type Database = {
 
       // --- Informe de gerencia (0036) -----------------------------------
       /** Una fila por vendedor, con el desglose de la hoja del gerente. */
+      // --- Detalle de venta (0057) --------------------------------------
+      /** Una fila por TICKET con su jugada agregada, para varios vendedores. */
+      fn_detalle_venta: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          /** Nulo = todos los vendedores. */
+          p_vendedores?: string[] | null;
+          p_hora?: HoraSorteo | null;
+          p_incluir_anulados?: boolean;
+          p_limite?: number;
+        };
+        Returns: {
+          r_ticket_id: string;
+          r_folio: string;
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo;
+          r_numero_ganador: number | null;
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_vendedor: string;
+          r_creado_en: string;
+          r_lineas: number;
+          r_total: number;
+          r_premio: number;
+          /** «05:10  47:20  99:5», como en el papel del cliente. */
+          r_jugada: string;
+          r_anulado: boolean;
+          r_motivo: string | null;
+          /** La jugada ya apareció antes en el mismo vendedor y sorteo. */
+          r_repetido: boolean;
+          /** Segundos tras el ticket gemelo anterior; nulo si es el primero. */
+          r_segundos: number | null;
+        }[];
+      };
+
       fn_informe_gerencia: {
         /** `p_hora` en nulo suma las tres loterías. */
         Args: { p_desde: string; p_hasta: string; p_hora?: HoraSorteo | null };
