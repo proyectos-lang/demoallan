@@ -108,7 +108,7 @@ export async function registrarVenta(
 
   const supabase = await crearClienteServidor();
 
-  const { data, error } = await supabase.rpc("fn_registrar_tanda", {
+  const argumentos = {
     p_sorteo_id: sorteoId,
     p_vendedor_id: vendedorEfectivo,
     p_tickets: conLineas,
@@ -116,8 +116,34 @@ export async function registrarVenta(
     p_lng: coordenada?.lng ?? null,
     p_forzar: sesion.rol === "administrador",
     p_usuario_id: sesion.id,
+  };
+
+  let { data, error } = await supabase.rpc("fn_registrar_tanda", {
+    ...argumentos,
     p_envio_id: envioId ?? null,
   });
+
+  /*
+   * LA VENTA NO PUEDE CAERSE PORQUE FALTE UNA MIGRACIÓN.
+   *
+   * PostgREST resuelve la función por su lista EXACTA de parámetros: si la
+   * base todavía no tiene la 0056, `p_envio_id` no existe en ninguna firma y
+   * devuelve PGRST202 —«no se pudo encontrar la función»—, no un error de
+   * parámetro. La venta se cae entera.
+   *
+   * Ya ocurrió: se publicó el código antes de aplicar la migración y el
+   * vendedor no pudo registrar hasta que se aplicó. El despliegue de la
+   * aplicación y el de la base son dos gestos distintos y no hay forma de
+   * garantizar que lleguen a la vez, así que el código tiene que aguantar el
+   * intervalo.
+   *
+   * Aquí se reintenta sin la marca. Se pierde la protección contra duplicados
+   * durante ese rato —que es lo que había ayer— pero se sigue vendiendo, que
+   * es lo que no puede fallar.
+   */
+  if (error?.code === "PGRST202") {
+    ({ data, error } = await supabase.rpc("fn_registrar_tanda", argumentos));
+  }
 
   if (error) {
     return { ok: false, mensaje: error.message };
