@@ -117,7 +117,7 @@ export function ModalNuevoVendedor({
           />
         </CampoModal>
 
-        <CampoModal etiqueta="Teléfono">
+        <CampoModal etiqueta="Teléfono (opcional)">
           <input
             value={form.telefono}
             onChange={(e) => set("telefono", e.target.value)}
@@ -126,7 +126,7 @@ export function ModalNuevoVendedor({
           />
         </CampoModal>
 
-        <CampoModal etiqueta="Identidad">
+        <CampoModal etiqueta="Identidad (opcional)">
           <input
             value={form.identidad}
             onChange={(e) => set("identidad", e.target.value)}
@@ -135,7 +135,7 @@ export function ModalNuevoVendedor({
           />
         </CampoModal>
 
-        <CampoModal etiqueta="Correo" anchoCompleto>
+        <CampoModal etiqueta="Correo (opcional)" anchoCompleto>
           <input
             value={form.correo}
             onChange={(e) => set("correo", e.target.value)}

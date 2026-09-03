@@ -126,11 +126,16 @@ async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   if (v.nombre.trim().length < 5) {
     return { ok: false, mensaje: "Escriba el nombre completo del vendedor." };
   }
-  if (!/^\d{4}-\d{4}$/.test(v.telefono.trim())) {
-    return { ok: false, mensaje: "Teléfono en formato 9999-9999." };
+  // Teléfono, correo e identidad son opcionales: muchos vendedores no tienen
+  // correo, y el teléfono no siempre se sabe al darlos de alta. Exigirlos sólo
+  // conseguía que quien registraba se inventara un dato para poder avanzar, y
+  // un dato inventado no se distingue de uno bueno. Lo que SÍ se escriba se
+  // sigue validando: lo opcional es dejarlo en blanco, no ponerlo mal.
+  if (v.telefono.trim() && !/^\d{4}-\d{4}$/.test(v.telefono.trim())) {
+    return { ok: false, mensaje: "Teléfono en formato 9999-9999, o déjelo en blanco." };
   }
-  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v.correo.trim())) {
-    return { ok: false, mensaje: "Correo electrónico no válido." };
+  if (v.correo.trim() && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v.correo.trim())) {
+    return { ok: false, mensaje: "Correo electrónico no válido, o déjelo en blanco." };
   }
   if (!(v.comision >= 0 && v.comision <= 60)) {
     return { ok: false, mensaje: "Comisión entre 0 y 60%." };
