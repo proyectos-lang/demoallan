@@ -358,9 +358,18 @@ export type Database = {
           p_lng?: number | null;
           p_forzar?: boolean;
           p_usuario_id?: string | null;
+          /** Marca del envío: la misma dos veces devuelve los folios ya
+           *  creados en vez de duplicar la venta. Ver la 0056. */
+          p_envio_id?: string | null;
         };
-        /** `r_creado_en` es la hora que quedó guardada: es la que se imprime. */
-        Returns: { r_folio: string; r_total: number; r_creado_en: string }[];
+        /** `r_creado_en` es la hora que quedó guardada: es la que se imprime.
+         *  `r_repetido` es true cuando el envío ya se había registrado. */
+        Returns: {
+          r_folio: string;
+          r_total: number;
+          r_creado_en: string;
+          r_repetido: boolean;
+        }[];
       };
       fn_reservar_cuota: {
         Args: {

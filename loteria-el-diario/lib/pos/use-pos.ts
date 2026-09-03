@@ -170,6 +170,23 @@ export function usePos(datos: DatosPos) {
   const [registrando, setRegistrando] = useState(false);
 
   /*
+   * LA MARCA DEL ENVÍO.
+   *
+   * Se genera una vez por venta y se conserva mientras esa venta esté en
+   * vuelo. Si la petición se reintenta —porque la red se cayó y la respuesta
+   * no llegó— viaja la MISMA marca, y la base reconoce que ya la registró:
+   * devuelve los folios que creó en lugar de crear otros.
+   *
+   * Se limpia al terminar, para que la siguiente venta tenga la suya. Sin eso
+   * la segunda venta del vendedor se confundiría con un reintento de la
+   * primera y no se registraría.
+   *
+   * `useRef` y no `useState`: hay que leerla y escribirla dentro del mismo
+   * gesto, y un `useState` no se ve actualizado hasta el siguiente render.
+   */
+  const envio = useRef<string | null>(null);
+
+  /*
    * LA UBICACIÓN SE PIDE DE ANTEMANO, NO AL CONFIRMAR.
    *
    * Antes `confirmar` llamaba a `getCurrentPosition` y no enviaba nada hasta
@@ -539,11 +556,19 @@ export function usePos(datos: DatosPos) {
     enCurso.current = true;
     setRegistrando(true);
 
+    // Si ya había una marca en vuelo, se reutiliza: esto es un reintento de la
+    // misma venta, no una venta nueva.
+    if (!envio.current) envio.current = crypto.randomUUID();
+
     const enviar = (coord?: { lat: number; lng: number }) =>
       iniciar(async () => {
         try {
-          const r = await registrarVenta(datos.sorteo.id, vendedor.id, tickets, coord);
+          const r = await registrarVenta(
+            datos.sorteo.id, vendedor.id, tickets, coord, envio.current ?? undefined,
+          );
           if (!r.ok) return setErrorVenta(r.mensaje);
+          // La venta entró: la marca ya cumplió y la siguiente necesita otra.
+          envio.current = null;
           setRecibo({ tickets: r.tickets, total: r.total });
           setTanda([]);
           setCarrito([]);

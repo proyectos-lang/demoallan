@@ -61,6 +61,17 @@ export async function registrarVenta(
   vendedorId: string,
   tickets: LineaVenta[][],
   coordenada?: { lat: number; lng: number },
+  /*
+   * LA MARCA DEL ENVÍO. La genera la pantalla al empezar a componer la venta,
+   * y viaja con ella. Si la misma marca llega dos veces —reintento de red,
+   * recarga, dos dispositivos— la base devuelve los folios ya creados en vez
+   * de registrar la venta otra vez.
+   *
+   * Que la genere el cliente no es un riesgo: identifica un envío, no autoriza
+   * nada. Lo peor que puede hacer alguien manipulándola es impedirse a sí
+   * mismo registrar una venta nueva.
+   */
+  envioId?: string,
 ): Promise<ResultadoVenta> {
   const conLineas = tickets.filter((t) => t.length > 0);
 
@@ -105,6 +116,7 @@ export async function registrarVenta(
     p_lng: coordenada?.lng ?? null,
     p_forzar: sesion.rol === "administrador",
     p_usuario_id: sesion.id,
+    p_envio_id: envioId ?? null,
   });
 
   if (error) {
