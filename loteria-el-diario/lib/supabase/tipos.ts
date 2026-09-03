@@ -925,16 +925,24 @@ export type Database = {
           r_vendedor_id: string;
           r_codigo: string;
           r_nombre: string;
+          /** Liquidada MÁS pendiente: la venta se conoce aunque no se liquide. */
           r_venta: number;
+          /** La parte de `r_venta` que viene de sorteos sin liquidar. */
+          r_venta_pendiente: number;
           /** Lo APOSTADO al número ganador, no lo pagado por él. */
           r_premiado: number;
           r_factor: number;
-          r_pago: number;
+          /** NULL mientras no haya nada liquidado: sin número ganador no se
+           *  sabe qué se pagó, y un 0 afirmaría que no se pagó nada. */
+          r_pago: number | null;
           /** Fracción: 0.20, no 20. */
           r_porcentaje: number;
           r_comision: number;
           r_bruto: number;
-          r_neto: number;
+          /** NULL mientras no haya nada liquidado. Ver `r_pago`. */
+          r_neto: number | null;
+          /** Si el día incluye sorteos todavía sin liquidar. */
+          r_tiene_pendiente: boolean;
         }[];
       };
 

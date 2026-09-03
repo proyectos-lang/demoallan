@@ -127,33 +127,54 @@ export async function VistaDiaria({
     p_hora: hora || null,
   });
 
+  /*
+   * `null` NO es `0`, y aquí la diferencia es la que importa.
+   *
+   * Premios y neto vienen en NULL cuando el sorteo todavía no se ha liquidado:
+   * sin número ganador no se sabe qué se pagó. `Number(null)` da 0, así que
+   * convertirlos sin mirar los pintaría como ceros —afirmando que no se pagó
+   * nada, que es falso— en vez de como «—», que dice la verdad.
+   *
+   * La venta y la comisión sí se conocen siempre: están en las líneas desde
+   * que se registró la venta, con la comisión congelada en cada una.
+   */
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
   const todas = (data ?? []).map((f) => ({
     id: f.r_vendedor_id,
     codigo: f.r_codigo,
     nombre: f.r_nombre,
     venta: Number(f.r_venta),
+    pendiente: Number(f.r_venta_pendiente ?? 0),
     premiado: Number(f.r_premiado),
     factor: Number(f.r_factor),
-    pago: Number(f.r_pago),
+    pago: num(f.r_pago),
     porcentaje: Number(f.r_porcentaje),
     comision: Number(f.r_comision),
     bruto: Number(f.r_bruto),
-    neto: Number(f.r_neto),
+    neto: num(f.r_neto),
+    sinLiquidar: Boolean(f.r_tiene_pendiente),
   }));
 
   const sinMovimiento = todas.filter((f) => f.venta === 0).length;
   const filas = soloConVenta ? todas.filter((f) => f.venta > 0) : todas;
 
+  // Los totales sólo suman lo que existe: una fila sin liquidar no aporta a
+  // premios ni a neto, y `hayNeto` recuerda si alguna aportó algo. Sin eso, un
+  // día entero sin liquidar daría un total de 0 indistinguible de un día
+  // liquidado que no dejó nada.
   const total = todas.reduce(
     (a, f) => ({
       venta: a.venta + f.venta,
+      pendiente: a.pendiente + f.pendiente,
       premiado: a.premiado + f.premiado,
-      pago: a.pago + f.pago,
+      pago: a.pago + (f.pago ?? 0),
       comision: a.comision + f.comision,
       bruto: a.bruto + f.bruto,
-      neto: a.neto + f.neto,
+      neto: a.neto + (f.neto ?? 0),
+      hayNeto: a.hayNeto || f.neto !== null,
     }),
-    { venta: 0, premiado: 0, pago: 0, comision: 0, bruto: 0, neto: 0 },
+    { venta: 0, pendiente: 0, premiado: 0, pago: 0, comision: 0, bruto: 0, neto: 0, hayNeto: false },
   );
 
   const pct = (v: number) => (total.venta ? `${((v / total.venta) * 100).toFixed(1)}% de la venta` : "—");
@@ -208,13 +229,19 @@ export async function VistaDiaria({
 
           <div className="flex gap-7 flex-wrap">
             <Cifra etiqueta="VENTA TOTAL" valor={fmt(total.venta)} />
-            <Cifra etiqueta="PAGO PREMIOS" valor={fmt(total.pago)} pie={pct(total.pago)} />
+            <Cifra
+              etiqueta="PAGO PREMIOS"
+              valor={total.hayNeto ? fmt(total.pago) : "—"}
+              pie={total.hayNeto ? pct(total.pago) : "sin liquidar"}
+            />
             <Cifra etiqueta="COMISIÓN" valor={fmt(total.comision)} pie={pct(total.comision)} />
             <Cifra
               etiqueta="TOTAL NETO"
-              valor={fmt(total.neto)}
-              pie={pct(total.neto)}
-              color={total.neto < 0 ? "text-negativo" : "text-positivo"}
+              valor={total.hayNeto ? fmt(total.neto) : "—"}
+              pie={total.hayNeto ? pct(total.neto) : "falta el número ganador"}
+              color={
+                !total.hayNeto ? "text-mudo" : total.neto < 0 ? "text-negativo" : "text-positivo"
+              }
             />
           </div>
         </div>
@@ -277,7 +304,7 @@ export async function VistaDiaria({
                   <th className="border-b border-riel" />
                   <th className="border-b border-riel" />
                   <th className="text-right px-3 py-[11px] border-b border-riel text-h2 font-semibold">
-                    {fmt(total.pago, false)}
+                    {total.hayNeto ? fmt(total.pago, false) : "—"}
                   </th>
                   <th className="text-right px-3 py-[11px] border-b border-riel text-h2 font-semibold">
                     {fmt(total.comision, false)}
@@ -288,10 +315,10 @@ export async function VistaDiaria({
                   <th
                     className={cn(
                       "text-right pl-3 pr-4 py-[11px] border-b border-riel text-h2 font-semibold",
-                      total.neto < 0 && "text-negativo",
+                      total.hayNeto && total.neto < 0 && "text-negativo",
                     )}
                   >
-                    {fmt(total.neto, false)}
+                    {total.hayNeto ? fmt(total.neto, false) : "—"}
                   </th>
                 </tr>
 
@@ -342,7 +369,7 @@ export async function VistaDiaria({
                       {(f.porcentaje * 100).toFixed(2)}%
                     </td>
                     <td className="border-b border-fondo py-[10px] px-3 text-right text-cuerpo">
-                      {fmt(f.pago, false)}
+                      {f.pago === null ? <span className="text-mudo">—</span> : fmt(f.pago, false)}
                     </td>
                     <td className="border-b border-fondo py-[10px] px-3 text-right text-cuerpo">
                       {fmt(f.comision, false)}
@@ -358,10 +385,12 @@ export async function VistaDiaria({
                     <td
                       className={cn(
                         "border-b border-fondo py-[10px] pl-3 pr-4 text-right font-semibold",
-                        f.neto < 0 ? "text-negativo" : "text-tinta",
+                        f.neto === null ? "text-mudo" : f.neto < 0 ? "text-negativo" : "text-tinta",
                       )}
                     >
-                      {fmt(f.neto, false)}
+                      {/* Sin liquidar no hay neto: «—» y no un cero, que se
+                          leería como «no dejó nada» en vez de «aún no se sabe». */}
+                      {f.neto === null ? "—" : fmt(f.neto, false)}
                     </td>
                   </tr>
                 ))}
