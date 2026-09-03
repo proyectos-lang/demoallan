@@ -3,23 +3,74 @@ import {
   type ResultadoHistorico,
   type SorteoCaptura,
 } from "@/components/resultados/captura-resultado";
+import {
+  SelectorSorteo,
+  type OpcionSorteo,
+} from "@/components/resultados/selector-sorteo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaLargaSinDia, horaHonduras12, mesNombre } from "@/lib/format";
+import { fechaHonduras, fechaLargaSinDia, horaHonduras12, mesNombre } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-export default async function ResultadosPage() {
+export default async function ResultadosPage({
+  searchParams,
+}: PageProps<"/resultados">) {
   const supabase = await crearClienteServidor();
 
-  // El sorteo a capturar: el cerrado más antiguo sin liquidar.
-  const { data: cerrado } = await supabase
+  /*
+   * LA PANTALLA SE PLANTA EN EL DÍA DE HOY.
+   *
+   * Antes elegía sola el sorteo cerrado más antiguo del histórico y no ofrecía
+   * alternativa. Con tres sorteos al día eso obliga a liquidar el de la mañana
+   * para poder tocar el de la tarde, y si quedó uno sin capturar hace semanas,
+   * la pantalla se quedaba anclada allí sin manera de avanzar.
+   *
+   * `fechaHonduras()` y no `new Date()` del servidor: en producción el
+   * servidor corre en UTC, y entre las 18:00 y la medianoche de Honduras ya es
+   * el día siguiente en UTC. Con la fecha del servidor, la pantalla saltaría
+   * al día que viene justo durante el sorteo de la noche.
+   */
+  const hoy = fechaHonduras();
+
+  const { data: sorteosHoy } = await supabase
     .from("sorteo")
-    .select("id, fecha, hora, estado, hora_cierre")
-    .eq("estado", "cerrado")
-    .order("fecha")
-    .order("hora")
-    .limit(1)
-    .maybeSingle();
+    .select("id, fecha, hora, estado, hora_cierre, numero_ganador")
+    .eq("fecha", hoy)
+    .order("hora");
+
+  const opciones: OpcionSorteo[] = (sorteosHoy ?? []).map((s) => ({
+    id: s.id,
+    hora: s.hora,
+    estado: s.estado as OpcionSorteo["estado"],
+    numero: s.numero_ganador,
+  }));
+
+  // El elegido a mano manda; si no, el primero que se pueda capturar de hoy.
+  // Se comprueba que el id pedido sea de HOY: sin eso, un id cualquiera en la
+  // URL sacaría la pantalla del día en curso sin que el selector lo reflejara.
+  const params = await searchParams;
+  const pedido = typeof params.sorteo === "string" ? params.sorteo : null;
+  const deHoy = (sorteosHoy ?? []).find((s) => s.id === pedido);
+
+  const capturable = (sorteosHoy ?? []).filter((s) => s.estado !== "liquidado");
+  const elegidoHoy =
+    deHoy ??
+    capturable.find((s) => s.estado === "cerrado") ??
+    capturable[0] ??
+    null;
+
+  // Fuera de hoy, el rezagado: un sorteo cerrado de días pasados sin capturar
+  // no debe quedar escondido sólo porque hoy no haya nada pendiente.
+  const { data: cerrado } = elegidoHoy
+    ? { data: null }
+    : await supabase
+        .from("sorteo")
+        .select("id, fecha, hora, estado, hora_cierre")
+        .eq("estado", "cerrado")
+        .order("fecha")
+        .order("hora")
+        .limit(1)
+        .maybeSingle();
 
   // Si no hay ninguno cerrado, se ofrece el abierto que cierra antes.
   //
@@ -33,7 +84,7 @@ export default async function ResultadosPage() {
   // Cerrar la venta antes de hora es una decisión de administración legítima
   // —el prototipo ya tenía ese botón— y la pantalla explica qué implica: una
   // vez cerrado no entra ningún ticket más.
-  const { data: porCerrar } = cerrado
+  const { data: porCerrar } = elegidoHoy || cerrado
     ? { data: null }
     : await supabase
         .from("sorteo")
@@ -43,7 +94,7 @@ export default async function ResultadosPage() {
         .limit(1)
         .maybeSingle();
 
-  const objetivo = cerrado ?? porCerrar;
+  const objetivo = elegidoHoy ?? cerrado ?? porCerrar;
   // Si su venta sigue vigente, cerrarla es adelantarse, y eso hay que decirlo.
   const ventaVigente =
     !!objetivo &&
@@ -84,9 +135,13 @@ export default async function ResultadosPage() {
           titulo="Sorteos y resultados"
           subtitulo="Captura del número ganador con revisión de impacto y doble digitación."
         />
+        {opciones.length > 0 && (
+          <SelectorSorteo sorteos={opciones} elegido="" />
+        )}
         <TarjetaNota>
-          No hay ningún sorteo pendiente de captura. Aparecerá aquí en cuanto se cierre la venta
-          de alguno.
+          {opciones.length > 0
+            ? "Los sorteos de hoy ya tienen su número capturado."
+            : "No hay ningún sorteo pendiente de captura. Aparecerá aquí en cuanto se cierre la venta de alguno."}
         </TarjetaNota>
       </Pagina>
     );
@@ -117,6 +172,11 @@ export default async function ResultadosPage() {
         titulo="Sorteos y resultados"
         subtitulo="Captura del número ganador con revisión de impacto y doble digitación."
       />
+      {/* Sólo si el objetivo es de hoy: con un rezagado de otro día, un
+          selector rotulado «Sorteo de hoy» señalaría a otra cosa. */}
+      {opciones.length > 0 && objetivo.id === elegidoHoy?.id && (
+        <SelectorSorteo sorteos={opciones} elegido={objetivo.id} />
+      )}
       <CapturaResultado sorteo={sorteo} historicos={historicos} />
     </Pagina>
   );
