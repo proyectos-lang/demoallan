@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   registrarVenta,
@@ -151,6 +151,23 @@ export function usePos(datos: DatosPos) {
   );
   const [errorVenta, setErrorVenta] = useState("");
   const [enviando, iniciar] = useTransition();
+  /*
+   * BLOQUEO DESDE EL PRIMER TOQUE.
+   *
+   * `enviando` de `useTransition` no basta: sólo se pone en `true` cuando la
+   * transición ARRANCA, y `confirmar` no arranca nada hasta que el GPS
+   * contesta —hasta cuatro segundos en un teléfono—. En esa ventana el botón
+   * seguía habilitado y la pantalla no daba señal de estar haciendo nada, así
+   * que quien atiende volvía a pulsar: dos peticiones de ubicación, dos ventas
+   * idénticas registradas.
+   *
+   * Esta bandera sube en el primer toque, antes de tocar el GPS, y baja
+   * cuando la venta termina —bien o mal—. `useRef` y no `useState` porque hay
+   * que leerla en el mismo gesto en que se escribe: un `useState` no se ve
+   * actualizado hasta el siguiente render, que es tarde.
+   */
+  const enCurso = useRef(false);
+  const [registrando, setRegistrando] = useState(false);
 
   /*
    * La impresión vive AQUÍ y no en el recibo.
@@ -468,6 +485,9 @@ export function usePos(datos: DatosPos) {
    */
   const confirmar = () => {
     if (!vendedor) return;
+    // El portazo. Un segundo toque mientras la primera venta está en vuelo no
+    // hace nada, en vez de registrarla otra vez.
+    if (enCurso.current) return;
 
     const tickets = [
       ...tanda.map((t) => t.lineas),
@@ -476,15 +496,31 @@ export function usePos(datos: DatosPos) {
     if (!tickets.length) return;
 
     setErrorVenta("");
+    enCurso.current = true;
+    setRegistrando(true);
 
     const enviar = (coord?: { lat: number; lng: number }) =>
       iniciar(async () => {
-        const r = await registrarVenta(datos.sorteo.id, vendedor.id, tickets, coord);
-        if (!r.ok) return setErrorVenta(r.mensaje);
-        setRecibo({ tickets: r.tickets, total: r.total });
-        setTanda([]);
-        setCarrito([]);
-        limpiarEntrada();
+        try {
+          const r = await registrarVenta(datos.sorteo.id, vendedor.id, tickets, coord);
+          if (!r.ok) return setErrorVenta(r.mensaje);
+          setRecibo({ tickets: r.tickets, total: r.total });
+          setTanda([]);
+          setCarrito([]);
+          limpiarEntrada();
+        } catch (e) {
+          // Sin esto, un fallo de red dejaría el botón bloqueado para siempre
+          // y la única salida sería recargar la página.
+          setErrorVenta(
+            e instanceof Error ? e.message : "No se pudo registrar la venta.",
+          );
+        } finally {
+          // Se libera pase lo que pase: con la venta hecha, con error, o si el
+          // servidor no contestó. Un bloqueo permanente sería peor que el
+          // duplicado que se está evitando.
+          enCurso.current = false;
+          setRegistrando(false);
+        }
       });
 
     // La coordenada es dato operativo, no un requisito: si el vendedor no da
@@ -528,7 +564,7 @@ export function usePos(datos: DatosPos) {
     ahora,
     montado,
     montoAbierto,
-    enviando,
+    enviando: enviando || registrando,
 
     // derivados
     seleccion,
