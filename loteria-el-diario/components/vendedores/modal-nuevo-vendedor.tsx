@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 
 import { Boton } from "@/components/ui/boton";
 import { CampoModal, CLASE_CONTROL_MODAL, Modal } from "@/components/ui/modal";
-import { crearVendedor, type Ciudad } from "@/app/(admin)/vendedores/acciones";
+import { crearVendedor } from "@/app/(admin)/vendedores/acciones";
+import { type Ciudad } from "@/lib/ciudades";
 
 const CIUDADES: Ciudad[] = ["San Pedro Sula", "Choloma", "Villanueva", "La Lima"];
 

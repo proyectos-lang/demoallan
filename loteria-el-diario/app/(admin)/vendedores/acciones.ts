@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { crearClienteServidor } from "@/lib/supabase/server";
 import { crearClienteServicio } from "@/lib/supabase/admin";
 import { generarContrasena } from "@/lib/clave";
+import { CIUDADES, type Ciudad } from "@/lib/ciudades";
 
 export type Cambio = {
   vendedor_id: string;
@@ -80,15 +81,6 @@ export async function guardarParametros(cambios: Cambio[]): Promise<Resultado> {
   };
 }
 
-/** Ciudades del departamento con su coordenada de referencia. */
-export const CIUDADES = {
-  "San Pedro Sula": { lat: 15.5045, lng: -88.025 },
-  Choloma: { lat: 15.6136, lng: -87.9525 },
-  Villanueva: { lat: 15.3167, lng: -88.0 },
-  "La Lima": { lat: 15.4386, lng: -87.9161 },
-} as const;
-
-export type Ciudad = keyof typeof CIUDADES;
 
 /** Colores para los vendedores nuevos, distintos de los cinco de arranque. */
 const PALETA = ["#d97706", "#4f46e5", "#0d9488", "#be185d", "#65a30d"];
