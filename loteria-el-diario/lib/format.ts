@@ -15,15 +15,28 @@ export function fmt(n: number, conPrefijo = true): string {
   return (n < 0 ? MENOS : "") + (conPrefijo ? `L ${s}` : s);
 }
 
-/** Escala corta para KPIs: `≥1M` → `L 9.36M`, `≥1k` → `L 253.1k`, si no entero. */
+/*
+   El importe COMPLETO, con separador de millares: `L 9,360,000`.
+
+   Antes abreviaba —`L 9.36M`, `L 253.1k`— y eso tiene dos problemas en una
+   pantalla que se mira para decidir:
+
+     · Obliga a traducir de cabeza. Nadie cobra ni paga en «kas»; el gerente
+       que compara dos cifras acaba haciendo la cuenta mentalmente, y ahí es
+       donde se equivoca.
+
+     · REDONDEA, y el redondeo esconde dinero. `L 253.1k` es cualquier valor
+       entre 253.050 y 253.149: cien lempiras de diferencia que alguien tiene
+       que cuadrar al final de la semana. Con `L 253,087` no hay nada que
+       adivinar.
+
+   Se conserva el nombre `fmtK` porque lo llaman nueve pantallas y renombrarlo
+   sería un cambio ruidoso sin ganancia; lo que cambia es lo que devuelve.
+   Redondea al lempira, como `fmt`: los céntimos en un total de tablero son
+   ruido, y la liquidación —que sí los necesita— usa otro camino.
+*/
 export function fmtK(n: number): string {
-  const a = Math.abs(n);
-  const s =
-    a >= 1_000_000
-      ? `${(a / 1_000_000).toFixed(2)}M`
-      : a >= 1_000
-        ? `${(a / 1_000).toFixed(1)}k`
-        : Math.round(a).toString();
+  const s = Math.round(Math.abs(n)).toLocaleString("en-US");
   return (n < 0 ? `${MENOS}L ` : "L ") + s;
 }
 
