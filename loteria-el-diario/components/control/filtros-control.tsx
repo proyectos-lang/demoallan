@@ -173,7 +173,7 @@ export function FiltrosControl({
               { v: "", e: "Todos" },
               { v: "11:00", e: hora12("11:00") },
               { v: "15:00", e: hora12("15:00") },
-              { v: "20:00", e: hora12("20:00") },
+              { v: "21:00", e: hora12("21:00") },
             ].map((o) => (
               <button
                 key={o.v || "todos"}

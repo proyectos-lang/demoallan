@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlignLeft } from "lucide-react";
 
-import { fechaHonduras, fechaLarga, iso, pad2 } from "@/lib/format";
+import { SORTEOS, fechaHonduras, fechaLarga, iso, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-const HORAS = ["11:00", "15:00", "20:00"] as const;
+const HORAS = SORTEOS;
 
 /**
  * Los resultados de un día no cambian una vez liquidados, pero el día en curso

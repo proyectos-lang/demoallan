@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { hora12 } from "@/lib/format";
+import { SORTEOS, hora12 } from "@/lib/format";
 
 export type Grano = "sorteo" | "dia" | "semana" | "mes" | "anio";
 export type OpcionVendedor = { id: string; codigo: string; nombre: string };
@@ -20,7 +20,7 @@ const GRANOS: { id: Grano; etiqueta: string }[] = [
   { id: "anio", etiqueta: "Año a año" },
 ];
 
-const LOTERIAS = ["11:00", "15:00", "20:00"];
+const LOTERIAS = SORTEOS;
 
 const CLASE_CONTROL =
   "px-3 py-[9px] border border-borde-campo rounded-campo text-base outline-none bg-superficie text-tinta";

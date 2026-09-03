@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { hora12, jornada } from "@/lib/format";
+import { SORTEOS, hora12, jornada } from "@/lib/format";
 
 export type SorteoDelDia = {
   hora: string;
@@ -14,7 +14,7 @@ export type SorteoDelDia = {
 };
 
 
-const HORAS = ["11:00", "15:00", "20:00"];
+const HORAS = SORTEOS;
 
 function ruta(dia: string, hora: string, sinMovimiento: boolean): string {
   const p = new URLSearchParams({ vista: "diaria", dia });

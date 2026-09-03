@@ -19,7 +19,7 @@ type Insertable<Fila, Auto extends keyof Fila> = Omit<Fila, Auto> &
 
 export type RolUsuario = "vendedor" | "digitador" | "administrador" | "auditor";
 export type EstadoSorteo = "programado" | "abierto" | "cerrado" | "liquidado";
-export type HoraSorteo = "11:00" | "15:00" | "20:00";
+export type HoraSorteo = "11:00" | "15:00" | "21:00";
 export type CanalTicket = "movil" | "ocr";
 export type EstadoLote =
   | "cargado"

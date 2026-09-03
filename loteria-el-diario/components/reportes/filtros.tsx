@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { hora12 } from "@/lib/format";
+import { SORTEOS, hora12 } from "@/lib/format";
 
 export type OpcionVendedor = { id: string; nombre: string; codigo: string };
 
@@ -113,7 +113,7 @@ export function FiltrosReporte({
           >
             <option value="">Todos</option>
             {/* El value sigue siendo la etiqueta del enum: sólo cambia lo que se lee. */}
-            {["11:00", "15:00", "20:00"].map((h) => (
+            {SORTEOS.map((h) => (
               <option key={h} value={h}>
                 {hora12(h)}
               </option>

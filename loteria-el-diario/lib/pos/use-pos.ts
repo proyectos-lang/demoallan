@@ -15,7 +15,7 @@ export type SorteoPos = {
   id: string;
   /** `YYYY-MM-DD`. Va impresa en el ticket, junto a la hora del sorteo. */
   fecha: string;
-  /** Etiqueta del enum: `"11:00"`, `"15:00"`, `"20:00"`. No es un instante. */
+  /** Etiqueta del enum: `"11:00"`, `"15:00"`, `"21:00"`. No es un instante. */
   hora: string;
   hora_cierre: string;
   estado: EstadoSorteoPos;

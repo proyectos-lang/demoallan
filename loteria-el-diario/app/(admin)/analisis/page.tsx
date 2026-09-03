@@ -8,7 +8,7 @@ import { TarjetaPeriodo } from "@/components/analisis/tarjeta-periodo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre } from "@/lib/format";
+import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -128,7 +128,7 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
   const grano: Grano = GRANOS.includes(granoPedido as Grano) ? (granoPedido as Grano) : "mes";
 
   const horaPedida = typeof params.hora === "string" ? params.hora : "";
-  const hora = ["11:00", "15:00", "20:00"].includes(horaPedida) ? horaPedida : "";
+  const hora = esSorteo(horaPedida) ? horaPedida : "";
   const vendedorPedido = typeof params.vendedor === "string" ? params.vendedor : "";
 
   // El padrón va PRIMERO y la consulta después, a propósito, aunque sean dos

@@ -9902,6 +9902,799 @@ revoke execute on function public.fn_crear_vendedor(text, text, text, text, text
   from public, anon;
 
 
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0055_informe_con_venta_pendiente.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- El informe de gerencia enseña la venta aunque el sorteo no esté liquidado.
+--
+-- EL PROBLEMA
+-- -----------
+-- La captura diaria mostraba TODO en cero hasta que el sorteo se liquidaba, y
+-- eso es desconcertante cuando la venta existe y está registrada: el gerente
+-- ve un día con movimiento real y la pantalla le dice L 0. La reacción natural
+-- es pensar que se perdieron los datos.
+--
+-- LO QUE SE PUEDE Y LO QUE NO
+-- ---------------------------
+-- La VENTA de un sorteo sin liquidar se conoce perfectamente: está en las
+-- líneas, que es donde vive desde que se registró. La COMISIÓN también, porque
+-- va congelada en cada línea al venderse.
+--
+-- Los PREMIOS no. Sin número ganador no se sabe qué se pagó, y por tanto el
+-- NETO tampoco existe. Aquí no se inventan: se devuelven en NULL, no en cero.
+-- La diferencia importa — un cero se lee como «no se pagó nada», que es una
+-- afirmación falsa; un NULL se pinta como «—» y dice la verdad, que es «aún no
+-- se sabe». La pantalla ya sabe distinguirlos.
+--
+-- Poner premios en cero y calcular un neto con ellos sería peor que no mostrar
+-- nada: ese neto parecería ganancia. El caso del 3 de septiembre lo ilustra —
+-- venta 3.440 con premios en cero daría un «neto» de +3.440, cuando el real,
+-- una vez liquidado, fue de −1.460.
+--
+-- CÓMO SE SEPARA
+-- --------------
+-- Dos columnas nuevas: `r_venta_pendiente` y `r_tiene_pendiente`. La venta
+-- total sigue siendo `r_venta`, ahora sumando lo liquidado y lo que no; quien
+-- necesite saber cuánto de eso es firme mira la columna nueva.
+--
+-- Cambia el tipo de retorno, así que hay que soltar la función antes de
+-- recrearla. Mismo procedimiento que la 0037 y la 0039.
+-- ===========================================================================
+
+drop function if exists public.fn_informe_gerencia(date, date, public.hora_sorteo);
+
+create function public.fn_informe_gerencia(
+  p_desde date,
+  p_hasta date,
+  p_hora  public.hora_sorteo default null
+) returns table (
+  r_vendedor_id     uuid,
+  r_codigo          text,
+  r_nombre          text,
+  r_venta           numeric,   -- liquidada + pendiente
+  r_venta_pendiente numeric,   -- la parte de sorteos sin liquidar
+  r_premiado        numeric,
+  r_factor          numeric,
+  r_pago            numeric,   -- NULL si no hay nada liquidado
+  r_porcentaje      numeric,
+  r_comision        numeric,
+  r_bruto           numeric,
+  r_neto            numeric,   -- NULL si no hay nada liquidado
+  r_tiene_pendiente boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with liquidado as (
+    select lq.vendedor_id,
+           sum(lq.venta)    as venta,
+           sum(lq.comision) as comision,
+           sum(lq.premios)  as premios
+    from public.liquidacion lq
+    join public.sorteo s on s.id = lq.sorteo_id
+    where s.fecha between p_desde and p_hasta
+      and (p_hora is null or s.hora = p_hora)
+    group by lq.vendedor_id
+  ),
+  -- La venta de los sorteos que TODAVÍA no se liquidaron. Sale de las líneas
+  -- porque esos sorteos no tienen fila en `liquidacion` —no la pueden tener,
+  -- su premio aún no existe—. Son los del día, unos miles de filas.
+  pendiente as (
+    select t.vendedor_id,
+           sum(l.monto)                        as venta,
+           sum(l.monto * l.comision_congelada) as comision
+    from public.linea l
+    join public.ticket t on t.id = l.ticket_id
+    join public.sorteo s on s.id = t.sorteo_id
+    where s.fecha between p_desde and p_hasta
+      and (p_hora is null or s.hora = p_hora)
+      and s.estado <> 'liquidado'
+      and t.anulado_en is null
+    group by t.vendedor_id
+  ),
+  -- Lo apostado al número que salió. Sólo existe en sorteos ya liquidados: es
+  -- `l.gana`, que se marca al liquidar.
+  acertado as (
+    select t.vendedor_id, sum(l.monto) as premiado
+    from public.linea l
+    join public.ticket t on t.id = l.ticket_id
+    join public.sorteo s on s.id = t.sorteo_id
+    where s.fecha between p_desde and p_hasta
+      and (p_hora is null or s.hora = p_hora)
+      and t.anulado_en is null
+      and l.gana
+    group by t.vendedor_id
+  )
+  -- Se parte del PADRÓN y no de las liquidaciones: un vendedor que no vendió
+  -- nada es justo lo que el gerente quiere ver, y con un `join` desde
+  -- liquidacion desaparecía sin dejar rastro.
+  select v.id,
+         v.codigo,
+         v.nombre,
+         coalesce(q.venta, 0) + coalesce(p.venta, 0),
+         coalesce(p.venta, 0),
+         coalesce(a.premiado, 0),
+         -- Sin nada acertado no hay factor que enseñar: un cero se lee mejor
+         -- que una división por cero disfrazada.
+         case when coalesce(a.premiado, 0) > 0
+              then round(coalesce(q.premios, 0) / a.premiado, 2) else 0 end,
+         -- NULL, no cero: de un sorteo sin liquidar no se sabe qué se pagó, y
+         -- decir «0» sería afirmar que no se pagó nada.
+         case when q.vendedor_id is not null then coalesce(q.premios, 0) end,
+         case when coalesce(q.venta, 0) + coalesce(p.venta, 0) > 0
+              then round((coalesce(q.comision, 0) + coalesce(p.comision, 0))
+                         / (coalesce(q.venta, 0) + coalesce(p.venta, 0)), 4)
+              else 0 end,
+         -- La comisión SÍ se conoce siempre: va congelada en cada línea desde
+         -- que se vendió.
+         coalesce(q.comision, 0) + coalesce(p.comision, 0),
+         coalesce(q.venta, 0) + coalesce(p.venta, 0)
+           - coalesce(q.comision, 0) - coalesce(p.comision, 0),
+         -- El neto sólo existe donde hay premio calculado. Se resta de lo que
+         -- se enseña, no se lee de `utilidad`: las cuatro columnas se redondean
+         -- por separado al liquidar. Ver la cabecera de la 0036.
+         case when q.vendedor_id is not null
+              then coalesce(q.venta, 0) - coalesce(q.comision, 0) - coalesce(q.premios, 0)
+         end,
+         p.vendedor_id is not null
+  from public.vendedor v
+  left join liquidado q on q.vendedor_id = v.id
+  left join pendiente p on p.vendedor_id = v.id
+  left join acertado  a on a.vendedor_id = v.id
+  where v.activo or q.venta is not null or p.venta is not null
+  order by coalesce(q.venta, 0) + coalesce(p.venta, 0) desc, v.codigo;
+$$;
+
+comment on function public.fn_informe_gerencia(date, date, public.hora_sorteo) is
+  'Informe de gerencia por vendedor. La venta incluye lo no liquidado; premios y neto van en NULL mientras el sorteo no tenga número ganador.';
+
+revoke execute on function public.fn_informe_gerencia(date, date, public.hora_sorteo)
+  from public, anon;
+
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0056_marca_unica_de_envio.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- El duplicado deja de ser posible, no sólo improbable.
+--
+-- QUÉ PROBLEMA CIERRA
+-- -------------------
+-- El 3 de septiembre aparecieron 13 tickets duplicados: copias exactas
+-- emitidas con menos de tres segundos de diferencia. La causa era el botón de
+-- confirmar, que quedaba habilitado mientras la venta esperaba al GPS —hasta
+-- cuatro segundos— y el vendedor volvía a pulsar.
+--
+-- Eso ya se arregló en el cliente: el botón se bloquea al primer toque y la
+-- venta ya no espera al GPS. Pero toda esa protección vive en el navegador, y
+-- deja cuatro huecos que no cubre:
+--
+--   · REINTENTO DE RED. El vendedor pulsa, la petición sale, el servidor la
+--     registra, y la respuesta se pierde en una conexión mala. La pantalla
+--     parece no haber hecho nada y él vuelve a pulsar. Es el más probable en
+--     la calle.
+--   · DOS DISPOSITIVOS con la misma cuenta —el caso de la tienda—, donde cada
+--     pantalla ignora lo que hace la otra.
+--   · RECARGAR la página a mitad del envío.
+--   · UN FALLO DE JAVASCRIPT que impida aplicar la guarda.
+--
+-- CÓMO
+-- ----
+-- El navegador genera una marca al empezar a componer la venta y la manda con
+-- ella. La base la guarda con un índice único: si llega dos veces la misma, la
+-- segunda no crea nada y devuelve los folios que ya existían.
+--
+-- El vendedor ve su recibo igual y no percibe error. Es el mismo mecanismo que
+-- usan las pasarelas de pago, y por la misma razón: la red no es de fiar y el
+-- usuario no tiene por qué saberlo.
+--
+-- POR QUÉ ESTO NO ESTORBA A DOS CLIENTES QUE APUESTAN IGUAL
+-- ---------------------------------------------------------
+-- La marca identifica el ENVÍO, no la jugada. Dos personas que apuestan los
+-- mismos números en el mismo minuto son dos envíos distintos con dos marcas
+-- distintas, y las dos ventas entran. Sólo se rechaza el MISMO envío repetido
+-- — que es exactamente lo que hay que rechazar.
+--
+-- Es la diferencia clave frente a detectar duplicados por «tickets idénticos
+-- en pocos segundos»: eso confunde una venta legítima repetida con un error, y
+-- por eso sirve para auditar pero no para prevenir.
+--
+-- LA MARCA ES OPCIONAL, a propósito. Una venta sin marca se registra como
+-- siempre: así una versión vieja de la aplicación, o el registro por
+-- digitalización, siguen funcionando mientras el despliegue se propaga.
+-- ===========================================================================
+
+alter table public.ticket
+  add column if not exists envio_id uuid;
+
+comment on column public.ticket.envio_id is
+  'Marca del envío que creó este ticket. Misma marca = misma venta reintentada, no una venta nueva.';
+
+-- Índice PARCIAL: sólo sobre los que traen marca. Sin el `where`, todos los
+-- tickets viejos con `envio_id` nulo chocarían entre sí — en SQL dos NULL no
+-- son iguales, pero el índice tampoco los indexaría útilmente. Es la misma
+-- lección de la 0050, donde una restricción sobre columnas nulas no
+-- restringía nada.
+create unique index if not exists ticket_envio_unico
+  on public.ticket (envio_id)
+  where envio_id is not null;
+
+comment on index public.ticket_envio_unico is
+  'Hace imposible registrar dos veces el mismo envío, venga de donde venga: doble toque, reintento de red, dos dispositivos o recarga.';
+
+
+-- --------------------------------------------------------------------------
+-- La venta, con la marca.
+--
+-- Cambia la firma, así que hay que soltar la anterior: dejar las dos vivas
+-- haría ambigua cualquier llamada.
+-- --------------------------------------------------------------------------
+
+drop function if exists public.fn_registrar_tanda(
+  uuid, uuid, jsonb, double precision, double precision, boolean, uuid
+);
+
+create or replace function public.fn_registrar_tanda(
+  p_sorteo_id   uuid,
+  p_vendedor_id uuid,
+  p_tickets     jsonb,
+  p_lat         double precision default null,
+  p_lng         double precision default null,
+  p_forzar      boolean default false,
+  p_usuario_id  uuid default null,
+  p_envio_id    uuid default null
+) returns table (r_folio text, r_total numeric, r_creado_en timestamptz, r_repetido boolean)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cuantos integer;
+  v_lineas  jsonb;
+  v_res     record;
+  v_ya      integer;
+  v_primero boolean := true;
+begin
+  if p_tickets is null or jsonb_typeof(p_tickets) <> 'array' then
+    raise exception 'La tanda no trae tickets.'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  v_cuantos := jsonb_array_length(p_tickets);
+
+  if v_cuantos = 0 then
+    raise exception 'La tanda no trae tickets.'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  -- Tope de cordura. Una tanda es lo que compra UNA persona; cincuenta tickets
+  -- ya es un envío que conviene mirar antes de dejarlo pasar entero.
+  if v_cuantos > 50 then
+    raise exception 'Una tanda no puede llevar más de 50 tickets; ésta trae %.', v_cuantos
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  /*
+   * ¿ESTE ENVÍO YA ENTRÓ?
+   *
+   * Se comprueba ANTES de tocar nada. Si la venta ya se registró y lo que
+   * falló fue la respuesta, aquí se devuelven los mismos folios y el vendedor
+   * ve su recibo sin enterarse de que hubo un reintento.
+   *
+   * La comprobación no basta por sí sola: entre este SELECT y los INSERT cabe
+   * otra petición idéntica. Lo que de verdad cierra la puerta es el índice
+   * único, que hace fallar la segunda; esto sólo evita el error cuando el
+   * reintento llega después de terminada la primera.
+   */
+  if p_envio_id is not null then
+    select count(*) into v_ya
+    from public.ticket t
+    where t.envio_id = p_envio_id;
+
+    if v_ya > 0 then
+      return query
+        select t.folio, t.total, t.creado_en, true
+        from public.ticket t
+        where t.envio_id = p_envio_id
+        order by t.folio;
+      return;
+    end if;
+  end if;
+
+  -- Prebloqueo de TODOS los números de la tanda, en orden ascendente. Sin
+  -- esto, dos tandas con los mismos números en distinto orden se interbloquean
+  -- entre sí: cada fn_registrar_ticket ordena lo suyo, pero nadie ordena el
+  -- conjunto.
+  perform 1
+  from public.cupo_numero c
+  where c.sorteo_id = p_sorteo_id
+    and c.numero in (
+      select distinct (linea->>'numero')::smallint
+      from jsonb_array_elements(p_tickets) as ticket,
+           jsonb_array_elements(ticket) as linea
+    )
+  order by c.numero
+  for update;
+
+  for v_lineas in select * from jsonb_array_elements(p_tickets)
+  loop
+    select * into v_res
+    from public.fn_registrar_ticket(
+      p_sorteo_id, p_vendedor_id, v_lineas,
+      p_lat, p_lng, null,
+      'movil'::public.canal_ticket, null,
+      p_forzar, p_usuario_id
+    );
+
+    /*
+     * La marca va en el PRIMER ticket de la tanda, y sólo en él.
+     *
+     * El índice único es por ticket: estampar la misma marca en los cinco
+     * tickets de una tanda haría que chocaran entre sí y la venta entera
+     * fallaría. Con el primero basta para reconocer el envío.
+     *
+     * `v_primero` es una bandera local y no una consulta a la tabla: un
+     * `not exists` aquí sería una condición de carrera, porque dos peticiones
+     * simultáneas pueden verlo vacío a la vez. Quien decide de verdad es el
+     * índice único, que hace fallar la transacción entera de la segunda —y al
+     * ser una transacción, no queda media venta registrada.
+     */
+    if p_envio_id is not null and v_primero then
+      update public.ticket set envio_id = p_envio_id where id = v_res.ticket_id;
+      v_primero := false;
+    end if;
+
+    r_folio := v_res.ticket_folio;
+    r_total := v_res.ticket_total;
+    r_repetido := false;
+
+    -- La hora que quedó escrita, no `now()`: son iguales dentro de la
+    -- transacción, pero lo que debe viajar al papel es el dato guardado.
+    select t.creado_en into r_creado_en
+    from public.ticket t where t.id = v_res.ticket_id;
+
+    return next;
+  end loop;
+
+  return;
+end;
+$$;
+
+comment on function public.fn_registrar_tanda(uuid, uuid, jsonb, double precision, double precision, boolean, uuid, uuid) is
+  'Registra varios tickets en una transacción. Con p_envio_id, un envío repetido devuelve los folios ya creados en vez de duplicar la venta.';
+
+revoke execute on function public.fn_registrar_tanda(uuid, uuid, jsonb, double precision, double precision, boolean, uuid, uuid)
+  from public, anon;
+
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0057_detalle_de_venta.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- Detalle de venta: ticket por ticket, con sus números, para varios vendedores.
+--
+-- QUÉ HUECO LLENA
+-- ---------------
+-- El informe de gerencia contesta con totales: cuánto vendió cada uno, cuánto
+-- se pagó, qué quedó. Cuando algo no cuadra —y la auditoría del 3 de
+-- septiembre lo demostró— hace falta bajar hasta la venta individual, y eso
+-- sólo se podía haciendo consultas a mano contra la base.
+--
+-- `fn_bitacora_rango` ya baja al detalle pero de UN vendedor, y la pregunta
+-- real es «enséñame el día de estos tres». De ahí `p_vendedores` como arreglo,
+-- igual que en `fn_control_vendedores`.
+--
+-- POR QUÉ UNA FILA POR TICKET Y NO POR LÍNEA
+-- ------------------------------------------
+-- Un ticket de doce números daría doce filas repitiendo folio y hora, y quien
+-- lee tiene que reconstruir mentalmente dónde empieza y acaba cada ticket. Los
+-- números vienen agregados en `r_jugada` —«05:10  47:20  99:5»— que es como
+-- están en el papel que tiene el cliente en la mano. Eso es lo que se compara
+-- cuando alguien reclama.
+--
+-- El ticket es además la unidad de la duplicación: dos tickets con la misma
+-- jugada son el patrón que hay que poder ver de un vistazo.
+--
+-- LOS ANULADOS SALEN, MARCADOS
+-- ----------------------------
+-- `p_incluir_anulados` los trae con `r_anulado` en true y su motivo. Un
+-- detalle de venta que los esconde no sirve para auditar: cuando alguien
+-- pregunta «¿y este ticket?», la respuesta «se anuló por esto» es justo la que
+-- hay que poder dar. Por omisión van fuera, que es lo que se quiere para leer
+-- la venta del día.
+--
+-- `r_repetido` marca el ticket cuya jugada ya apareció antes en el mismo
+-- vendedor y sorteo. No afirma que sea un error —dos clientes pueden apostar
+-- igual— pero es dónde mirar primero.
+-- ===========================================================================
+
+create or replace function public.fn_detalle_venta(
+  p_desde            date,
+  p_hasta            date,
+  p_vendedores       uuid[] default null,
+  p_hora             public.hora_sorteo default null,
+  p_incluir_anulados boolean default false,
+  p_limite           integer default 500
+)
+returns table (
+  r_ticket_id      uuid,
+  r_folio          text,
+  r_fecha          date,
+  r_hora           public.hora_sorteo,
+  r_estado         public.estado_sorteo,
+  r_numero_ganador smallint,
+  r_vendedor_id    uuid,
+  r_codigo         text,
+  r_vendedor       text,
+  r_creado_en      timestamptz,
+  r_lineas         integer,
+  r_total          numeric,
+  r_premio         numeric,
+  r_jugada         text,
+  r_anulado        boolean,
+  r_motivo         text,
+  r_repetido       boolean,
+  r_segundos       numeric
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with base as (
+    select t.id,
+           t.folio,
+           s.fecha,
+           s.hora,
+           s.estado,
+           s.numero_ganador,
+           t.vendedor_id,
+           v.codigo,
+           v.nombre,
+           t.creado_en,
+           t.anulado_en,
+           t.motivo_anulacion,
+           count(l.id)::integer      as lineas,
+           sum(l.monto)              as total,
+           sum(l.premio)             as premio,
+           -- La jugada tal como se lee en el papel: número y monto, en orden.
+           string_agg(lpad(l.numero::text, 2, '0') || ':' || trim(to_char(l.monto, 'FM999999990.99')),
+                      '  ' order by l.numero, l.monto) as jugada,
+           -- La firma compara CONTENIDO, no presentación: es lo que permite
+           -- detectar que dos tickets llevan exactamente la misma apuesta.
+           string_agg(l.numero || ':' || l.monto, ',' order by l.numero, l.monto) as firma
+    from public.ticket t
+    join public.sorteo   s on s.id = t.sorteo_id
+    join public.vendedor v on v.id = t.vendedor_id
+    join public.linea    l on l.ticket_id = t.id
+    where s.fecha between p_desde and p_hasta
+      and (p_hora is null or s.hora = p_hora)
+      and (p_vendedores is null or t.vendedor_id = any (p_vendedores))
+      and (p_incluir_anulados or t.anulado_en is null)
+    group by t.id, t.folio, s.fecha, s.hora, s.estado, s.numero_ganador,
+             t.vendedor_id, v.codigo, v.nombre, t.creado_en,
+             t.anulado_en, t.motivo_anulacion
+  ),
+  -- Se mira el ticket ANTERIOR con la misma jugada, del mismo vendedor y
+  -- sorteo. `lag` sobre esa partición es exactamente esa pregunta.
+  marcado as (
+    select b.*,
+           lag(b.creado_en) over (
+             partition by b.vendedor_id, b.hora, b.fecha, b.firma
+             order by b.creado_en
+           ) as anterior
+    from base b
+  )
+  select m.id,
+         m.folio,
+         m.fecha,
+         m.hora,
+         m.estado,
+         m.numero_ganador,
+         m.vendedor_id,
+         m.codigo,
+         m.nombre,
+         m.creado_en,
+         m.lineas,
+         m.total,
+         m.premio,
+         m.jugada,
+         m.anulado_en is not null,
+         m.motivo_anulacion,
+         m.anterior is not null,
+         -- Cuántos segundos tras el ticket gemelo anterior. Nulo si es el
+         -- primero de su jugada: no hay nada con qué compararlo.
+         case when m.anterior is not null
+              then round(extract(epoch from (m.creado_en - m.anterior))::numeric, 2)
+         end
+  from marcado m
+  -- Cronológico ascendente: se lee como ocurrió el día, que es como el
+  -- vendedor recuerda su jornada y como se cotejan los papeles.
+  order by m.fecha, m.hora, m.codigo, m.creado_en
+  limit greatest(p_limite, 1);
+$$;
+
+comment on function public.fn_detalle_venta(date, date, uuid[], public.hora_sorteo, boolean, integer) is
+  'Venta ticket por ticket con su jugada, para uno o varios vendedores. Marca los que repiten una jugada ya vista en el mismo sorteo.';
+
+revoke execute on function public.fn_detalle_venta(date, date, uuid[], public.hora_sorteo, boolean, integer)
+  from public, anon;
+
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0058_jugada_sin_punto_sobrante.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- La jugada salía con un punto de más: «12:20.» en vez de «12:20».
+--
+-- CAUSA
+-- -----
+-- `to_char(monto, 'FM999999990.99')` sobre un monto entero. `FM` quita los
+-- espacios de relleno y los ceros no significativos de la parte decimal, pero
+-- NO quita el separador decimal en sí: 20.00 se convierte en «20.» y el punto
+-- se queda ahí, huérfano.
+--
+-- Es cosmético, pero esta columna existe para cotejarla contra el papel que
+-- tiene el cliente en la mano. Un punto de más en cada número mete ruido justo
+-- donde se necesita leer rápido y comparar dos tickets de un vistazo.
+--
+-- ARREGLO
+-- -------
+-- Se decide por monto: si es entero se escribe sin decimales, y si no, con
+-- dos. En este negocio las apuestas son de 5, 10, 20 lempiras —los montos con
+-- céntimos no existen en la práctica— así que casi siempre se ve «20», y el
+-- caso raro sigue mostrándose completo en vez de redondearse en silencio.
+--
+-- Sólo cambia esa expresión; el resto de la función es idéntico a la 0057.
+-- ===========================================================================
+
+create or replace function public.fn_detalle_venta(
+  p_desde            date,
+  p_hasta            date,
+  p_vendedores       uuid[] default null,
+  p_hora             public.hora_sorteo default null,
+  p_incluir_anulados boolean default false,
+  p_limite           integer default 500
+)
+returns table (
+  r_ticket_id      uuid,
+  r_folio          text,
+  r_fecha          date,
+  r_hora           public.hora_sorteo,
+  r_estado         public.estado_sorteo,
+  r_numero_ganador smallint,
+  r_vendedor_id    uuid,
+  r_codigo         text,
+  r_vendedor       text,
+  r_creado_en      timestamptz,
+  r_lineas         integer,
+  r_total          numeric,
+  r_premio         numeric,
+  r_jugada         text,
+  r_anulado        boolean,
+  r_motivo         text,
+  r_repetido       boolean,
+  r_segundos       numeric
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with base as (
+    select t.id,
+           t.folio,
+           s.fecha,
+           s.hora,
+           s.estado,
+           s.numero_ganador,
+           t.vendedor_id,
+           v.codigo,
+           v.nombre,
+           t.creado_en,
+           t.anulado_en,
+           t.motivo_anulacion,
+           count(l.id)::integer      as lineas,
+           sum(l.monto)              as total,
+           sum(l.premio)             as premio,
+           -- La jugada tal como se lee en el papel: número y monto, en orden.
+           -- Entero sin decimales, con céntimos sólo si de verdad los hay.
+           string_agg(
+             lpad(l.numero::text, 2, '0') || ':' ||
+             case when l.monto = trunc(l.monto)
+                  then trunc(l.monto)::bigint::text
+                  else to_char(l.monto, 'FM999999990.00')
+             end,
+             '  ' order by l.numero, l.monto) as jugada,
+           -- La firma compara CONTENIDO, no presentación: es lo que permite
+           -- detectar que dos tickets llevan exactamente la misma apuesta.
+           string_agg(l.numero || ':' || l.monto, ',' order by l.numero, l.monto) as firma
+    from public.ticket t
+    join public.sorteo   s on s.id = t.sorteo_id
+    join public.vendedor v on v.id = t.vendedor_id
+    join public.linea    l on l.ticket_id = t.id
+    where s.fecha between p_desde and p_hasta
+      and (p_hora is null or s.hora = p_hora)
+      and (p_vendedores is null or t.vendedor_id = any (p_vendedores))
+      and (p_incluir_anulados or t.anulado_en is null)
+    group by t.id, t.folio, s.fecha, s.hora, s.estado, s.numero_ganador,
+             t.vendedor_id, v.codigo, v.nombre, t.creado_en,
+             t.anulado_en, t.motivo_anulacion
+  ),
+  -- Se mira el ticket ANTERIOR con la misma jugada, del mismo vendedor y
+  -- sorteo. `lag` sobre esa partición es exactamente esa pregunta.
+  marcado as (
+    select b.*,
+           lag(b.creado_en) over (
+             partition by b.vendedor_id, b.hora, b.fecha, b.firma
+             order by b.creado_en
+           ) as anterior
+    from base b
+  )
+  select m.id,
+         m.folio,
+         m.fecha,
+         m.hora,
+         m.estado,
+         m.numero_ganador,
+         m.vendedor_id,
+         m.codigo,
+         m.nombre,
+         m.creado_en,
+         m.lineas,
+         m.total,
+         m.premio,
+         m.jugada,
+         m.anulado_en is not null,
+         m.motivo_anulacion,
+         m.anterior is not null,
+         -- Cuántos segundos tras el ticket gemelo anterior. Nulo si es el
+         -- primero de su jugada: no hay nada con qué compararlo.
+         case when m.anterior is not null
+              then round(extract(epoch from (m.creado_en - m.anterior))::numeric, 2)
+         end
+  from marcado m
+  -- Cronológico ascendente: se lee como ocurrió el día, que es como el
+  -- vendedor recuerda su jornada y como se cotejan los papeles.
+  order by m.fecha, m.hora, m.codigo, m.creado_en
+  limit greatest(p_limite, 1);
+$$;
+
+comment on function public.fn_detalle_venta(date, date, uuid[], public.hora_sorteo, boolean, integer) is
+  'Venta ticket por ticket con su jugada, para uno o varios vendedores. Marca los que repiten una jugada ya vista en el mismo sorteo.';
+
+revoke execute on function public.fn_detalle_venta(date, date, uuid[], public.hora_sorteo, boolean, integer)
+  from public, anon;
+
+
+-- >>>>>>>>>>>>>>>>>>>>  migrations/0059_sorteo_de_la_noche_a_las_nueve.sql  <<<<<<<<<<<<<<<<<<<<
+
+-- ===========================================================================
+-- El sorteo de la noche pasa a las 9:00 PM; la venta cierra a las 8:59.
+--
+-- POR QUÉ SE RENOMBRA EL ENUM Y NO SE AÑADE UN VALOR
+-- --------------------------------------------------
+-- La hora del sorteo no es un dato cualquiera: es un valor de `hora_sorteo`
+-- que identifica la franja en TODA la base —`sorteo.hora`, `limite_franja`,
+-- los filtros de los informes— y que está guardado en cada sorteo ya creado.
+--
+-- Añadir un `'21:00'` nuevo dejaría los dos conviviendo: los sorteos viejos
+-- seguirían diciendo `20:00`, los nuevos `21:00`, y cualquier informe que
+-- agrupe por franja partiría la noche en dos series que no se suman. Un año
+-- después nadie sabría por qué la noche aparece dos veces.
+--
+-- `alter type ... rename value` cambia la ETIQUETA sin tocar las filas: los
+-- sorteos existentes pasan a decir `21:00` automáticamente, porque lo que
+-- guardan es el valor del enum, no su texto. Es exactamente la operación que
+-- corresponde a «este sorteo ahora se juega una hora más tarde», y no hay
+-- ningún dato que reescribir.
+--
+-- EL CIERRE SE CALCULA SOLO
+-- -------------------------
+-- `fn_programar_dia` deriva la hora de cierre del propio nombre de la franja
+-- —`time '21:00'` menos un minuto— así que al renombrar, los sorteos nuevos
+-- salen cerrando a las 20:59 sin tocar esa cuenta. Lo único que hay que hacer
+-- a mano es arrastrar los YA SEMBRADOS, porque `on conflict do nothing` no
+-- recalcula lo que ya existe. Misma situación que la 0030, cuando el cierre
+-- pasó de diez minutos a uno.
+--
+-- LO QUE NO SE TOCA
+-- -----------------
+-- Los sorteos ya CERRADOS o LIQUIDADOS conservan su hora de cierre: es un
+-- hecho histórico —a esa hora dejó de entrar venta— y moverlo reescribiría el
+-- pasado. Sólo se arrastran los que todavía no han cerrado.
+-- ===========================================================================
+
+-- 1. La etiqueta de la franja. Arrastra sola todas las filas que la usan.
+alter type public.hora_sorteo rename value '20:00' to '21:00';
+
+
+-- 2. `fn_programar_dia`, con la franja nueva.
+--    El cuerpo es idéntico salvo el nombre de la hora: `v_time` se deriva de
+--    la etiqueta, así que el cierre a las 20:59 sale de aquí sin más cuenta.
+create or replace function public.fn_programar_dia(p_fecha date)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hora    public.hora_sorteo;
+  v_time    time;
+  v_insert  integer;
+  v_creados integer := 0;
+begin
+  perform public.fn_exige(array['administrador']::public.rol_usuario[]);
+
+  foreach v_hora in array array['11:00', '15:00', '21:00']::public.hora_sorteo[]
+  loop
+    v_time := case v_hora
+                when '11:00' then time '11:00'
+                when '15:00' then time '15:00'
+                else time '21:00'
+              end;
+
+    insert into public.sorteo (fecha, hora, hora_cierre)
+    values (
+      p_fecha,
+      v_hora,
+      ((p_fecha + v_time - interval '1 minute') at time zone 'America/Tegucigalpa')
+    )
+    on conflict (fecha, hora) do nothing;
+
+    -- Lo que realmente entró, no lo que se intentó.
+    get diagnostics v_insert = row_count;
+    v_creados := v_creados + v_insert;
+  end loop;
+
+  -- Sólo se audita si el día se programó de verdad.
+  if v_creados > 0 then
+    perform public.fn_auditar('sorteo', null, 'programar_dia', 'fecha',
+                             null, p_fecha::text);
+  end if;
+
+  return v_creados;
+end;
+$$;
+
+comment on function public.fn_programar_dia(date) is
+  'Siembra los tres sorteos de una fecha: 11:00 AM, 3:00 PM y 9:00 PM. La venta cierra un minuto antes de cada uno.';
+
+
+-- 3. Arrastre de los ya sembrados.
+--    `on conflict do nothing` no recalcula un sorteo que ya existe, y
+--    `fn_ciclo_sorteos` siembra hoy Y mañana en cada pasada: en el momento de
+--    aplicar esto siempre hay al menos un día con el cierre viejo. Sin este
+--    UPDATE, mañana seguiría cerrando a las 19:59 y el cambio parecería no
+--    haber surtido efecto.
+update public.sorteo s
+set hora_cierre = ((s.fecha + time '21:00' - interval '1 minute')
+                    at time zone 'America/Tegucigalpa')
+where s.hora = '21:00'
+  and s.estado in ('programado', 'abierto')
+  and s.fecha >= (now() at time zone 'America/Tegucigalpa')::date;
+
+
+-- 4. Comprobación. Si algún sorteo futuro de la noche quedó con la hora vieja,
+--    esto lo dice en vez de dar por hecho que salió bien.
+do $$
+declare
+  v_mal integer;
+begin
+  select count(*) into v_mal
+  from public.sorteo s
+  where s.hora = '21:00'
+    and s.estado in ('programado', 'abierto')
+    and s.fecha >= (now() at time zone 'America/Tegucigalpa')::date
+    and extract(hour from (s.hora_cierre at time zone 'America/Tegucigalpa')) <> 20;
+
+  if v_mal > 0 then
+    raise exception 'Quedaron % sorteos de la noche con la hora de cierre vieja.', v_mal;
+  end if;
+
+  raise notice 'El sorteo de la noche se juega a las 9:00 PM y cierra a las 8:59 PM.';
+end $$;
+
+
 -- ===========================================================================
 -- El usuario administrador.
 --

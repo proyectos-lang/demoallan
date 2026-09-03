@@ -90,13 +90,34 @@ export function horaHonduras(fecha: Date | string): string {
 }
 
 /**
+ * Las tres franjas del día, en el orden en que se juegan.
+ *
+ * ES LA ETIQUETA DEL ENUM `hora_sorteo`, no una hora cualquiera: identifica la
+ * franja en toda la base. Cambiarla aquí no basta —hay que renombrar también
+ * el valor del enum, como hizo la 0059 al mover la noche de las 8 a las 9—
+ * pero tenerla en un solo sitio evita que un filtro se quede ofreciendo un
+ * sorteo que ya no existe.
+ *
+ * Estaba repetida en doce archivos. Olvidar uno no da error: da un filtro que
+ * no devuelve nada y nadie sabe por qué.
+ */
+export const SORTEOS = ["11:00", "15:00", "21:00"] as const;
+
+export type Sorteo = (typeof SORTEOS)[number];
+
+/** Si una cadena cualquiera —de la URL, por ejemplo— es una franja válida. */
+export function esSorteo(v: string): v is Sorteo {
+  return (SORTEOS as readonly string[]).includes(v);
+}
+
+/**
  * `HH:MM` de 24 horas a «h:mm AM».
  *
  * La etiqueta del sorteo (`sorteo.hora`) es un enum de texto —`"11:00"`,
- * `"15:00"`, `"20:00"`— y NO un instante, así que no se puede formatear con
+ * `"15:00"`, `"21:00"`— y NO un instante, así que no se puede formatear con
  * Intl: no hay fecha a la que aplicarle un huso. Se traduce a mano.
  *
- * El resultado es «11:00 AM» / «3:00 PM» / «8:00 PM»: sin cero a la izquierda
+ * El resultado es «11:00 AM» / «3:00 PM» / «9:00 PM»: sin cero a la izquierda
  * en la hora, que es como se lee en Honduras, y con el meridiano en mayúsculas
  * y sin puntos, como en el resto de la interfaz.
  */

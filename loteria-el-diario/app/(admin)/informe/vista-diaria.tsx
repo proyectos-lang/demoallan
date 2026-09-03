@@ -1,13 +1,12 @@
 import { FiltrosDia, type SorteoDelDia } from "@/components/informe/filtros-dia";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, hora12, hoyHonduras, iso, jornada, pad2 } from "@/lib/format";
+import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, jornada, pad2, type Sorteo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
-const HORAS = ["11:00", "15:00", "20:00"] as const;
-const esHora = (v: string): v is (typeof HORAS)[number] => HORAS.some((h) => h === v);
+
 
 const ENCABEZADOS = [
   "ITEM",
@@ -111,11 +110,11 @@ export async function VistaDiaria({
   // La hora que llega de la base también se valida: viene tipada como texto y
   // el parámetro de la consulta es el enum, así que pasa por el mismo cedazo
   // que lo que llega por la dirección.
-  const hora = esHora(horaPedida)
+  const hora: Sorteo | "" = esSorteo(horaPedida)
     ? horaPedida
     : horaPedida === "todos"
       ? ""
-      : ultimoConResultado && esHora(ultimoConResultado.hora)
+      : ultimoConResultado && esSorteo(ultimoConResultado.hora)
         ? ultimoConResultado.hora
         : "";
 

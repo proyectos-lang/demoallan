@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { hora12 } from "@/lib/format";
+import { SORTEOS, hora12 } from "@/lib/format";
 
 export type VendedorFiltro = {
   id: string;
@@ -14,7 +14,7 @@ export type VendedorFiltro = {
   tickets: number;
 };
 
-const HORAS = ["11:00", "15:00", "20:00"];
+const HORAS = SORTEOS;
 
 /**
  * Los filtros del detalle de venta: un día, un sorteo y varios vendedores.

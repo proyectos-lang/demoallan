@@ -4,12 +4,11 @@ import {
 } from "@/components/informe/filtros-detalle";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLarga, fmt, hora12, hoyHonduras, iso, pad2 } from "@/lib/format";
+import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, pad2 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const HORAS = ["11:00", "15:00", "20:00"] as const;
-const esHora = (v: string): v is (typeof HORAS)[number] => HORAS.some((h) => h === v);
+
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,7 +38,7 @@ export async function VistaDetalle({
   const pedido = texto("dia");
   const dia = FECHA.test(pedido) ? pedido : iso(hoyHonduras());
   const horaPedida = texto("hora");
-  const hora = esHora(horaPedida) ? horaPedida : "";
+  const hora = esSorteo(horaPedida) ? horaPedida : "";
   const conAnulados = texto("anulados") === "1";
 
   /*
