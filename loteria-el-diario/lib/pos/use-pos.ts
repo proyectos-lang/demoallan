@@ -170,6 +170,46 @@ export function usePos(datos: DatosPos) {
   const [registrando, setRegistrando] = useState(false);
 
   /*
+   * LA UBICACIÓN SE PIDE DE ANTEMANO, NO AL CONFIRMAR.
+   *
+   * Antes `confirmar` llamaba a `getCurrentPosition` y no enviaba nada hasta
+   * que el navegador contestara, con un tiempo límite de cuatro segundos. En
+   * un teléfono en la calle, con el GPS frío, esa espera se agota entera: la
+   * venta —que la base resuelve en unos 100 ms, medido, y sin ralentizarse con
+   * tandas grandes— quedaba detrás de una espera cuarenta veces mayor. Y por
+   * un dato que no es obligatorio: la coordenada sólo alimenta el mapa de
+   * geo-referenciación.
+   *
+   * Ahora se pide al montar la pantalla y se refresca cada minuto, así que
+   * cuando llega el momento de confirmar casi siempre ya está. Si no está, la
+   * venta entra igual y ese ticket se queda sin coordenada — que es justo lo
+   * que ya pasaba cuando el vendedor no daba permiso.
+   */
+  const ubicacion = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    const pedir = () =>
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          ubicacion.current = { lat: p.coords.latitude, lng: p.coords.longitude };
+        },
+        () => {
+          // Sin permiso o sin señal: se deja en nulo y la venta sigue igual.
+        },
+        // `maximumAge` acepta una posición de hasta un minuto: en un puesto de
+        // venta el vendedor no se mueve entre ticket y ticket, y evita
+        // despertar el GPS en cada refresco.
+        { timeout: 10000, maximumAge: 60000 },
+      );
+
+    pedir();
+    const t = setInterval(pedir, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  /*
    * La impresión vive AQUÍ y no en el recibo.
    *
    * El recibo se pinta dos veces —una en la vista de escritorio y otra en la
@@ -523,17 +563,9 @@ export function usePos(datos: DatosPos) {
         }
       });
 
-    // La coordenada es dato operativo, no un requisito: si el vendedor no da
-    // permiso, la venta se registra igual.
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (p) => enviar({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => enviar(),
-        { timeout: 4000 },
-      );
-    } else {
-      enviar();
-    }
+    // Se envía YA, con la última ubicación conocida si la hay. Nada bloquea
+    // la venta: la coordenada es dato operativo, no un requisito.
+    enviar(ubicacion.current ?? undefined);
   };
 
   const cambiarVendedor = (id: string) => {
