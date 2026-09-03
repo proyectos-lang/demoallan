@@ -24,7 +24,11 @@ import type { SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
  */
 function fechaCorta(instante: string): string {
   const [a, m, d] = fechaHonduras(instante).split("-");
-  return `${d}/${m}/${a}`;
+  // Año en dos cifras. Al subir el encabezado a 12px, esta fila —la más larga
+  // del ticket— medía 194,8 px sobre 196,5 útiles: 1,7 px de margen, que es
+  // cero. Con «26» en vez de «2026» baja a 180,4 y deja 16 px. Nadie duda del
+  // siglo de un ticket de lotería que se cobra la misma semana.
+  return `${d}/${m}/${a.slice(2)}`;
 }
 
 /**

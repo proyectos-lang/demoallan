@@ -318,8 +318,26 @@ select:focus {
      cuadran si cada carácter mide lo mismo.
   */
   font-family: "Courier New", Courier, monospace;
-  font-size: 11px;
-  line-height: 1.35;
+  /*
+     12px, medido y no estimado.
+
+     La cabecera —EMITIDO, SORTEO, VENDEDOR, FOLIO— hereda este tamaño, y es lo
+     primero que se lee al recibir el papel. Medidas las cinco filas en Courier
+     bold sobre los 52 mm útiles (196,5 px), con folio de 18 caracteres y fecha
+     con hora de 12 h, la peor fila es «EMITIDO» con su fecha:
+
+         11px  166,0 px   margen 30,5
+         12px  180,4 px   margen 16,1   <- aquí
+         13px  194,8 px   margen  1,7
+         14px  209,2 px   SE SALE
+
+     13px entra sobre el papel pero con 1,7 px de holgura, que es cero: una
+     térmica cuyo ancho útil real sea medio milímetro menor, o el rollo algo
+     desalineado, y la fila pierde la hora por la derecha. Ya ocurrió antes con
+     esta misma fila. 12px es un 9 % más grande y deja 16 px de margen.
+  */
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 /*
@@ -365,6 +383,18 @@ select:focus {
 
 .ticket-fila > span:last-child {
   text-align: right;
+}
+
+/*
+   El SORTEO es el dato que decide si un ticket vale: dice a qué juego va la
+   apuesta. La clase estaba puesta en el marcado desde el principio pero sin
+   definir en ninguna parte, así que la fila se veía igual que las demás.
+
+   14px sólo en esta fila: medida es 125,2 px de 196,5, así que sobra sitio —
+   es la fila más corta del encabezado.
+*/
+.ticket-fuerte {
+  font-size: 14px;
 }
 
 .ticket-encabezado {
