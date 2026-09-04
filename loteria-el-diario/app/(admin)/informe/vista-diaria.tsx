@@ -247,11 +247,11 @@ export async function VistaDiaria({
       </Tarjeta>
 
       {/*
-        Un sorteo sin liquidar devuelve el padrón entero en cero, no cero filas,
-        así que el aviso de «no hay nada» de más abajo nunca se ve. Sin esta
-        línea, elegir «Noche · sin resultado» enseña treinta filas en cero sin
-        decir por qué, que se lee como una jornada desastrosa y no como una que
-        todavía no ha terminado.
+        Desde la 0055 un sorteo sin liquidar SÍ enseña su venta y su comisión:
+        están en las líneas desde que se registró la venta. Lo que falta son los
+        premios y el neto, que sin número ganador no existen y salen en «—».
+
+        El aviso lo dice para que nadie lea ese «—» como un cero.
       */}
       {sorteos.length === 0 ? (
         <TarjetaNota>
@@ -260,13 +260,14 @@ export async function VistaDiaria({
       ) : elegido && elegido.estado !== "liquidado" ? (
         <TarjetaNota>
           El sorteo de la {jornada(elegido.hora).toLowerCase()} todavía no está liquidado
-          {elegido.estado === "abierto" ? " — sigue abierto" : ""}. Sin número ganador no hay
-          premios que contar: las filas de abajo salen en cero porque aún no hay resultado, no
-          porque nadie haya vendido.
+          {elegido.estado === "abierto" ? " — sigue abierto" : ""}. La venta y la comisión son
+          las de verdad; los premios y el neto salen en «—» porque hasta que no se capture el
+          número ganador no se sabe cuánto se pagó.
         </TarjetaNota>
       ) : hora === "" && !sorteos.some((x) => x.estado === "liquidado") ? (
         <TarjetaNota>
-          Ninguno de los tres sorteos de ese día está liquidado todavía.
+          Ninguno de los tres sorteos de ese día está liquidado todavía: la venta que se ve
+          es la real, pero los premios y el neto esperan al número ganador.
         </TarjetaNota>
       ) : null}
 
@@ -277,8 +278,8 @@ export async function VistaDiaria({
           {soloConVenta && sinMovimiento > 0
             ? `Ningún vendedor movió nada aquí; hay ${sinMovimiento} en cero que el filtro está ocultando.`
             : elegido && elegido.estado !== "liquidado"
-              ? `El sorteo de la ${jornada(elegido.hora).toLowerCase()} todavía no está liquidado: sin número ganador no hay premios que contar, y por eso no hay cifras.`
-              : "No hay ningún sorteo liquidado en este día. El informe se arma desde las liquidaciones, así que un sorteo sin número ganador todavía no cuenta."}
+              ? `Nadie ha vendido todavía en el sorteo de la ${jornada(elegido.hora).toLowerCase()}.`
+              : "No hay ninguna venta registrada ese día."}
         </TarjetaNota>
       ) : (
         <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
