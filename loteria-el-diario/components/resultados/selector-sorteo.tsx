@@ -4,7 +4,14 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { hora12 } from "@/lib/format";
+import { fechaLarga, hora12 } from "@/lib/format";
+
+/** Un sorteo cerrado de un día anterior, todavía sin número. */
+export type Rezagado = {
+  id: string;
+  fecha: string;
+  hora: string;
+};
 
 export type OpcionSorteo = {
   id: string;
@@ -33,16 +40,72 @@ export type OpcionSorteo = {
 export function SelectorSorteo({
   sorteos,
   elegido,
+  dia,
+  hoy,
+  rezagados = [],
 }: {
   sorteos: OpcionSorteo[];
   elegido: string;
+  /** El día que se está mirando. */
+  dia: string;
+  /** Hoy en Honduras: el tope del selector de fecha. */
+  hoy: string;
+  /** Sorteos cerrados de días anteriores, sin número. */
+  rezagados?: Rezagado[];
 }) {
   const router = useRouter();
   const [navegando, iniciar] = useTransition();
 
+  const irA = (f: string, sorteoId?: string) => {
+    const p = new URLSearchParams({ dia: f });
+    if (sorteoId) p.set("sorteo", sorteoId);
+    iniciar(() => router.push(`/resultados?${p.toString()}`));
+  };
+
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-[18px]">
-      <span className="text-label text-secundario font-medium mr-1">Sorteo de hoy</span>
+    <div className="flex flex-col gap-3 mb-[18px]">
+      {/*
+        LOS REZAGADOS PRIMERO.
+
+        Un sorteo cerrado de otro día sin número bloquea la liquidación de esa
+        jornada entera, y hasta ahora no había nada que lo dijera: sólo
+        aparecía si el día en curso ya estaba resuelto, que casi nunca pasa.
+        Se enseñan como atajos porque enterarse no basta — hay que poder ir.
+      */}
+      {rezagados.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap bg-ambar-fondo rounded-banner px-[13px] py-[10px]">
+          <span className="text-meta text-ambar-texto font-medium">
+            {rezagados.length === 1
+              ? "Queda un sorteo de otro día sin número:"
+              : `Quedan ${rezagados.length} sorteos de otros días sin número:`}
+          </span>
+          {rezagados.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              disabled={navegando}
+              onClick={() => irA(r.fecha, r.id)}
+              className="px-[11px] py-[6px] rounded-chip text-label font-semibold border border-ambar-texto bg-superficie text-ambar-texto cursor-pointer"
+            >
+              {fechaLarga(r.fecha).replace(/ de \d{4}$/, "")} · {hora12(r.hora)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="flex items-center gap-2 mr-1">
+          <span className="text-label text-secundario font-medium">Día</span>
+          <input
+            type="date"
+            value={dia}
+            /* Hacia adelante no: un sorteo que no se ha jugado no tiene número
+               que capturar. */
+            max={hoy}
+            onChange={(e) => irA(e.target.value)}
+            className="px-[11px] py-[7px] border border-borde-campo rounded-campo text-meta bg-superficie text-cuerpo"
+          />
+        </label>
 
       {sorteos.map((s) => {
         const activo = s.id === elegido;
@@ -73,7 +136,8 @@ export function SelectorSorteo({
             )}
           </button>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 }
