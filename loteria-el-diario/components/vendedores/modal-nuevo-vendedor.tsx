@@ -5,16 +5,13 @@ import { useState, useTransition } from "react";
 import { Boton } from "@/components/ui/boton";
 import { CampoModal, CLASE_CONTROL_MODAL, Modal } from "@/components/ui/modal";
 import { crearVendedor } from "@/app/(admin)/vendedores/acciones";
-import { type Ciudad } from "@/lib/ciudades";
-
-const CIUDADES: Ciudad[] = ["San Pedro Sula", "Choloma", "Villanueva", "La Lima"];
 
 const VACIO = {
   nombre: "",
   telefono: "",
   correo: "",
   identidad: "",
-  ciudad: "San Pedro Sula" as Ciudad,
+  ciudad: "",
   barrio: "",
   comision: "12.5",
   factor_pago: "70",
@@ -32,9 +29,19 @@ export function ModalNuevoVendedor({
   abierto,
   onCerrar,
   onCreado,
+  ciudades = [],
 }: {
   abierto: boolean;
   onCerrar: () => void;
+  /**
+   * Las ciudades que YA se usan, para sugerirlas.
+   *
+   * No son un catálogo ni una restricción: se puede escribir cualquier otra.
+   * Están para que nadie tenga que recordar cómo se tecleó la primera vez —
+   * que es de donde salen «Choloma», «choloma» y «CHOLOMA» conviviendo como si
+   * fueran tres sitios.
+   */
+  ciudades?: string[];
   /**
    * El segundo argumento llega sólo cuando además se creó el acceso: son las
    * credenciales, que se muestran una única vez.
@@ -144,17 +151,27 @@ export function ModalNuevoVendedor({
         </CampoModal>
 
         <CampoModal etiqueta="Ciudad">
-          <select
+          {/*
+            Campo libre con lista de sugerencias, no un selector.
+
+            `datalist` deja escribir cualquier cosa y a la vez ofrece lo ya
+            registrado en cuanto se teclean dos letras. Un selector obligaría a
+            mantener un catálogo; un campo pelado invitaría a que el mismo
+            lugar acabe escrito de cuatro maneras.
+          */}
+          <input
             value={form.ciudad}
-            onChange={(e) => set("ciudad", e.target.value as Ciudad)}
+            onChange={(e) => set("ciudad", e.target.value)}
+            list="ciudades-conocidas"
+            placeholder="San Pedro Sula"
+            autoComplete="off"
             className={CLASE_CONTROL_MODAL}
-          >
-            {CIUDADES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+          />
+          <datalist id="ciudades-conocidas">
+            {ciudades.map((c) => (
+              <option key={c} value={c} />
             ))}
-          </select>
+          </datalist>
         </CampoModal>
 
         <CampoModal etiqueta="Barrio">

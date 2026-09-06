@@ -184,6 +184,16 @@ export function TablaVendedores({
   return (
     <>
       <ModalNuevoVendedor
+        /*
+         * Las ciudades ya registradas, para sugerirlas al escribir.
+         *
+         * Se derivan de `zona` —«Ciudad · Barrio»— en vez de pedirlas a la
+         * base: los datos ya están aquí, y una consulta más por abrir el
+         * modal no compra nada.
+         */
+        ciudades={[
+          ...new Set(filas.map((f) => f.zona.split(" · ")[0]).filter(Boolean)),
+        ].sort()}
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         onCreado={(mensaje, acceso) => {

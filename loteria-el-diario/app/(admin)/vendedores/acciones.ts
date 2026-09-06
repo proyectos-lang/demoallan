@@ -90,7 +90,8 @@ export type NuevoVendedor = {
   telefono: string;
   correo: string;
   identidad: string;
-  ciudad: Ciudad;
+  /** Libre: no hay catálogo de ciudades. */
+  ciudad: string;
   barrio: string;
   comision: number;
   factor_pago: number;
@@ -146,12 +147,24 @@ async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   if (!(v.tope_por_numero >= 10)) {
     return { ok: false, mensaje: "El tope por número debe ser al menos L 10." };
   }
-  if (!(v.ciudad in CIUDADES)) {
-    return { ok: false, mensaje: "Seleccione una ciudad válida." };
+  if (v.ciudad.trim().length < 3) {
+    return { ok: false, mensaje: "Escriba la ciudad del vendedor." };
   }
 
   const supabase = await crearClienteServidor();
-  const { lat, lng } = CIUDADES[v.ciudad];
+
+  /*
+   * La coordenada, si se conoce la ciudad.
+   *
+   * `CIUDADES` deja de ser la lista de lo PERMITIDO y pasa a ser la de lo
+   * CONOCIDO: para las cuatro de siempre se sigue mandando su punto exacto,
+   * y para cualquier otra van nulos. La base pone entonces el centro del
+   * departamento y marca la ubicación como aproximada, para que alguien la
+   * corrija en vez de creerse que el vendedor trabaja en mitad del campo.
+   */
+  const conocida = CIUDADES[v.ciudad.trim() as Ciudad];
+  const lat = conocida?.lat ?? null;
+  const lng = conocida?.lng ?? null;
 
   // Un INSERT directo aquí no funcionaría: `vendedor` no tiene política de
   // escritura en RLS, a propósito. La función genera el código con la tabla
