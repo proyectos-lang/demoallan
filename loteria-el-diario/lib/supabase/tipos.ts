@@ -380,6 +380,8 @@ export type Database = {
           r_total: number;
           r_creado_en: string;
           r_repetido: boolean;
+          /** EAN-13 del ticket, para imprimirlo como código de barras. */
+          r_codigo: string | null;
         }[];
       };
 
@@ -404,6 +406,8 @@ export type Database = {
           r_total: number;
           r_creado_en: string;
           r_repetido: boolean;
+          /** EAN-13 del ticket, para imprimirlo como código de barras. */
+          r_codigo: string | null;
         }[];
       };
       fn_reservar_cuota: {

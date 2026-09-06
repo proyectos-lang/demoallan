@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 
 import type { TicketRegistrado } from "@/app/(admin)/punto-de-venta/acciones";
 import { cn } from "@/lib/cn";
+import { svgEan13 } from "@/lib/ean13";
 import {
   fechaHonduras,
   fechaLargaSinDia,
@@ -142,6 +143,31 @@ export function TicketImpreso({
             <span>TOTAL</span>
             <span>{fmt(t.total)}</span>
           </div>
+
+          {/*
+            EL CÓDIGO DE BARRAS, al final y antes del mensaje.
+
+            Va abajo porque es para la máquina, no para el comprador: lo que él
+            mira —números, total— queda arriba, donde cae la vista al recibir
+            el papel. Y porque el rollo se corta por abajo: si el corte se come
+            algo, que sea lo que se puede volver a teclear.
+
+            `dangerouslySetInnerHTML` con un SVG que se arma aquí mismo a
+            partir de un código validado, sin nada que venga de fuera. Si el
+            código no es un EAN-13 correcto, `svgEan13` devuelve null y no se
+            pinta: un código de barras mal dibujado es peor que ninguno, porque
+            parece que funciona y la pistola no lo lee.
+          */}
+          {t.codigo &&
+            (() => {
+              const svg = svgEan13(t.codigo, { ancho: 168, alto: 44 });
+              return svg ? (
+                <div
+                  className="ticket-barras"
+                  dangerouslySetInnerHTML={{ __html: svg }}
+                />
+              ) : null;
+            })()}
 
           <div className="ticket-mensaje">¡Muchos éxitos con tus sorteos!</div>
 

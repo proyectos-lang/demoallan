@@ -512,3 +512,25 @@ select:focus {
     display: none !important;
   }
 }
+
+/* --- El código de barras del ticket -------------------------------------- */
+.ticket-barras {
+  /*
+     Centrado y con aire arriba: pegado a la línea del total, el lector puede
+     confundir el trazo de la línea con una barra.
+
+     `print-color-adjust: exact` como el resto del ticket — sin él, el
+     navegador «ahorra tinta» y las barras salen grises, que es justo lo que
+     una térmica no sabe imprimir.
+  */
+  display: flex;
+  justify-content: center;
+  margin-top: 3mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.ticket-barras svg {
+  max-width: 100%;
+  height: auto;
+}

@@ -14,6 +14,8 @@ export type TicketRegistrado = {
   /** Hora de emisión SEGÚN LA BASE, no según el reloj del dispositivo. */
   creadoEn: string;
   lineas: LineaVenta[];
+  /** EAN-13 del ticket. Se imprime como código de barras. */
+  codigo?: string | null;
 };
 
 export type ResultadoVenta =
@@ -170,6 +172,7 @@ export async function registrarVenta(
       total: Number(f.r_total),
       creadoEn: f.r_creado_en,
       lineas: conLineas[i] ?? [],
+      codigo: f.r_codigo ?? null,
     })),
     total: filas.reduce((a, f) => a + Number(f.r_total), 0),
   };
@@ -262,6 +265,7 @@ export async function registrarVentaFutura(
       total: Number(f.r_total),
       creadoEn: f.r_creado_en,
       lineas: conLineas[i] ?? [],
+      codigo: f.r_codigo ?? null,
     })),
     total: filas.reduce((a, f) => a + Number(f.r_total), 0),
   };
