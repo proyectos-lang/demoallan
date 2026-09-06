@@ -587,6 +587,14 @@ revoke execute on function public.fn_registrar_tanda(uuid, uuid, jsonb, double p
 
 
 -- La venta futura envuelve a la tanda: hereda la columna nueva.
+--
+-- También hay que soltarla antes: gana `r_codigo` en la salida, y Postgres no
+-- permite cambiar el tipo de retorno de una función existente ni siquiera con
+-- `create or replace`. Mismo caso que `fn_registrar_tanda` aquí arriba.
+drop function if exists public.fn_registrar_venta_futura(
+  date, public.hora_sorteo, uuid, jsonb, double precision, double precision, uuid, uuid
+);
+
 create or replace function public.fn_registrar_venta_futura(
   p_fecha       date,
   p_hora        public.hora_sorteo,
