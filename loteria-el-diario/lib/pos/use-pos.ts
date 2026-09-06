@@ -159,6 +159,22 @@ export function usePos(datos: DatosPos) {
    * el pulgar.
    */
   const [montoAbierto, setMontoAbierto] = useState(false);
+
+  /*
+   * MODO «MARCAR VARIOS».
+   *
+   * Apagado —lo normal— tocar un número pregunta el monto en el acto: es el
+   * gesto rápido de la calle, un número y cuánto.
+   *
+   * Encendido, los toques ACUMULAN y la hoja de monto no aparece hasta que el
+   * vendedor lo pide. Sirve para lo que antes obligaba a repetir el gesto una
+   * vez por número: «el 7, el 23 y el 91, diez cada uno».
+   *
+   * No cambia nada de lo que hay debajo. `seleccion` ya era un arreglo y el
+   * monto ya se aplicaba a todos sus números —es lo que hace el botón de
+   * decena—; lo único que faltaba era poder decidir cuáles entran.
+   */
+  const [modoVarios, setModoVarios] = useState(false);
   const [foco, setFoco] = useState<Foco>("numero");
 
   /** El ticket que se está tecleando. */
@@ -454,9 +470,60 @@ export function usePos(datos: DatosPos) {
     if (conCupo.length === 0) return;
 
     setNumero("");
+    setErrorVenta("");
+
+    /*
+     * En modo «marcar varios» el toque SUMA o QUITA, y la hoja no se abre: se
+     * sigue marcando hasta que el vendedor diga que ya. Un toque sobre algo ya
+     * marcado lo quita, que es como se corrige un dedazo sin empezar de nuevo.
+     *
+     * El botón de decena entra por aquí igual, así que en este modo también
+     * acumula: marcar la decena del 20 y añadir el 47 suelto es un caso real.
+     */
+    if (modoVarios) {
+      setSeleccion((sel) => {
+        const dentro = conCupo.every((n) => sel.includes(n));
+        return dentro
+          ? sel.filter((n) => !conCupo.includes(n))
+          : [...new Set([...sel, ...conCupo])].sort((a, b) => a - b);
+      });
+      return;
+    }
+
     setMonto("");
     setSeleccion(conCupo);
     setMontoAbierto(true);
+  };
+
+  /** Ya está la selección: ahora el monto, uno solo para todos. */
+  const cobrarSeleccion = () => {
+    if (seleccion.length === 0) return;
+    setMonto("");
+    setMontoAbierto(true);
+    setErrorVenta("");
+  };
+
+  /**
+   * Enciende o apaga el modo. Al apagarlo se suelta lo marcado: dejar números
+   * seleccionados sin la hoja abierta ni el modo activo es un estado que el
+   * vendedor no ve y que le cobraría en la siguiente venta.
+   */
+  const alternarModoVarios = () => {
+    setModoVarios((v) => {
+      if (v) {
+        setSeleccion([]);
+        setMontoAbierto(false);
+      }
+      return !v;
+    });
+    setMonto("");
+    setErrorVenta("");
+  };
+
+  /** Suelta lo marcado sin salir del modo. */
+  const limpiarSeleccion = () => {
+    setSeleccion([]);
+    setMonto("");
     setErrorVenta("");
   };
 
@@ -685,6 +752,10 @@ export function usePos(datos: DatosPos) {
     limpiarEntrada,
     pedirMonto,
     cerrarMonto,
+    modoVarios,
+    alternarModoVarios,
+    cobrarSeleccion,
+    limpiarSeleccion,
     alternarNumero,
     alternarLinea,
     escribirNumero,

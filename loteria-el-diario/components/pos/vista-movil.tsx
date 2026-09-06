@@ -1,5 +1,7 @@
 "use client";
 
+import { Check } from "lucide-react";
+
 import {
   AvisoFueraDeHora,
   ListaTanda,
@@ -212,9 +214,64 @@ function Rejilla({ pos }: { pos: Pos }) {
 
   return (
     <div className="mt-3">
+      {/*
+        EL INTERRUPTOR VA ARRIBA DE LA REJILLA, no abajo: es lo que decide qué
+        hace el siguiente toque, y decidirlo después de haber tocado no serviría
+        de nada.
+      */}
+      <button
+        type="button"
+        onClick={pos.alternarModoVarios}
+        aria-pressed={pos.modoVarios}
+        className={cn(
+          "flex items-center gap-[10px] w-full px-[13px] py-[11px] rounded-campo text-meta font-medium text-left border mb-2",
+          pos.modoVarios
+            ? "bg-acento border-acento text-white"
+            : "bg-panel border-borde-campo text-cuerpo",
+        )}
+      >
+        <span
+          className={cn(
+            "w-[18px] h-[18px] flex-none rounded-[5px] border-[1.5px] flex items-center justify-center",
+            pos.modoVarios ? "bg-white border-white" : "border-borde-pos bg-superficie",
+          )}
+        >
+          {pos.modoVarios && (
+            <Check size={13} strokeWidth={3.5} absoluteStrokeWidth color="var(--color-acento)" />
+          )}
+        </span>
+        Marcar varios números
+      </button>
+
       <div className="text-micro text-secundario mb-2">
-        Toque un número y diga cuánto. El rango pregunta por la decena entera.
+        {pos.modoVarios
+          ? "Toque los números que quiera; se marcan sin preguntar. Al terminar, ponga el valor una sola vez."
+          : "Toque un número y diga cuánto. El rango pregunta por la decena entera."}
       </div>
+
+      {/*
+        La barra sólo aparece con algo marcado: un botón de «poner valor» sin
+        números que cobrar no tiene nada que hacer ocupando sitio.
+      */}
+      {pos.modoVarios && pos.seleccion.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={pos.cobrarSeleccion}
+            className="flex-1 border-0 bg-acento text-white rounded-pos py-[13px] text-pos font-semibold cursor-pointer"
+          >
+            Poner valor a {pos.seleccion.length}{" "}
+            {pos.seleccion.length === 1 ? "número" : "números"}
+          </button>
+          <button
+            type="button"
+            onClick={pos.limpiarSeleccion}
+            className="border border-borde-campo bg-superficie text-cuerpo rounded-pos px-4 py-[13px] text-meta font-medium cursor-pointer"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-[2px]">
         {decenas.map((indice) => {
@@ -252,6 +309,7 @@ function Rejilla({ pos }: { pos: Pos }) {
 
               {decena.map((n) => {
                 const dp = pos.disponible[n];
+                const marcado = pos.seleccion.includes(n);
                 return (
                   <button
                     key={n}
@@ -260,7 +318,11 @@ function Rejilla({ pos }: { pos: Pos }) {
                     className={cn(
                       "h-[38px] rounded-celda text-pos font-semibold border-[1.5px] p-0",
                       dp <= 0
-                          ? "bg-negativo-fondo text-negativo-texto border-negativo-borde"
+                        ? "bg-negativo-fondo text-negativo-texto border-negativo-borde"
+                        : marcado
+                          // Marcado gana al semáforo de cupo: mientras se
+                          // eligen números, lo que importa es cuáles van.
+                          ? "bg-acento text-white border-acento"
                           : dp < CUPO_BAJO
                             ? "bg-ambar-fondo text-tinta border-borde-pos"
                             : "bg-superficie text-tinta border-borde-pos",
