@@ -100,6 +100,20 @@ export const CUPO_BAJO = 300;
 export const POR_LINEA = 5;
 
 /**
+ * Cuántos números toma de una vez el botón de rango: una decena.
+ *
+ * NO es lo mismo que `POR_LINEA`, y la diferencia es deliberada. Las filas
+ * siguen siendo de cinco porque con diez columnas la casilla baja a 28 px
+ * —medido sobre 351 px útiles en un iPhone SE—, la mitad del mínimo táctil; el
+ * botón, en cambio, abarca las DOS filas de la decena, que es como el vendedor
+ * piensa la rejilla: «del 20 al 29».
+ *
+ * Un solo botón por decena en vez de dos: diez gestos posibles en vez de
+ * veinte, y ninguna casilla se encoge.
+ */
+export const POR_RANGO = 10;
+
+/**
  * Todo el estado del punto de venta, en un solo sitio.
  *
  * Se llama `usePos` y no `usarPos`, que es lo que pediría el resto del código:
@@ -462,16 +476,16 @@ export function usePos(datos: DatosPos) {
   };
 
   /**
-   * Toma o suelta una línea entera de la rejilla —la línea `i`: 00–04, 05–09…
+   * Toma o suelta una decena entera —la decena `i`: 00–09, 10–19…
    *
    * Los números sin cupo se quedan fuera: meterlos sólo serviría para que el
-   * aviso dijera enseguida que no caben. Si la línea ya está tomada al
+   * aviso dijera enseguida que no caben. Si la decena ya está tomada al
    * completo, el mismo gesto la suelta.
    */
   const alternarLinea = (indice: number) => {
     const fila = Array.from(
-      { length: POR_LINEA },
-      (_, i) => indice * POR_LINEA + i,
+      { length: POR_RANGO },
+      (_, i) => indice * POR_RANGO + i,
     ).filter((n) => disponible[n] > 0);
     if (fila.length === 0) return;
 

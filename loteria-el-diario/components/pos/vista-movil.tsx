@@ -9,7 +9,7 @@ import {
 import { HojaMonto } from "@/components/pos/hoja-monto";
 import { cn } from "@/lib/cn";
 import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
-import { CUPO_BAJO, POR_LINEA, type Pos } from "@/lib/pos/use-pos";
+import { CUPO_BAJO, POR_LINEA, POR_RANGO, type Pos } from "@/lib/pos/use-pos";
 
 /**
  * Punto de venta en un teléfono de verdad.
@@ -190,30 +190,37 @@ export function VistaMovil({ pos }: { pos: Pos }) {
  * vendedor pidió tocarlo de una, y tocándolo sale gratis lo demás: tocar
  * varios, y tomar una fila entera con un gesto.
  *
- * La primera columna de cada fila es el botón que toma la línea entera. Va ahí
- * y no debajo con el texto completo porque debajo duplicaba la altura y
- * obligaba a recorrer la rejilla con el pulgar; al principio de la fila, el
- * gesto queda al lado de lo que afecta.
+ * La primera columna es el botón que toma el rango entero. Va ahí y no debajo
+ * con el texto completo porque debajo duplicaba la altura y obligaba a
+ * recorrer la rejilla con el pulgar; al principio, el gesto queda al lado de lo
+ * que afecta.
  *
- * CINCO POR LÍNEA Y NO DIEZ. Con diez columnas la casilla salía de 29 px de
- * ancho —por debajo de los 44 que recomiendan iOS y Android—, y aquí un toque
- * errado no es un inconveniente: es vender otro número. Con cinco casi se
- * duplica. Se paga en alto: veinte líneas en vez de diez.
+ * CINCO POR FILA Y NO DIEZ. Con diez columnas la casilla sale de 28 px de
+ * ancho —medido sobre los 351 px útiles de un iPhone SE, por debajo de los 44
+ * que recomiendan iOS y Android—, y aquí un toque errado no es un
+ * inconveniente: es vender otro número. Con cinco sube a 58.
+ *
+ * PERO EL BOTÓN ES POR DECENA, no por fila. El vendedor piensa la rejilla en
+ * decenas —«del 20 al 29»— y tener que dar dos gestos para eso sobraba. El
+ * botón ocupa el alto de sus dos filas, así que hay diez y no veinte, y
+ * ninguna casilla se encoge por ello.
  */
 function Rejilla({ pos }: { pos: Pos }) {
-  const lineas = Array.from({ length: 100 / POR_LINEA }, (_, i) => i);
+  const decenas = Array.from({ length: 100 / POR_RANGO }, (_, i) => i);
+  /** Cuántas filas de cinco caben en una decena: dos. */
+  const FILAS = POR_RANGO / POR_LINEA;
 
   return (
     <div className="mt-3">
       <div className="text-micro text-secundario mb-2">
-        Toque un número y diga cuánto. El rango pregunta por la línea entera.
+        Toque un número y diga cuánto. El rango pregunta por la decena entera.
       </div>
 
       <div className="flex flex-col gap-[2px]">
-        {lineas.map((indice) => {
-          const desde = indice * POR_LINEA;
-          const fila = Array.from({ length: POR_LINEA }, (_, i) => desde + i);
-          const conCupo = fila.filter((n) => pos.disponible[n] > 0);
+        {decenas.map((indice) => {
+          const inicio = indice * POR_RANGO;
+          const decena = Array.from({ length: POR_RANGO }, (_, i) => inicio + i);
+          const conCupo = decena.filter((n) => pos.disponible[n] > 0);
 
           return (
             <div
@@ -223,21 +230,27 @@ function Rejilla({ pos }: { pos: Pos }) {
                 gridTemplateColumns: `46px repeat(${POR_LINEA}, minmax(0, 1fr))`,
               }}
             >
+              {/*
+                El botón ocupa las dos filas de su decena: `gridRow` con el
+                número de filas que abarca. Así queda a la altura de lo que
+                selecciona en vez de flotar junto a la primera mitad.
+              */}
               <button
-                onClick={() => pos.pedirMonto(fila)}
+                onClick={() => pos.pedirMonto(decena)}
                 disabled={conCupo.length === 0}
-                aria-label={`Seleccionar toda la línea del ${pad2(desde)} al ${pad2(desde + POR_LINEA - 1)}`}
+                aria-label={`Seleccionar del ${pad2(inicio)} al ${pad2(inicio + POR_RANGO - 1)}`}
+                style={{ gridRow: `span ${FILAS}` }}
                 className={cn(
-                  "h-[38px] rounded-celda text-badge font-semibold border-[1.5px] leading-tight",
+                  "rounded-celda text-badge font-semibold border-[1.5px] leading-tight",
                   conCupo.length === 0
                     ? "bg-riel text-mudo border-riel"
                     : "bg-panel text-cuerpo border-borde-pos",
                 )}
               >
-                {pad2(desde)}–{pad2(desde + POR_LINEA - 1)}
+                {pad2(inicio)}–{pad2(inicio + POR_RANGO - 1)}
               </button>
 
-              {fila.map((n) => {
+              {decena.map((n) => {
                 const dp = pos.disponible[n];
                 return (
                   <button
