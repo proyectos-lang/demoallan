@@ -45,7 +45,21 @@ export default async function VendedorLayout({ children }: LayoutProps<"/">) {
         pantalla donde la rejilla de cien números ya obliga a desplazarse; lo
         que no es imprescindible se fue al menú.
       */}
-      <header className="flex-none bg-nav-fondo px-3 py-2 flex items-center gap-3">
+      {/*
+        `safe-area-inset-top` NO ES ADORNO AQUÍ.
+
+        Con `viewportFit: "cover"` la página llega al borde de la pantalla, y
+        en un iPhone instalado el botón del menú quedaba DEBAJO del reloj y del
+        notch: se veía, pero el toque no llegaba —la barra de estado se lo
+        comía— y el vendedor no podía abrir el menú.
+
+        En Android y en el escritorio `env(safe-area-inset-top)` vale 0, así
+        que la cabecera se ve igual que antes; sólo se separa donde hace falta.
+      */}
+      <header
+        className="flex-none bg-nav-fondo px-3 py-2 flex items-center gap-3"
+        style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top))" }}
+      >
         <MenuVendedor
           nombre={sesion.nombre}
           codigo={iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}

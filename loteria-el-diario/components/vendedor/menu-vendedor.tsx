@@ -111,7 +111,21 @@ export function MenuVendedor({ nombre, codigo }: { nombre: string; codigo: strin
       </button>
 
       {abierto && (
-        <div className="fixed inset-0 z-40 flex flex-col bg-nav-fondo">
+        <div
+          className="fixed inset-0 z-40 flex flex-col bg-nav-fondo"
+          /*
+            Los dos recortes, arriba y abajo.
+
+            El menú ocupa la pantalla entera —`inset-0`— así que en un iPhone
+            instalado su cabecera caía bajo el reloj y el último módulo de la
+            lista bajo la barra de gestos. Fuera de iOS ambos valen 0 y no
+            cambia nada.
+          */
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
+        >
           <div className="flex items-center gap-3 px-4 py-3 border-b border-nav-linea">
             <span className="block min-w-0 flex-1">
               <span className="block text-meta font-semibold text-nav-titulo truncate">
