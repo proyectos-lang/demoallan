@@ -2,11 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
 import { Modal, CampoModal, CLASE_CONTROL_MODAL } from "@/components/ui/modal";
 import { ModalNuevoVendedor } from "@/components/vendedores/modal-nuevo-vendedor";
+import {
+  ModalEditarVendedor,
+  type VendedorEditable,
+} from "@/components/vendedores/modal-editar-vendedor";
 import { fmt, iniciales } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { guardarParametros, type Cambio } from "@/app/(admin)/vendedores/acciones";
@@ -21,9 +25,14 @@ export type FilaVendedor = {
   id: string;
   codigo: string;
   nombre: string;
+  /** Nombre comercial para el ticket. Vacío, se imprime `nombre`. */
+  alias: string | null;
   identidad: string | null;
   telefono: string | null;
   correo: string | null;
+  /** Por separado, no sólo dentro de `zona`: el formulario los edita aparte. */
+  ciudad: string | null;
+  barrio: string | null;
   zona: string;
   color: string;
   activo: boolean;
@@ -53,10 +62,13 @@ export function TablaVendedores({
   filas,
   limiteGlobal,
   verBajas,
+  ciudades = [],
 }: {
   filas: FilaVendedor[];
   limiteGlobal: number;
   verBajas: boolean;
+  /** Las ciudades ya registradas, para sugerirlas al crear y al editar. */
+  ciudades?: string[];
 }) {
   const router = useRouter();
   // La confirmación de baja va en modal y no en `confirm()`: eliminar es
@@ -75,6 +87,8 @@ export function TablaVendedores({
   });
   const [guardando, iniciarGuardado] = useTransition();
   const [modalAbierto, setModalAbierto] = useState(false);
+  // A quién se está editando. `null` con el modal cerrado.
+  const [editando, setEditando] = useState<VendedorEditable | null>(null);
   // Credenciales recién generadas. Se muestran UNA vez: la contraseña no se
   // guarda en claro en ningún sitio, así que si se cierra sin anotarla hay que
   // restablecerla.
@@ -184,22 +198,30 @@ export function TablaVendedores({
   return (
     <>
       <ModalNuevoVendedor
-        /*
-         * Las ciudades ya registradas, para sugerirlas al escribir.
-         *
-         * Se derivan de `zona` —«Ciudad · Barrio»— en vez de pedirlas a la
-         * base: los datos ya están aquí, y una consulta más por abrir el
-         * modal no compra nada.
-         */
-        ciudades={[
-          ...new Set(filas.map((f) => f.zona.split(" · ")[0]).filter(Boolean)),
-        ].sort()}
+        // Las ciudades ya registradas, para sugerirlas al escribir. Llegan de
+        // la página, derivadas de la columna `ciudad`: antes se reconstruían
+        // partiendo `zona` por « · », que un barrio con ese separador rompía.
+        ciudades={ciudades}
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         onCreado={(mensaje, acceso) => {
           setModalAbierto(false);
           setAviso({ texto: mensaje, tipo: "ok" });
           if (acceso) setCredenciales(acceso);
+        }}
+      />
+
+      <ModalEditarVendedor
+        vendedor={editando}
+        ciudades={ciudades}
+        onCerrar={() => setEditando(null)}
+        onGuardado={(mensaje) => {
+          setEditando(null);
+          setAviso({ texto: mensaje, tipo: "ok" });
+          // La acción revalida `/vendedores`, pero este componente es cliente y
+          // no se entera sola: sin el refresco la tabla seguiría mostrando el
+          // nombre viejo junto al aviso de que se guardó el nuevo.
+          router.refresh();
         }}
       />
 
@@ -425,7 +447,47 @@ export function TablaVendedores({
                         <span className="block text-label text-secundario">
                           {fila.codigo} · {fila.identidad ?? "—"}
                         </span>
+                        {/* El alias sólo se muestra si lo hay: una línea con
+                            «—» en cada fila sin alias añadiría ruido a la
+                            columna sin decir nada. */}
+                        {fila.alias && (
+                          <span className="block text-label text-mudo">
+                            ticket: {fila.alias}
+                          </span>
+                        )}
                       </span>
+                      {/*
+                        Editar va en la columna de identidad y no junto a
+                        «inactivar»: aquélla es la columna de acciones sobre el
+                        ESTADO del vendedor, y ésta es la de quién es. Además
+                        deja el gesto al lado de lo que va a cambiar.
+
+                        Un vendedor eliminado no se edita —la base lo rechaza—,
+                        así que el botón no se ofrece.
+                      */}
+                      {!fila.eliminado && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditando({
+                              id: fila.id,
+                              codigo: fila.codigo,
+                              nombre: fila.nombre,
+                              alias: fila.alias,
+                              telefono: fila.telefono,
+                              correo: fila.correo,
+                              identidad: fila.identidad,
+                              ciudad: fila.ciudad,
+                              barrio: fila.barrio,
+                            })
+                          }
+                          title={`Editar los datos de ${fila.nombre}`}
+                          aria-label={`Editar los datos de ${fila.nombre}`}
+                          className="ml-auto flex-none p-[6px] rounded-campo text-secundario hover:bg-panel hover:text-acento"
+                        >
+                          <Pencil size={14} strokeWidth={2.2} absoluteStrokeWidth />
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="border-b border-fondo py-[11px] px-3 text-secundario">

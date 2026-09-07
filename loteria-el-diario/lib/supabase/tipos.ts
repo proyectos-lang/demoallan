@@ -861,6 +861,26 @@ export type Database = {
         };
         Returns: { vendedor_id: string; vendedor_codigo: string }[];
       };
+      /**
+       * Edita la ficha de un vendedor: nombre, alias, contacto y zona.
+       *
+       * No toca el código —está impreso en los folios ya emitidos— ni los
+       * parámetros, que se versionan aparte con `fn_guardar_parametros`.
+       */
+      fn_editar_vendedor: {
+        Args: {
+          p_vendedor_id: string;
+          p_nombre: string;
+          p_alias?: string | null;
+          p_telefono?: string | null;
+          p_correo?: string | null;
+          p_identidad?: string | null;
+          p_ciudad?: string | null;
+          p_barrio?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: undefined;
+      };
       /** Crea los tres sorteos de una fecha, en estado `programado`. */
       fn_programar_dia: { Args: { p_fecha: string }; Returns: number };
       fn_es_servicio: { Args: Record<string, never>; Returns: boolean };

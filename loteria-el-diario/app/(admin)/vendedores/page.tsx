@@ -29,7 +29,7 @@ export default async function VendedoresPage({ searchParams }: PageProps<"/vende
   let consulta = supabase
     .from("vendedor")
     .select(
-      "id, codigo, nombre, identidad, telefono, correo, zona, color, activo, eliminado_en, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
+      "id, codigo, nombre, alias, identidad, telefono, correo, ciudad, barrio, zona, color, activo, eliminado_en, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
     )
     .is("parametro_vendedor.vigente_hasta", null)
     .order("codigo");
@@ -54,9 +54,14 @@ export default async function VendedoresPage({ searchParams }: PageProps<"/vende
       id: v.id,
       codigo: v.codigo,
       nombre: v.nombre,
+      alias: v.alias,
       identidad: v.identidad,
       telefono: v.telefono,
       correo: v.correo,
+      // Ciudad y barrio viajan aparte de `zona` —que es su concatenación— para
+      // que el formulario de edición pueda ofrecer cada uno por separado.
+      ciudad: v.ciudad,
+      barrio: v.barrio,
       zona: v.zona,
       color: v.color,
       activo: v.activo,
@@ -69,10 +74,15 @@ export default async function VendedoresPage({ searchParams }: PageProps<"/vende
     };
   });
 
+  // Las ciudades ya en uso, para sugerirlas al crear y al editar. Se derivan
+  // del propio padrón: no hay catálogo que mantener.
+  const ciudades = [...new Set(filas.map((f) => f.ciudad).filter((c): c is string => !!c))].sort();
+
   return (
     <Pagina>
       <TablaVendedores
         filas={filas}
+        ciudades={ciudades}
         limiteGlobal={LIMITE_GLOBAL_REFERENCIA}
         verBajas={verBajas}
       />

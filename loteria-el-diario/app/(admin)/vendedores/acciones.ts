@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { crearClienteServidor } from "@/lib/supabase/server";
 import { crearClienteServicio } from "@/lib/supabase/admin";
 import { generarContrasena } from "@/lib/clave";
+import { sesionActual } from "@/lib/sesion";
 import { CIUDADES, type Ciudad } from "@/lib/ciudades";
 
 export type Cambio = {
@@ -276,4 +277,89 @@ async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
       `${v.nombre.trim()} creado con código ${codigo}. Puede vender desde el próximo sorteo.` +
       aviso,
   };
+}
+
+
+/* =========================================================================
+ * Editar los datos de un vendedor ya creado.
+ *
+ * Qué NO se toca aquí: la comisión, el factor y el tope. Se editan en la tabla
+ * y se guardan VERSIONADOS con `fn_guardar_parametros`, para que cada línea ya
+ * vendida conserve lo que se le prometió. Traerlos a este formulario, donde
+ * todo se sobrescribe, sería el camino corto a reescribir el pasado sin querer.
+ * ========================================================================= */
+
+export type EdicionVendedor = {
+  vendedor_id: string;
+  nombre: string;
+  alias: string;
+  telefono: string;
+  correo: string;
+  identidad: string;
+  ciudad: string;
+  barrio: string;
+};
+
+export async function editarVendedor(v: EdicionVendedor): Promise<Resultado> {
+  /*
+   * La guarda de rol vive AQUÍ y no en la base.
+   *
+   * La aplicación habla con Supabase como `service_role`, así que
+   * `fn_es_servicio()` es cierto en toda petición y el `fn_exige` de la función
+   * retorna sin comprobar nada. El `fn_exige` de la 0065 está por coherencia,
+   * no por seguridad: lo que de verdad corta es esta línea.
+   */
+  const s = await sesionActual();
+  if (!s) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (s.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede editar vendedores." };
+  }
+
+  // Las mismas reglas del alta, para decirlo antes de ir al servidor. No
+  // sustituyen a las de la base: las duplican para dar un mensaje inmediato.
+  if (v.nombre.trim().length < 5) {
+    return { ok: false, mensaje: "Escriba el nombre completo del vendedor." };
+  }
+  if (v.ciudad.trim().length < 3) {
+    return { ok: false, mensaje: "Escriba la ciudad del vendedor." };
+  }
+  if (v.alias.trim().length > 30) {
+    return { ok: false, mensaje: "El alias no puede pasar de 30 caracteres; no cabe en el ticket." };
+  }
+  if (v.telefono.trim() && !/^\d{4}-\d{4}$/.test(v.telefono.trim())) {
+    return { ok: false, mensaje: "Teléfono en formato 9999-9999, o déjelo en blanco." };
+  }
+  if (v.correo.trim() && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v.correo.trim())) {
+    return { ok: false, mensaje: "Correo electrónico no válido, o déjelo en blanco." };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  const { error } = await supabase.rpc("fn_editar_vendedor", {
+    p_vendedor_id: v.vendedor_id,
+    p_nombre: v.nombre,
+    p_alias: v.alias.trim() || null,
+    p_telefono: v.telefono.trim() || null,
+    p_correo: v.correo.trim() || null,
+    p_identidad: v.identidad.trim() || null,
+    p_ciudad: v.ciudad,
+    p_barrio: v.barrio.trim() || null,
+    p_usuario_id: s.id,
+  });
+
+  if (error) {
+    // La base todavía sin la 0065. Se dice qué falta en vez de dejar el mensaje
+    // crudo de PostgREST, que no le sugiere nada a quien lo lee.
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje:
+          "La edición de vendedores todavía no está habilitada en la base de datos. Falta aplicar la migración 0065.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  revalidatePath("/vendedores");
+  return { ok: true, mensaje: `Datos de ${v.nombre.trim()} actualizados y registrados en auditoría.` };
 }
