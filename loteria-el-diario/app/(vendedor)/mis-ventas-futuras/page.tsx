@@ -150,7 +150,7 @@ async function Vender({
   const { data: vendedorFila } = await supabase
     .from("vendedor")
     .select(
-      "id, codigo, nombre, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
+      "id, codigo, nombre, alias, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
     )
     .eq("id", vendedorId)
     .is("parametro_vendedor.vigente_hasta", null)
@@ -161,6 +161,7 @@ async function Vender({
         id: string;
         codigo: string;
         nombre: string;
+        alias: string | null;
         parametro_vendedor:
           | { comision: number; factor_pago: number; tope_por_numero: number }
           | { comision: number; factor_pago: number; tope_por_numero: number }[];
@@ -183,6 +184,7 @@ async function Vender({
       id: v.id,
       codigo: v.codigo,
       nombre: v.nombre,
+      alias: v.alias,
       comision: Number(p.comision),
       factor_pago: Number(p.factor_pago),
       tope_por_numero: Number(p.tope_por_numero),

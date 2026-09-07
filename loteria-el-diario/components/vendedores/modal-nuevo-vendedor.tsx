@@ -10,6 +10,7 @@ const VACIO = {
   nombre: "",
   telefono: "",
   correo: "",
+  alias: "",
   identidad: "",
   ciudad: "",
   barrio: "",
@@ -75,6 +76,7 @@ export function ModalNuevoVendedor({
         identidad: form.identidad,
         ciudad: form.ciudad,
         barrio: form.barrio,
+        alias: form.alias,
         comision: parseFloat(form.comision || "0"),
         factor_pago: parseFloat(form.factor_pago || "0"),
         tope_por_numero: parseFloat(form.tope_por_numero || "0"),
@@ -122,6 +124,25 @@ export function ModalNuevoVendedor({
             className={CLASE_CONTROL_MODAL}
             autoFocus
           />
+        </CampoModal>
+
+        {/*
+          El alias va PEGADO AL NOMBRE porque es su alternativa: quien lo lee
+          entiende de un vistazo que uno sustituye al otro en el papel. Más
+          abajo, entre el correo y la ciudad, parecería un dato de contacto.
+        */}
+        <CampoModal etiqueta="Alias (opcional)" anchoCompleto>
+          <input
+            value={form.alias}
+            onChange={(e) => set("alias", e.target.value.slice(0, 30))}
+            placeholder="Lo que se imprime en el ticket"
+            maxLength={30}
+            className={CLASE_CONTROL_MODAL}
+          />
+          <span className="block text-label text-mudo mt-[5px]">
+            Si lo deja en blanco, el ticket imprime el nombre. Máximo 30
+            caracteres: es lo que cabe en la tirilla.
+          </span>
         </CampoModal>
 
         <CampoModal etiqueta="Teléfono (opcional)">

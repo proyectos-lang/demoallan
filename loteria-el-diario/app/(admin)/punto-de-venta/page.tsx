@@ -110,7 +110,7 @@ export default async function PuntoDeVentaPage({
   const { data: vendedoresCrudos } = await supabase
     .from("vendedor")
     .select(
-      "id, codigo, nombre, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
+      "id, codigo, nombre, alias, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)",
     )
     .eq("activo", true)
     .is("parametro_vendedor.vigente_hasta", null)
@@ -122,6 +122,7 @@ export default async function PuntoDeVentaPage({
       id: v.id,
       codigo: v.codigo,
       nombre: v.nombre,
+      alias: v.alias,
       comision: Number(p.comision),
       factor_pago: Number(p.factor_pago),
       tope_por_numero: Number(p.tope_por_numero),

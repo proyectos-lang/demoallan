@@ -34,6 +34,13 @@ export type Vendedor = {
   id: string;
   codigo: string;
   nombre: string;
+  /**
+   * Nombre comercial para el ticket. Opcional: vacío, se imprime `nombre`.
+   *
+   * Sólo para mostrar. Informes, liquidación y auditoría siguen usando el
+   * nombre y el código, que son la identidad contable del vendedor.
+   */
+  alias: string | null;
   identidad: string | null;
   telefono: string | null;
   correo: string | null;
@@ -43,6 +50,8 @@ export type Vendedor = {
   color: string;
   lat: number | null;
   lng: number | null;
+  /** La coordenada es el centro del departamento, no la del vendedor. */
+  ubicacion_aproximada: boolean;
   activo: boolean;
   creado_en: string;
   /** Baja definitiva. Sale del padrón; su historial queda intacto. */
@@ -847,6 +856,8 @@ export type Database = {
           p_comision: number;
           p_factor_pago: number;
           p_tope_por_numero: number;
+          /** Nombre comercial para el ticket. Nulo: se imprime el nombre. */
+          p_alias?: string | null;
         };
         Returns: { vendedor_id: string; vendedor_codigo: string }[];
       };

@@ -26,6 +26,13 @@ export type VendedorPos = {
   id: string;
   codigo: string;
   nombre: string;
+  /**
+   * Nombre comercial, si lo tiene. Es lo que imprime el ticket.
+   *
+   * Sólo para mostrar: los informes y la liquidación siguen usando `nombre` y
+   * `codigo`, que son la identidad contable del vendedor.
+   */
+  alias?: string | null;
   /** Fracción, como en la base. */
   comision: number;
   factor_pago: number;

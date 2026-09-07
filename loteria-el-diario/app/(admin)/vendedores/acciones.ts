@@ -92,6 +92,13 @@ export type NuevoVendedor = {
   identidad: string;
   /** Libre: no hay catálogo de ciudades. */
   ciudad: string;
+  /**
+   * Nombre comercial para el ticket. Opcional: vacío, se imprime el nombre.
+   *
+   * No sustituye al nombre en informes ni liquidación — ahí manda la identidad
+   * contable, que no puede depender de un rótulo que cambia con el toldo.
+   */
+  alias: string;
   barrio: string;
   comision: number;
   factor_pago: number;
@@ -150,6 +157,11 @@ async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
   if (v.ciudad.trim().length < 3) {
     return { ok: false, mensaje: "Escriba la ciudad del vendedor." };
   }
+  // El mismo tope que la base. Se comprueba aquí también para decirlo antes de
+  // ir al servidor, no para sustituir aquella comprobación.
+  if (v.alias.trim().length > 30) {
+    return { ok: false, mensaje: "El alias no puede pasar de 30 caracteres; no cabe en el ticket." };
+  }
 
   const supabase = await crearClienteServidor();
 
@@ -184,6 +196,7 @@ async function altaDeVendedor(v: NuevoVendedor): Promise<ResultadoAlta> {
     p_comision: v.comision / 100,
     p_factor_pago: v.factor_pago,
     p_tope_por_numero: v.tope_por_numero,
+    p_alias: v.alias.trim() || null,
   });
 
   if (error) {

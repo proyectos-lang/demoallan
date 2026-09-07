@@ -129,7 +129,12 @@ export function TicketImpreso({
           </div>
           <div className="ticket-fila ticket-nombre">
             <span />
-            <span>{vendedor.nombre}</span>
+            {/*
+              El alias si lo hay, si no el nombre. La misma regla que
+              `fn_rotulo` en la base — aquí se repite porque el ticket se pinta
+              con lo que ya tiene en memoria, sin volver a consultar.
+            */}
+            <span>{vendedor.alias?.trim() || vendedor.nombre}</span>
           </div>
           <div className="ticket-fila">
             <span>FOLIO</span>
