@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { ReimprimirTicket } from "@/components/vendedor/reimprimir-ticket";
 import { fechaHonduras, fechaLarga, fmt, hora12, horaHonduras12, pad2 } from "@/lib/format";
 import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -124,13 +125,13 @@ export default async function MiDiaPage() {
             <h2 className="text-h2 font-semibold tracking-sutil m-0">Mis tickets de hoy</h2>
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[560px]">
+          <table className="w-full border-collapse min-w-[640px]">
             <thead>
               <tr className="bg-tinte">
-                {["HORA", "FOLIO", "SORTEO", "LÍNEAS", "TOTAL", "PREMIO"].map((h, i) => (
+                {["HORA", "FOLIO", "SORTEO", "LÍNEAS", "TOTAL", "PREMIO", ""].map((h, i) => (
                   <th
-                    key={h}
-                    className={`text-th font-semibold tracking-seccion text-secundario px-4 py-[10px] ${i > 2 ? "text-right" : "text-left"}`}
+                    key={h || "acciones"}
+                    className={`text-th font-semibold tracking-seccion text-secundario px-4 py-[10px] ${i > 2 && i < 6 ? "text-right" : "text-left"}`}
                   >
                     {h}
                   </th>
@@ -151,6 +152,12 @@ export default async function MiDiaPage() {
                   </td>
                   <td className="px-4 py-[10px] text-tabla text-right">
                     {Number(t.r_premio) > 0 ? fmt(Number(t.r_premio)) : "—"}
+                  </td>
+                  {/* Reimprimir vive en su propia columna, al final de la fila:
+                      es una acción, no un dato, y mezclarla con las cifras
+                      invita al clic accidental sobre la fila equivocada. */}
+                  <td className="px-4 py-[10px] text-right">
+                    <ReimprimirTicket folio={t.r_folio} />
                   </td>
                 </tr>
               ))}

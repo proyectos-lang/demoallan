@@ -287,6 +287,23 @@ type Tabla<Fila, Auto extends keyof Fila> = {
   Relationships: [];
 };
 
+/** Lo que devuelven las dos funciones de reimpresión de tirilla. */
+export type TicketReimpreso = {
+  r_folio: string;
+  r_creado_en: string;
+  r_total: number;
+  /** EAN-13 del ticket. Puede faltar en ventas anteriores a la 0061. */
+  r_codigo: string | null;
+  r_anulado: boolean;
+  r_fecha: string;
+  r_hora: HoraSorteo;
+  r_vendedor: string;
+  r_alias: string | null;
+  r_codigo_v: string;
+  /** Las líneas del ticket: `[{ numero, monto }, …]`. */
+  r_lineas: { numero: number; monto: number }[];
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -719,6 +736,22 @@ export type Database = {
           r_premio: number;
           r_anulado: boolean;
         }[];
+      };
+      /**
+       * Un ticket ya registrado con sus líneas, para reimprimir la tirilla.
+       *
+       * Sólo lectura: no registra nada. `p_vendedor_id` no es un filtro de
+       * comodidad sino la frontera — sin él, un folio ajeno devolvería la
+       * tirilla de otro vendedor.
+       */
+      fn_ticket_para_reimprimir: {
+        Args: { p_folio: string; p_vendedor_id: string };
+        Returns: TicketReimpreso[];
+      };
+      /** Como la anterior, sin atarse a un vendedor. Sólo administración. */
+      fn_ticket_para_reimprimir_admin: {
+        Args: { p_folio: string };
+        Returns: TicketReimpreso[];
       };
       /** Totales por vendedor en un rango. p_vendedores nulo = todos. */
       fn_control_vendedores: {
