@@ -111,9 +111,25 @@ export function TicketImpreso({
             <span>{fechaLargaSinDia(sorteo.fecha)}</span>
           </div>
 
+          {/*
+            EL NOMBRE, NO EL CÓDIGO.
+
+            «V-002» no le dice nada a quien recibe el papel; «EMPEÑOS JL1» sí.
+            El código sigue en el folio de la línea de abajo, que es donde se
+            busca la venta.
+
+            Y va en su PROPIA LÍNEA. Medido en Courier bold sobre los 52 mm
+            útiles (196,5 px), el rótulo junto al nombre más largo del padrón
+            —«UTILES ESCOLARES SAN CARLOS»— suma 259,6 px y se sale del papel.
+            Solo en su línea son 178,2 a 11px, con margen de sobra.
+          */}
           <div className="ticket-fila">
             <span>VENDEDOR</span>
-            <span>{vendedor.codigo}</span>
+            <span />
+          </div>
+          <div className="ticket-fila ticket-nombre">
+            <span />
+            <span>{vendedor.nombre}</span>
           </div>
           <div className="ticket-fila">
             <span>FOLIO</span>

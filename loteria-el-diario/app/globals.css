@@ -534,3 +534,12 @@ select:focus {
   max-width: 100%;
   height: auto;
 }
+
+/* El nombre del vendedor: en su línea y un punto más pequeño.
+
+   A 12px el más largo del padrón mide 194,4 px de 196,5 útiles — cabe, pero
+   sin holgura, y ese filo ya costó una fila cortada antes. A 11px baja a
+   178,2 y deja margen para un nombre algo mayor sin rehacer nada. */
+.ticket-nombre {
+  font-size: 11px;
+}
