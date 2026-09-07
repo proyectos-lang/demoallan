@@ -21,7 +21,21 @@ import { deserializar, inicioSegunRol, NOMBRE_COOKIE } from "@/lib/sesion";
  * vive en código y no en la regex del matcher, donde es fácil de leer mal.
  */
 function esPublica(ruta: string): boolean {
-  return ruta === "/r" || ruta.startsWith("/r/") || ruta.startsWith("/login");
+  return (
+    ruta === "/r" ||
+    ruta.startsWith("/r/") ||
+    ruta.startsWith("/login") ||
+    /*
+     * La comprobación de versión.
+     *
+     * Devuelve el identificador de la publicación, no datos de nadie, así que
+     * no hay nada que proteger. Y tiene que contestar SIEMPRE: si el proxy la
+     * mandara a `/login`, la pantalla del vendedor recibiría una redirección
+     * en vez de una versión y el aviso no saldría nunca — justo cuando la
+     * cookie está por vencer, que es cuando más conviene poder recargar.
+     */
+    ruta === "/api/version"
+  );
 }
 
 /**

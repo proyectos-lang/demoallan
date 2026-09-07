@@ -543,3 +543,22 @@ select:focus {
 .ticket-nombre {
   font-size: 11px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Sitio para el aviso de nueva versión.
+ *
+ * La barra de «Hay una nueva versión» va fija abajo, así que se encimaría
+ * sobre lo último de la página — y en el punto de venta, justo sobre el pie
+ * con el subtotal y «Confirmar venta», que es el botón que más se pulsa en
+ * todo el sistema.
+ *
+ * El atributo lo pone y lo quita el propio aviso. Sin él, nada de esto aplica
+ * y el diseño queda exactamente como estaba, que es lo que interesa: el aviso
+ * aparece pocas veces y no debe dejar huella el resto del tiempo.
+ *
+ * `56px` es el alto de la barra en una línea; la zona segura se suma aparte
+ * porque en un iPhone la barra de gestos ya se lleva lo suyo.
+ * ------------------------------------------------------------------------- */
+:root[data-aviso-version] main {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}

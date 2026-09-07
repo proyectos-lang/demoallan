@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 import { salir } from "@/app/login/acciones";
+import { AvisoVersion } from "@/components/shell/aviso-version";
 import { MenuVendedor, TituloVendedor } from "@/components/vendedor/menu-vendedor";
 import { iniciales } from "@/lib/format";
 import { sesionVigente } from "@/lib/sesion-vigente";
@@ -82,6 +83,10 @@ export default async function VendedorLayout({ children }: LayoutProps<"/">) {
       </header>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">{children}</main>
+
+      {/* Avisa de una publicación nueva sin interrumpir lo que se esté
+          tecleando. Va al final para quedar por encima de todo. */}
+      <AvisoVersion />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AvisoVersion } from "@/components/shell/aviso-version";
 import { BarraLateral } from "@/components/shell/barra-lateral";
 import { iniciales } from "@/lib/format";
 import { inicioSegunRol } from "@/lib/sesion";
@@ -33,6 +34,10 @@ export default async function AdminLayout({ children }: LayoutProps<"/">) {
         iniciales={iniciales(sesion.nombre) || sesion.nombre.slice(0, 2).toUpperCase()}
       />
       <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
+
+      {/* El mismo aviso que ve el vendedor: administración también deja la
+          pantalla abierta el día entero. */}
+      <AvisoVersion />
     </div>
   );
 }

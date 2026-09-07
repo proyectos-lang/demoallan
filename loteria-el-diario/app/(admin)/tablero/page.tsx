@@ -52,7 +52,18 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
         : iso(new Date(new Date(`${hasta}T12:00:00`).getTime() - 89 * 86_400_000));
   // Nunca antes del primer sorteo registrado.
   const desdeReal = desde < primero ? primero : desde;
-  const fechaDia = typeof params.fecha === "string" ? params.fecha : hasta;
+  /*
+   * El resumen del día abre en HOY, no en `hasta`.
+   *
+   * `hasta` es la fecha del último sorteo REGISTRADO, y desde que existen las
+   * ventas futuras eso puede estar meses por delante: basta una apuesta al 16
+   * de octubre para que se siembre ese sorteo y el tablero abriera allí, en un
+   * día sin vender, mostrando ceros como si el negocio estuviera parado.
+   *
+   * Para el rango del resumen general `hasta` sigue valiendo —marca el borde
+   * del histórico—, pero «el día» sólo puede significar hoy.
+   */
+  const fechaDia = typeof params.fecha === "string" ? params.fecha : fechaHonduras();
 
   // El consolidado siempre trae TODOS los meses, así que su subtítulo no puede
   // anunciar el rango de noventa días del resumen general: decía "23 de mayo —
