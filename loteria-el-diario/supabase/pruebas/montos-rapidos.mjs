@@ -249,6 +249,60 @@ try {
             "el 100 no apareció en la hoja");
     }
   }
+  // --- Y en escritorio ------------------------------------------------------
+  /*
+   * El mismo riel, pero en la vista ancha, donde el fallo fue distinto: el
+   * bloque pedía el ancho de sus veinte botones —1312px— y se salía 310px de
+   * una ventana de 1440, montándose sobre los campos de número y monto.
+   *
+   * Se comprueba lo que se ve, no las clases: que no se salga, que no haya un
+   * botón encima de otro, y que se vean varios de un vistazo.
+   */
+  await cdp("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await cdp("Page.navigate", { url: `${BASE}/punto-de-venta` });
+  await esperar(5000);
+
+  const esc = await ev(`
+    (() => {
+      const ventana = document.documentElement.clientWidth;
+      const tira = [...document.querySelectorAll('div')].find((d) => {
+        const b = [...d.children];
+        return b.length === 20 && b.every((x) => x.tagName === 'BUTTON') &&
+          b.map((x) => x.textContent.trim()).join(',') ===
+          Array.from({ length: 20 }, (_, i) => (i + 1) * 5).join(',');
+      });
+      if (!tira) return null;
+      const r = tira.getBoundingClientRect();
+      const dentro = (el) => {
+        const q = el.getBoundingClientRect();
+        return q.left >= r.left - 1 && q.right <= r.right + 1;
+      };
+      const a = tira.children[0].getBoundingClientRect();
+      const b = tira.children[1].getBoundingClientRect();
+      return {
+        seSale: Math.round(r.right) > ventana,
+        encimados: b.left < a.right - 1,
+        visibles: [...tira.children].filter(dentro).length,
+        desplazable: tira.scrollWidth - tira.clientWidth,
+        desbordePagina: document.documentElement.scrollWidth - ventana,
+      };
+    })()
+  `);
+
+  check("en escritorio existe la tira", esc !== null, "no se encontró");
+  if (esc) {
+    check("NO se sale de la pantalla", esc.seSale === false, "el borde derecho excede la ventana");
+    check("NO hay botones montados uno sobre otro", esc.encimados === false, "se solapan");
+    check("se ven diez o más de un vistazo", esc.visibles >= 10, `sólo ${esc.visibles}`);
+    check("y el resto se alcanza deslizando", esc.desplazable > 20,
+          `sobrante ${esc.desplazable}px`);
+    check("la página no desborda", esc.desbordePagina <= 0, `${esc.desbordePagina}px`);
+  }
 } finally {
   try {
     ws?.close();

@@ -166,7 +166,19 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
           </div>
 
           {/* ---- Ticket y tanda ---- */}
-          <div className="flex-none w-[420px] bg-superficie border border-borde rounded-card shadow-card flex flex-col">
+          {/*
+            El ticket en curso: 420px donde caben, menos donde no.
+
+            Con `w-[420px]` fijo, en un portátil de 1024 se llevaba 420 de los
+            696 disponibles y dejaba 260 a la columna de captura — que es donde
+            se teclea el número y el monto. La captura tiene prioridad: es el
+            trabajo, y el ticket es la consecuencia.
+
+            `max-w-[420px]` conserva el ancho de siempre en cuanto hay sitio, y
+            `basis-[340px]` con `shrink` deja que ceda antes de estrangular la
+            captura.
+          */}
+          <div className="flex-none shrink basis-[340px] max-w-[420px] w-full bg-superficie border border-borde rounded-card shadow-card flex flex-col">
             <div className="px-[22px] py-5 flex-1">
               <TicketEnCurso pos={pos} />
               <ListaTanda pos={pos} />
@@ -238,8 +250,8 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
  */
 function CamposNumeroMonto({ pos }: { pos: Pos }) {
   return (
-    <div className="flex gap-4">
-      <label className="block flex-1">
+    <div className="flex gap-4 flex-wrap">
+      <label className="block flex-1 min-w-[140px]">
         <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario mb-[6px]">
           NÚMERO
         </span>
@@ -262,7 +274,7 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
         />
       </label>
 
-      <label className="block flex-[1.2]">
+      <label className="block flex-[1.2] min-w-[160px]">
         <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario mb-[6px]">
           MONTO (L)
         </span>
@@ -286,12 +298,30 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
         />
       </label>
 
-      <div className="flex-none">
+      {/*
+        LOS DOS ANCHOS SON IMPRESCINDIBLES, y por motivos distintos.
+
+        `flex-1` en vez de `flex-none`: con `flex-none` el bloque tomaba el
+        ancho de sus veinte botones —1312px— y se salía 310px de una ventana de
+        1440, montándose sobre los campos de número y monto. Ahora reparte lo
+        que queda de la fila.
+
+        `min-w-0` porque un elemento flex NO se encoge por debajo del tamaño de
+        su contenido salvo que se le diga: sin esto, `flex-1` no basta y el
+        bloque sigue reclamando los 1312px. Es la mitad del arreglo que se
+        olvida siempre.
+
+        `basis-full` con la fila en `flex-wrap`: la tira baja a SU PROPIA
+        LÍNEA, debajo de número y monto. Compartiendo línea con ellos le
+        quedaban 515px —siete botones— por mucho que pidiera más; en su propia
+        línea usa el ancho entero y se ven una quincena de un vistazo.
+      */}
+      <div className="min-w-0 basis-full">
         <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario mb-[6px]">
           MONTOS FRECUENTES
         </span>
-        {/* Una tira que se arrastra: veinte montos en `grid-cols-2` serían diez
-            filas en una columna que ya va justa de alto. */}
+        {/* Se arrastra de lado: los veinte no caben, y apilarlos en filas
+            comería el alto que necesita la rejilla de cupo. */}
         <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MONTOS_RAPIDOS.map((m) => (
             <button
@@ -299,7 +329,7 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
               onClick={() => (pos.disp ?? 0) > 0 && pos.setMonto(String(m))}
               aria-pressed={String(m) === pos.monto}
               className={cn(
-                "flex-none w-[58px] rounded-pos px-2 py-[10px] text-tabla font-semibold border cursor-pointer",
+                "flex-none w-[48px] rounded-pos px-1 py-[10px] text-tabla font-semibold border cursor-pointer",
                 String(m) === pos.monto
                   ? "bg-acento text-white border-acento"
                   : "bg-superficie text-tinta border-borde-pos",
