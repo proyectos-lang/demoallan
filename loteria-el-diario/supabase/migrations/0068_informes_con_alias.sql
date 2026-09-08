@@ -382,7 +382,11 @@ as $$
            s.numero_ganador,
            t.vendedor_id,
            v.codigo,
-           public.fn_rotulo(v.alias, v.nombre),
+           -- Con nombre EXPLÍCITO: dentro de un CTE la columna hereda el
+           -- nombre de la columna proyectada —era `nombre` cuando decía
+           -- `v.nombre`—, y una expresión no hereda ninguno. Sin este alias,
+           -- el `select` de abajo que dice `m.nombre` no encuentra nada.
+           public.fn_rotulo(v.alias, v.nombre) as nombre,
            t.creado_en,
            t.anulado_en,
            t.motivo_anulacion,
