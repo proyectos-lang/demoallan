@@ -1,3 +1,4 @@
+import { AnularVenta } from "@/components/informe/anular-venta";
 import {
   FiltrosDetalle,
   type VendedorFiltro,
@@ -249,11 +250,34 @@ export async function VistaDetalle({
                         >
                           ANULADA
                         </span>
-                      ) : f.r_repetido ? (
-                        <span className="text-label text-ambar-texto">
-                          repite · {f.r_segundos}s
+                      ) : (
+                        <span className="flex items-center gap-3">
+                          {f.r_repetido && (
+                            <span className="text-label text-ambar-texto">
+                              repite · {f.r_segundos}s
+                            </span>
+                          )}
+                          {/*
+                            Anular va junto a la marca de «repite» y no en una
+                            columna aparte: es la señal que lleva a mirar esta
+                            fila, así que la acción tiene que estar donde ya
+                            está puesto el ojo.
+
+                            Sólo en las vivas: una venta ya anulada no se
+                            vuelve a anular, y ofrecerlo sería prometer algo
+                            que la base rechaza.
+                          */}
+                          <AnularVenta
+                            ticketId={f.r_ticket_id}
+                            folio={f.r_folio}
+                            vendedor={`${f.r_vendedor} · ${f.r_codigo}`}
+                            sorteo={`${hora12(f.r_hora)} · ${fechaLarga(f.r_fecha)}`}
+                            jugada={f.r_jugada}
+                            total={fmt(Number(f.r_total))}
+                            estado={f.r_estado}
+                          />
                         </span>
-                      ) : null}
+                      )}
                     </td>
                   </tr>
                 ))}

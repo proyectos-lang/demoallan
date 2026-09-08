@@ -103,21 +103,49 @@ export function HojaMonto({ pos }: { pos: Pos }) {
           {pos.banner.texto}
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mt-3">
-          {MONTOS_RAPIDOS.map((m) => (
-            <button
-              key={m}
-              onClick={() => pos.setMonto(String(m))}
-              className={cn(
-                "rounded-pos py-[10px] text-tabla font-semibold border",
-                String(m) === pos.monto
-                  ? "bg-acento text-white border-acento"
-                  : "bg-superficie text-tinta border-borde-pos",
-              )}
-            >
-              {m}
-            </button>
-          ))}
+        {/*
+          Los montos de 5 en 5, en una tira que se arrastra.
+
+          POR QUÉ UN RIEL Y NO UNA REJILLA. Veinte botones en rejilla de cuatro
+          serían cinco filas —unos 250px— encima del teclado, en la pantalla
+          donde menos alto sobra. En una tira ocupan UNA fila y el resto se
+          alcanza deslizando con el mismo pulgar que ya está ahí.
+
+          `overscroll-x-contain` para que al llegar al final el arrastre no
+          siga hacia la página de detrás, que en iOS cierra la hoja sin querer.
+
+          La barra de desplazamiento se oculta: en un teléfono el gesto ya se
+          entiende, y una barra gris bajo los botones es sólo ruido. El
+          degradado del borde derecho es lo que dice que hay más.
+        */}
+        <div className="relative mt-3">
+          <div
+            role="group"
+            aria-label="Montos frecuentes"
+            className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {MONTOS_RAPIDOS.map((m) => (
+              <button
+                key={m}
+                onClick={() => pos.setMonto(String(m))}
+                aria-pressed={String(m) === pos.monto}
+                className={cn(
+                  // `flex-none` y ancho fijo: sin esto los botones se encogen
+                  // para caber todos y el riel deja de desplazarse.
+                  "flex-none w-[62px] rounded-pos py-[10px] text-tabla font-semibold border",
+                  String(m) === pos.monto
+                    ? "bg-acento text-white border-acento"
+                    : "bg-superficie text-tinta border-borde-pos",
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {/* Dice que la tira sigue. `pointer-events-none` para no robarle el
+              toque al botón que tiene debajo. */}
+          <span className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-superficie to-transparent" />
         </div>
 
         <div className="grid grid-cols-3 gap-2 mt-2">

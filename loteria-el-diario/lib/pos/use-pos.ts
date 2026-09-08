@@ -81,7 +81,27 @@ export type Foco = "numero" | "monto";
 export type Modo = "teclado" | "rapida" | "rejilla";
 
 export const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "←"];
-export const MONTOS_RAPIDOS = [10, 20, 50, 100];
+/**
+ * Los montos de acceso directo: de 5 en 5, hasta 100.
+ *
+ * POR QUÉ DE CINCO EN CINCO
+ * -------------------------
+ * Porque así se apuesta. Las ventas caen casi siempre en múltiplos de cinco
+ * —5, 10, 20, 50—, así que un atajo por cada uno convierte el monto en UN
+ * toque en vez de dos o tres del teclado, en un gesto que se repite en cada
+ * venta con la cola delante.
+ *
+ * POR QUÉ SE PARA EN 100
+ * ----------------------
+ * Veinte botones se recorren en un par de arrastres. Llegar a 500 serían cien,
+ * y buscar el 245 arrastrando cuesta más que teclearlo: el atajo dejaría de
+ * ser atajo. Por encima de 100 sigue estando el teclado, que son tres toques.
+ *
+ * Antes eran cuatro fijos —10, 20, 50, 100— en una rejilla. La tira los
+ * incluye todos, así que la rejilla se retira: en un teléfono, esa fila de
+ * alto es lo que más escasea en la hoja del monto.
+ */
+export const MONTOS_RAPIDOS = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
 export const ATAJOS: [number, number][] = [
   [47, 50],
   [23, 20],

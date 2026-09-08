@@ -290,13 +290,16 @@ function CamposNumeroMonto({ pos }: { pos: Pos }) {
         <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario mb-[6px]">
           MONTOS FRECUENTES
         </span>
-        <div className="grid grid-cols-2 gap-2">
+        {/* Una tira que se arrastra: veinte montos en `grid-cols-2` serían diez
+            filas en una columna que ya va justa de alto. */}
+        <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MONTOS_RAPIDOS.map((m) => (
             <button
               key={m}
               onClick={() => (pos.disp ?? 0) > 0 && pos.setMonto(String(m))}
+              aria-pressed={String(m) === pos.monto}
               className={cn(
-                "rounded-pos px-4 py-[10px] text-tabla font-semibold border cursor-pointer",
+                "flex-none w-[58px] rounded-pos px-2 py-[10px] text-tabla font-semibold border cursor-pointer",
                 String(m) === pos.monto
                   ? "bg-acento text-white border-acento"
                   : "bg-superficie text-tinta border-borde-pos",
@@ -412,13 +415,16 @@ function Rejilla({ pos }: { pos: Pos }) {
         })}
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mt-3">
+      {/* Aquí hay ancho de sobra, así que los veinte se ven de una vez: una
+          rejilla que envuelve es mejor que arrastrar cuando todo cabe. */}
+      <div className="grid [grid-template-columns:repeat(auto-fit,minmax(64px,1fr))] gap-2 mt-3">
         {MONTOS_RAPIDOS.map((m) => (
           <button
             key={m}
             onClick={() => (pos.disp ?? 0) > 0 && pos.setMonto(String(m))}
+            aria-pressed={String(m) === pos.monto}
             className={cn(
-              "rounded-pos py-[14px] text-pos-lg font-semibold border cursor-pointer",
+              "rounded-pos py-[12px] text-pos font-semibold border cursor-pointer",
               String(m) === pos.monto
                 ? "bg-acento text-white border-acento"
                 : "bg-superficie text-tinta border-borde-pos",

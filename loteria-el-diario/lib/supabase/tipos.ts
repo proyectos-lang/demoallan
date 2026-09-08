@@ -452,8 +452,26 @@ export type Database = {
           total_premios: number;
         }[];
       };
+      /**
+       * Anula un ticket y devuelve su cupo.
+       *
+       * `p_usuario_id` no es opcional en la práctica: `auth.uid()` es NULL
+       * bajo `service_role` y sin él la restricción `ticket_anulacion_completa`
+       * rechaza el UPDATE entero.
+       *
+       * `p_forzar` permite anular sobre un sorteo cerrado o liquidado. Lo pone
+       * la Server Action tras comprobar el rol, nunca el navegador. Sobre un
+       * sorteo liquidado la base rehace la liquidación del vendedor, y rechaza
+       * si ese sorteo ya entró en un corte pagado.
+       */
       fn_anular_ticket: {
-        Args: { p_ticket_id: string; p_motivo: string };
+        Args: {
+          p_ticket_id: string;
+          /** Opcional: nulo cuando no se escribió ninguno. */
+          p_motivo: string | null;
+          p_usuario_id?: string | null;
+          p_forzar?: boolean;
+        };
         Returns: undefined;
       };
       fn_guardar_parametros: {
