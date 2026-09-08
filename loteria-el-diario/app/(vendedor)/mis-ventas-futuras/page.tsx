@@ -266,5 +266,5 @@ async function Vender({
     futura: { fecha, hora },
   };
 
-  return <PuntoDeVenta datos={datos} />;
+  return <PuntoDeVenta datos={datos} perfil="vendedor" />;
 }

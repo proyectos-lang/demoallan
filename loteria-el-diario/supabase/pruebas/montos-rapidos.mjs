@@ -264,8 +264,27 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  await cdp("Page.navigate", { url: `${BASE}/punto-de-venta` });
+  /*
+   * `/mi-venta` y no `/punto-de-venta`.
+   *
+   * Esta prueba entra con una sesión de VENDEDOR, y `/punto-de-venta` es una
+   * ruta de administración: el proxy la rebota a `/login` y no se encuentra
+   * nada. Antes daba igual porque las dos pantallas compartían vista de
+   * escritorio; desde que el vendedor tiene la suya, hay que mirar la suya.
+   */
+  await cdp("Page.navigate", { url: `${BASE}/mi-venta` });
   await esperar(5000);
+
+  // En la vista del vendedor la tira vive DENTRO de la ventana del monto, así
+  // que primero hay que abrirla: es donde se pone el valor.
+  await ev(`
+    (() => {
+      const b = document.querySelector('button[aria-label^="Seleccionar del"]');
+      if (b && !b.disabled) b.click();
+      return true;
+    })()
+  `);
+  await esperar(700);
 
   const esc = await ev(`
     (() => {
@@ -299,8 +318,19 @@ try {
     check("NO se sale de la pantalla", esc.seSale === false, "el borde derecho excede la ventana");
     check("NO hay botones montados uno sobre otro", esc.encimados === false, "se solapan");
     check("se ven diez o más de un vistazo", esc.visibles >= 10, `sólo ${esc.visibles}`);
-    check("y el resto se alcanza deslizando", esc.desplazable > 20,
-          `sobrante ${esc.desplazable}px`);
+    /*
+     * Se ven TODOS o se puede deslizar: las dos cosas valen.
+     *
+     * En la ventana del vendedor los veinte caben de una vez, así que no hay
+     * nada que arrastrar — y exigir desplazamiento sería exigir un defecto. En
+     * la tira del administrador, más estrecha, sí se desliza. Lo que de verdad
+     * importa, y es lo que se comprueba, es que ninguno quede inalcanzable.
+     */
+    check(
+      "ninguno queda fuera de alcance",
+      esc.visibles === 20 || esc.desplazable > 20,
+      `${esc.visibles} visibles y ${esc.desplazable}px de sobrante`,
+    );
     check("la página no desborda", esc.desbordePagina <= 0, `${esc.desbordePagina}px`);
   }
 } finally {

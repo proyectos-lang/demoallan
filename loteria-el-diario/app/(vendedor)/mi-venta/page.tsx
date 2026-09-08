@@ -143,5 +143,5 @@ async function Vender({
     propio: true,
   };
 
-  return <PuntoDeVenta datos={datos} />;
+  return <PuntoDeVenta datos={datos} perfil="vendedor" />;
 }

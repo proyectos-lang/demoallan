@@ -2,6 +2,7 @@
 
 import { TicketImpreso } from "@/components/pos/ticket-impreso";
 import { VistaEscritorio } from "@/components/pos/vista-escritorio";
+import { VistaVendedorEscritorio } from "@/components/pos/vista-vendedor-escritorio";
 import { VistaMovil } from "@/components/pos/vista-movil";
 import { usePos, type DatosPos } from "@/lib/pos/use-pos";
 
@@ -20,7 +21,28 @@ export type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
  * ninguno, y por eso el punto de venta se veía igual —maqueta de teléfono
  * incluida— en un monitor y en un teléfono.
  */
-export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
+export function PuntoDeVenta({
+  datos,
+  perfil = "administracion",
+}: {
+  datos: DatosPos;
+  /*
+   * Quién está vendiendo, y por tanto qué vista de escritorio se pinta.
+   *
+   * «administracion» conserva la de siempre: tres modos de captura y el
+   * selector de vendedor, que es lo que hace falta para registrar a nombre de
+   * otro y para corregir a mano.
+   *
+   * «vendedor» pinta la rejilla de 5 en 5 con decenas y marcar varios — EL
+   * MISMO flujo que ya usa en el teléfono. Un vendedor que se sienta en una
+   * laptop no debería tener que aprender otra forma de trabajar; el estado y
+   * las acciones son los mismos en las dos, así que no pueden comportarse
+   * distinto por accidente.
+   *
+   * En móvil no cambia nada: las dos comparten `VistaMovil`.
+   */
+  perfil?: "administracion" | "vendedor";
+}) {
   const pos = usePos(datos);
 
   if (!pos.vendedor) {
@@ -29,7 +51,11 @@ export function PuntoDeVenta({ datos }: { datos: DatosPos }) {
 
   return (
     <>
-      <VistaEscritorio pos={pos} />
+      {perfil === "vendedor" ? (
+        <VistaVendedorEscritorio pos={pos} />
+      ) : (
+        <VistaEscritorio pos={pos} />
+      )}
       <VistaMovil pos={pos} />
 
       {/*
