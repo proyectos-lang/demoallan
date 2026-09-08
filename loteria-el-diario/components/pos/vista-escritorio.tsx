@@ -128,13 +128,13 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
         <div className="flex gap-4 items-start">
           {/* ---- Captura ---- */}
           <div className="flex-1 min-w-0 bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5 flex flex-col gap-4">
-            <div className="flex gap-1 bg-riel rounded-banner p-1 self-start">
+            <div className="flex gap-1 bg-riel rounded-banner p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {MODOS.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => pos.setModo(m.id)}
                   className={cn(
-                    "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer",
+                    "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer flex-none whitespace-nowrap",
                     pos.modo === m.id
                       ? "bg-superficie text-tinta shadow-tab"
                       : "bg-transparent text-secundario",

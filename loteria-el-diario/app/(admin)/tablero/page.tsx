@@ -82,7 +82,7 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
   ];
 
   const tabs = (
-    <div className="flex gap-[6px] bg-riel rounded-boton p-1">
+    <div className="flex gap-[6px] bg-riel rounded-boton p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {[
         { id: "general", etiqueta: "Resumen general" },
         { id: "consolidado", etiqueta: "Consolidado mensual" },
@@ -98,7 +98,7 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
                 : `/tablero?tab=dia&fecha=${fechaDia}`
           }
           className={cn(
-            "rounded-celda px-[15px] py-2 text-tabla font-medium",
+            "rounded-celda px-[15px] py-2 text-tabla font-medium flex-none whitespace-nowrap",
             tab === t.id ? "bg-superficie text-tinta shadow-tab" : "text-secundario",
           )}
         >
@@ -134,7 +134,7 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
         titulo="Tablero de control"
         subtitulo={subtitulo}
         acciones={
-          <div className="flex items-center gap-[10px] flex-wrap">
+          <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">
             {selectorRango}
             {tabs}
           </div>
@@ -303,7 +303,7 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
       </div>
 
       <div className="flex flex-wrap gap-[18px]">
-        <Tarjeta className="flex-1 min-w-[380px]">
+        <Tarjeta className="flex-1 min-w-0 sm:min-w-[380px]">
           <h2 className="text-h2 font-semibold tracking-sutil m-0">Ventas por vendedor</h2>
           <div className="flex flex-col gap-[14px] mt-4">
             {vendedores.map((v) => (
@@ -318,7 +318,7 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
           </div>
         </Tarjeta>
 
-        <Tarjeta className="flex-1 min-w-[380px]">
+        <Tarjeta className="flex-1 min-w-0 sm:min-w-[380px]">
           <h2 className="text-h2 font-semibold tracking-sutil m-0">Utilidad por vendedor</h2>
           <p className="text-meta text-secundario mt-[5px] mb-0">
             Venta menos comisión menos premios pagados.
@@ -636,7 +636,7 @@ function Cargando({ que }: { que: string }) {
           <div key={i} className="h-[104px] rounded-card bg-riel" />
         ))}
       </div>
-      <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(420px,1fr))]">
+      <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))]">
         {[0, 1].map((i) => (
           <div key={i} className="h-[280px] rounded-card bg-riel" />
         ))}

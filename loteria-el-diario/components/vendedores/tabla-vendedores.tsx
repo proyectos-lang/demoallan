@@ -191,7 +191,15 @@ export function TablaVendedores({
   const claseInput = (fila: FilaVendedor, campo: Campo, ancho: string) =>
     cn(
       ancho,
-      "text-right px-[10px] py-[7px] rounded-campo border text-base font-medium outline-none bg-superficie",
+      /*
+       * `py-2.5` en móvil y `py-[7px]` desde `sm`.
+       *
+       * Con 7px de relleno el campo mide 33px de alto, que con el dedo se
+       * falla: la recomendación son 44 y por debajo de 36 ya cuesta. En
+       * escritorio se apunta con el ratón y esos 33px mantienen la tabla
+       * compacta, que es lo que se quiere cuando hay veinte vendedores.
+       */
+      "text-right px-[10px] py-2.5 sm:py-[7px] rounded-campo border text-base font-medium outline-none bg-superficie",
       sucioCampo(fila, campo) ? "border-ambar-sucio" : "border-borde-campo",
     );
 
@@ -361,7 +369,7 @@ export function TablaVendedores({
             valores vigentes al momento de la venta.
           </p>
         </div>
-        <div className="flex items-center gap-[10px] flex-wrap">
+        <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">
           {aviso.texto && (
             <span
               className={cn(

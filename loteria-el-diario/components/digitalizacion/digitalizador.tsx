@@ -344,13 +344,13 @@ export function Digitalizador({
                       value={f.numero}
                       onChange={(e) => editar(i, "numero", e.target.value)}
                       inputMode="numeric"
-                      className="w-[78px] px-[10px] py-[6px] rounded-campo border border-borde-campo text-pos font-semibold outline-none bg-superficie"
+                      className="w-[78px] px-[10px] py-2.5 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold outline-none bg-superficie"
                     />
                     <input
                       value={f.monto}
                       onChange={(e) => editar(i, "monto", e.target.value)}
                       inputMode="numeric"
-                      className="w-[96px] px-[10px] py-[6px] rounded-campo border border-borde-campo text-pos font-semibold text-right outline-none bg-superficie"
+                      className="w-[96px] px-[10px] py-2.5 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold text-right outline-none bg-superficie"
                     />
                     <span className="flex-1 text-meta">
                       {f.corregida ? (
@@ -362,7 +362,7 @@ export function Digitalizador({
                             <button
                               key={alt}
                               onClick={() => elegirVariante(i, alt)}
-                              className="rounded-celda border border-negativo-borde bg-superficie px-2 py-[3px] text-meta font-semibold cursor-pointer hover:bg-panel"
+                              className="rounded-celda border border-negativo-borde bg-superficie px-2 py-2 sm:py-[3px] text-meta font-semibold cursor-pointer hover:bg-panel"
                             >
                               {pad2(alt.split(":")[0])} × {alt.split(":")[1] || "—"}
                             </button>

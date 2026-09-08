@@ -18,7 +18,7 @@ export function Pagina({
 }) {
   return (
     <div
-      className={cn("px-7 pt-6", compacta ? "pb-10" : "pb-[60px]", className)}
+      className={cn("px-4 sm:px-7 pt-5 sm:pt-6", compacta ? "pb-10" : "pb-[60px]", className)}
       style={ancho ? { maxWidth: ancho } : undefined}
     >
       {children}
@@ -53,14 +53,14 @@ export function EncabezadoPagina({
   }
 
   return (
-    <div className="flex items-end justify-between gap-5 flex-wrap mb-[18px]">
-      <div>
+    <div className="flex items-end justify-between gap-5 flex-wrap mb-[18px] min-w-0">
+      <div className="min-w-0">
         <h1 className="text-h1 font-semibold tracking-titular m-0">{titulo}</h1>
         {subtitulo && (
           <p className="text-tabla text-secundario mt-[6px] mb-0">{subtitulo}</p>
         )}
       </div>
-      <div className="flex items-center gap-[10px] flex-wrap">{acciones}</div>
+      <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">{acciones}</div>
     </div>
   );
 }

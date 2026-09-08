@@ -33,7 +33,7 @@ export function Pestanas({ vista }: { vista: Vista }) {
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <div className="flex gap-1 bg-riel rounded-banner p-1 self-start">
+      <div className="flex gap-1 bg-riel rounded-banner p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {VISTAS.map((v) => (
           <button
             key={v.id}
@@ -41,7 +41,7 @@ export function Pestanas({ vista }: { vista: Vista }) {
             onClick={() => iniciar(() => router.push(`/informe?vista=${v.id}`))}
             aria-current={vista === v.id ? "page" : undefined}
             className={cn(
-              "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer",
+              "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer flex-none whitespace-nowrap",
               vista === v.id
                 ? "bg-superficie text-tinta shadow-tab"
                 : "bg-transparent text-secundario",

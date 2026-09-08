@@ -68,12 +68,12 @@ export function PanelGeo({
 
   return (
     <div className="flex gap-[18px] flex-wrap items-start">
-      <div className="flex-1 min-w-[600px] bg-superficie border border-borde rounded-card shadow-card p-[14px]">
+      <div className="flex-1 min-w-0 lg:min-w-[600px] bg-superficie border border-borde rounded-card shadow-card p-[14px]">
         <div className="flex items-center gap-4 flex-wrap mb-3">
           <select
             value={vendedorActivo}
             onChange={(e) => cambiarVendedor(e.target.value)}
-            className="px-3 py-[9px] border border-borde-campo rounded-campo text-base outline-none bg-superficie min-w-[260px]"
+            className="px-3 py-[9px] border border-borde-campo rounded-campo text-base outline-none bg-superficie w-full sm:w-auto sm:min-w-[260px]"
           >
             <option value="">Todos los vendedores</option>
             {vendedores.map((v) => (
@@ -115,7 +115,7 @@ export function PanelGeo({
         </p>
       </div>
 
-      <div className="flex-1 min-w-[280px] max-w-[340px] flex flex-col gap-[14px]">
+      <div className="flex-1 min-w-0 lg:min-w-[280px] lg:max-w-[340px] flex flex-col gap-[14px]">
         <div className="bg-superficie border border-borde rounded-card shadow-card px-[18px] py-4">
           <span className="block text-meta font-medium text-cuerpo">Puntos mostrados</span>
           <span className="block text-kpi font-semibold tracking-titular mt-1">

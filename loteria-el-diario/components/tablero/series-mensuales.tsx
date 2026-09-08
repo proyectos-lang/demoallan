@@ -63,7 +63,7 @@ export function SeriesMensuales({ meses }: { meses: Mes[] }) {
   }
 
   return (
-    <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(420px,1fr))]">
+    <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))]">
       {SERIES.map((s) => (
         <UnaSerie key={s.clave} serie={s} meses={meses} />
       ))}

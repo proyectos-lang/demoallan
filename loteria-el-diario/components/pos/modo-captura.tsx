@@ -53,13 +53,13 @@ export function ModoCaptura({
 
   const clase = (activo: boolean) =>
     cn(
-      "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer",
+      "border-0 rounded-chip px-4 py-[9px] text-meta font-medium cursor-pointer flex-none whitespace-nowrap",
       activo ? "bg-superficie text-tinta shadow-tab" : "bg-transparent text-secundario",
     );
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <div className="flex gap-1 bg-riel rounded-banner p-1 self-start">
+      <div className="flex gap-1 bg-riel rounded-banner p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button type="button" onClick={() => ir("detalle")} className={clase(modo === "detalle")}>
           Número a número
         </button>

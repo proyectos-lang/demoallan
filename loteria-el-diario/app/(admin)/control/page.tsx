@@ -282,7 +282,7 @@ export default async function ControlPage(props: PageProps<"/control">) {
 
             <div className="flex flex-wrap gap-[14px]">
               {/* --- Venta día a día --- */}
-              <Tarjeta className="flex-1 min-w-[420px]">
+              <Tarjeta className="flex-1 min-w-0 md:min-w-[420px]">
                 <h2 className="text-h2 font-semibold tracking-sutil m-0">Venta día a día</h2>
                 <p className="text-meta text-secundario mt-[5px] mb-3">
                   {dias.length} {dias.length === 1 ? "día" : "días"}. Los días sin venta se dibujan
@@ -308,7 +308,7 @@ export default async function ControlPage(props: PageProps<"/control">) {
               </Tarjeta>
 
               {/* --- Actividad por hora --- */}
-              <Tarjeta className="flex-1 min-w-[420px]">
+              <Tarjeta className="flex-1 min-w-0 md:min-w-[420px]">
                 <h2 className="text-h2 font-semibold tracking-sutil m-0">Actividad por hora</h2>
                 <p className="text-meta text-secundario mt-[5px] mb-3">
                   Hora de Honduras, acumulada de todo el rango.

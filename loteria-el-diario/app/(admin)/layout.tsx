@@ -27,7 +27,16 @@ export default async function AdminLayout({ children }: LayoutProps<"/">) {
   if (sesion.rol === "vendedor") redirect(inicioSegunRol(sesion.rol));
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    /*
+     * En escritorio, dos columnas: barra y contenido, cada una con su scroll.
+     * En móvil, una sola columna —cabecera arriba y contenido debajo—, porque
+     * la barra pasa a ser un cajón que se sale del flujo.
+     *
+     * `100dvh` y no `h-screen` en móvil: la barra de direcciones se recoge y
+     * se despliega, y con la altura fija el pie de las tablas quedaba debajo
+     * de ella. Es la misma razón por la que el portal del vendedor ya lo usa.
+     */
+    <div className="flex flex-col lg:flex-row h-[100dvh] lg:h-screen overflow-hidden">
       <BarraLateral
         nombre={sesion.nombre}
         rol={sesion.rol}

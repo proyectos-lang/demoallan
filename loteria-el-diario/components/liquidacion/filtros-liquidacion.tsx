@@ -64,7 +64,7 @@ export function FiltrosLiquidacion({
         <select
           value={vendedorId}
           onChange={(e) => ir(e.target.value)}
-          className={cn(CLASE_CONTROL, "min-w-[280px]")}
+          className={cn(CLASE_CONTROL, "w-full sm:w-auto sm:min-w-[280px]")}
         >
           <option value="">Elija un vendedor…</option>
           {vendedores.map((v) => (

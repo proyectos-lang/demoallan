@@ -86,7 +86,7 @@ export function ConsolidadoMensual({ meses }: { meses: MesConsolidado[] }) {
       </div>
 
       {/* Un mosaico por mes. */}
-      <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+      <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]">
         {meses.map((m) => {
           const liquidada = m.venta - m.venta_pendiente;
           const margen = liquidada ? (m.utilidad / liquidada) * 100 : 0;

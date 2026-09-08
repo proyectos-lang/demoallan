@@ -88,7 +88,7 @@ export function CapturaResultado({
   return (
     <div className="flex flex-wrap gap-[18px] items-start">
       {/* ---- Captura ---- */}
-      <div className="flex-1 min-w-[480px] bg-superficie border border-borde rounded-card shadow-card px-[22px] pt-5 pb-6">
+      <div className="flex-1 min-w-0 md:min-w-[480px] bg-superficie border border-borde rounded-card shadow-card px-[22px] pt-5 pb-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-h2 font-semibold tracking-sutil m-0">
@@ -180,7 +180,7 @@ export function CapturaResultado({
       </div>
 
       {/* ---- Últimos resultados ---- */}
-      <div className="flex-1 min-w-[300px] max-w-[360px] bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5">
+      <div className="flex-1 min-w-0 md:min-w-[300px] md:max-w-[360px] bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5">
         <h2 className="text-h2 font-semibold tracking-sutil m-0">Últimos resultados</h2>
         {historicos.length === 0 ? (
           <p className="text-meta text-mudo mt-3 mb-0">Todavía no hay sorteos liquidados.</p>

@@ -296,7 +296,7 @@ export function CapturaTotales({
           </p>
         )}
 
-        <div className="flex items-center gap-[10px] flex-wrap">
+        <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">
           {sorteo.estado === "liquidado" && (
             <span className="text-meta text-ambar-texto">
               Ese sorteo ya está liquidado: la captura se sumará y su liquidación se rehará en el

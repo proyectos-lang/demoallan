@@ -204,7 +204,7 @@ export function FiltrosControl({
             )}
           </span>
 
-          <div className="flex items-center gap-[10px] flex-wrap">
+          <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">
             <span className="relative">
               <Search
                 size={14}

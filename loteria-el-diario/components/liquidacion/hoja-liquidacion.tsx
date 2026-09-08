@@ -181,7 +181,7 @@ export function HojaLiquidacion({
 
       {/* --- El cierre --- */}
       <div className="bg-superficie border border-borde rounded-card shadow-card px-[22px] py-5 flex flex-wrap gap-8 items-end justify-between">
-        <div className="min-w-[280px]">
+        <div className="min-w-0 sm:min-w-[280px]">
           <div className="text-eyebrow font-semibold tracking-seccion text-secundario mb-3">
             {elegidas.length} DE {pendientes.length} SORTEOS MARCADOS
           </div>
@@ -216,7 +216,7 @@ export function HojaLiquidacion({
           </div>
         </div>
 
-        <div className="flex items-center gap-[10px] flex-wrap">
+        <div className="flex items-center gap-[10px] flex-wrap min-w-0 max-w-full">
           {error && <span className="text-meta text-negativo max-w-[280px]">{error}</span>}
           {/*
             El papel lleva la SEMANA ENTERA, liquidados incluidos y marcados.

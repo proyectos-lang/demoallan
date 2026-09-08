@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AlignLeft,
   ClipboardList,
+  Menu,
+  X,
   FlaskConical,
   LayoutDashboard,
   MapPin,
@@ -111,6 +114,49 @@ export function BarraLateral({
   iniciales: string;
 }) {
   const ruta = usePathname();
+  const [abierta, setAbierta] = useState(false);
+  /*
+   * Si la pantalla es de las que esconden la barra.
+   *
+   * Arranca en `false` —el mismo valor en el servidor y en el cliente— y se
+   * corrige al montar: leer el ancho durante el render daría dos resultados
+   * distintos y React avisaría del desajuste de hidratación.
+   */
+  const [esMovil, setEsMovil] = useState(false);
+
+  useEffect(() => {
+    const consulta = window.matchMedia("(max-width: 1023.98px)");
+    const sincronizar = () => setEsMovil(consulta.matches);
+    sincronizar();
+    consulta.addEventListener("change", sincronizar);
+    return () => consulta.removeEventListener("change", sincronizar);
+  }, []);
+
+  /*
+   * El cajón se cierra al cambiar de pantalla.
+   *
+   * En un teléfono el menú tapa la página entera: si siguiera abierto después
+   * de tocar un enlace, el administrador llegaría a la pantalla nueva sin
+   * verla, con el menú por encima, y tendría que cerrarlo a mano cada vez.
+   */
+  useEffect(() => {
+    setAbierta(false);
+  }, [ruta]);
+
+  /*
+   * Con el cajón abierto no se hace scroll por detrás.
+   *
+   * Sin esto, arrastrar sobre el menú mueve la página de abajo: se cierra el
+   * cajón y uno aparece en otro punto de una pantalla que no eligió.
+   */
+  useEffect(() => {
+    if (!abierta) return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [abierta]);
 
   // Se recorta antes de pintar para no dejar secciones vacías con su título.
   const secciones = SECCIONES.map((s) => ({
@@ -119,7 +165,102 @@ export function BarraLateral({
   })).filter((s) => s.items.length > 0);
 
   return (
-    <aside className="w-[262px] flex-none bg-nav-fondo flex flex-col overflow-y-auto">
+    <>
+      {/*
+        La cabecera móvil: el único sitio desde donde se abre el menú.
+
+        En escritorio no existe (`lg:hidden`) porque allí la barra está siempre
+        a la vista. `safe-area-inset-top` NO es adorno: con `viewportFit:
+        "cover"` la página llega al borde de la pantalla, y en un iPhone
+        instalado este botón quedaba DEBAJO del reloj — se veía, pero el toque
+        se lo comía la barra de estado. Es el mismo arreglo que ya se hizo en
+        el portal del vendedor.
+      */}
+      <header
+        className="lg:hidden flex-none bg-nav-fondo px-3 py-2 flex items-center gap-3 sticky top-0 z-40"
+        style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top))" }}
+      >
+        <button
+          type="button"
+          onClick={() => setAbierta(true)}
+          aria-label="Abrir el menú"
+          aria-expanded={abierta}
+          className="w-10 h-10 flex-none rounded-campo bg-nav-chip flex items-center justify-center"
+        >
+          <Menu size={19} color="var(--color-nav-item)" strokeWidth={2} absoluteStrokeWidth />
+        </button>
+
+        <span className="block min-w-0 flex-1">
+          <span className="block text-meta font-semibold text-nav-titulo truncate">
+            {SECCIONES.flatMap((s) => s.items).find(
+              (i) => ruta === i.href || ruta.startsWith(`${i.href}/`),
+            )?.etiqueta ?? "Sistema de Control de Tickets"}
+          </span>
+          <span className="block text-th text-nav-seccion truncate">{nombre}</span>
+        </span>
+
+        <span className="w-8 h-8 flex-none rounded-full bg-nav-chip text-nav-titulo text-meta font-semibold flex items-center justify-center">
+          {iniciales}
+        </span>
+      </header>
+
+      {/*
+        El velo. Sólo en móvil y sólo con el cajón abierto: da dónde tocar para
+        cerrar y separa visualmente el menú de la pantalla que hay debajo.
+      */}
+      {abierta && (
+        <button
+          type="button"
+          aria-label="Cerrar el menú"
+          onClick={() => setAbierta(false)}
+          className="lg:hidden fixed inset-0 z-40 bg-black/45"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "w-[262px] flex-none bg-nav-fondo flex flex-col overflow-y-auto",
+          /*
+            UNA sola barra, colocada de dos maneras.
+
+            En escritorio es una columna del layout, como siempre. En móvil se
+            saca del flujo y se desliza desde la izquierda, así que el
+            contenido recupera el ancho completo de la pantalla: eran 128px de
+            390 los que quedaban para trabajar.
+
+            Se renderiza siempre —no se monta y desmonta— para que no haya dos
+            copias del menú que mantener, y para que la transición tenga desde
+            dónde animar.
+          */
+          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50",
+          "max-lg:transition-transform max-lg:duration-200",
+          abierta ? "max-lg:translate-x-0 max-lg:shadow-2xl" : "max-lg:-translate-x-full",
+        )}
+        /*
+         * Cerrado, el cajón no debe ser alcanzable con el teclado ni por un
+         * lector de pantalla: sigue en el árbol, pero fuera de servicio. Sin
+         * esto, tabular desde la cabecera recorre doce enlaces invisibles
+         * antes de llegar al contenido.
+         *
+         * Sólo cuenta en móvil: en escritorio la barra está siempre a la
+         * vista, y `abierta` no se toca ahí. Por eso se ata al ancho con una
+         * media query en vez de a `abierta` a secas — si no, en escritorio la
+         * barra quedaría inerte con el cajón «cerrado», que es su estado
+         * normal.
+         */
+        inert={!abierta && esMovil ? true : undefined}
+      >
+        {/* Cerrar, sólo en móvil: en escritorio la barra no se cierra. */}
+        <button
+          type="button"
+          onClick={() => setAbierta(false)}
+          aria-label="Cerrar el menú"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-campo bg-nav-chip flex items-center justify-center"
+          style={{ top: "calc(0.75rem + env(safe-area-inset-top))" }}
+        >
+          <X size={17} color="var(--color-nav-item)" strokeWidth={2} absoluteStrokeWidth />
+        </button>
+
       {/* Marca */}
       <div className="flex items-center gap-[11px] px-[18px] pt-5 pb-[18px]">
         <span
@@ -212,6 +353,7 @@ export function BarraLateral({
           <span className="block text-th truncate text-nav-seccion">{ETIQUETA_ROL[rol] ?? rol}</span>
         </span>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
