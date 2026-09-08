@@ -17,6 +17,8 @@
  *   · QUE EL SALDO ANTERIOR EN CERO QUEDE EN BLANCO, que es lo que deja sitio
  *     para anotar a mano.
  *   · QUE SÓLO HAYA CUATRO COLUMNAS.
+ *   · QUE NO HAYA NADA MÁS QUE LA TABLA: ni encabezado, ni totales, ni
+ *     firmas. Se pidieron fuera, y es lo que gana filas por hoja.
  *
  *     node supabase/pruebas/imprimible-saldos.mjs
  */
@@ -216,6 +218,18 @@ try {
           anterioresVacios,
           filas: document.querySelectorAll('tbody tr').length,
           tablas: document.querySelectorAll('table').length,
+          // Nada fuera de la tabla: ni titular, ni firmas, ni totales. Se
+          // mide lo que hay en el cuerpo, no la ausencia de una clase.
+          fueraDeTabla: Array.from(document.body.children)
+            .filter(function (e) {
+              return e.tagName !== 'TABLE' && !e.querySelector('table');
+            }).length,
+          titulares: document.querySelectorAll('h1, h2, h3').length,
+          // Palabras que sólo aparecían en el encabezado y el pie: si alguna
+          // sobrevive, es que quedó algo fuera de la tabla.
+          textoSuelto: (document.body.innerText.match(
+            /Total a cuadrar|Elaborado|Recibido|Emitido|Semana #|Sistema de Control/g) || []
+          ).length,
         };
       })()
     `);
@@ -248,6 +262,17 @@ try {
       `${orientacion}: el saldo anterior en cero queda en blanco`,
       m.anterioresVacios > 50,
       `sólo ${m.anterioresVacios} vacíos de 68`,
+    );
+    check(
+      `${orientacion}: NADA fuera de la tabla`,
+      m.fueraDeTabla === 0,
+      `${m.fueraDeTabla} bloque(s) sueltos`,
+    );
+    check(`${orientacion}: sin titulares`, m.titulares === 0, `${m.titulares}`);
+    check(
+      `${orientacion}: sin totales ni firmas ni fecha`,
+      m.textoSuelto === 0,
+      `${m.textoSuelto} línea(s) de más`,
     );
 
     // Lo que de verdad decide si la hoja sirve.

@@ -1,5 +1,3 @@
-import { fechaLargaSinDia, pad2 } from "@/lib/format";
-
 export type FilaSaldo = {
   codigo: string;
   nombre: string;
@@ -37,18 +35,22 @@ function esc(s: string): string {
 }
 
 /**
- * La hoja de cobro: número, vendedor, saldo anterior y saldo actual.
+ * La hoja de cobro: la tabla y nada más.
  *
- * QUÉ ES Y PARA QUÉ SIRVE
- * -----------------------
- * Es la lista con la que se sale a cobrar, y se trabaja encima: se marca cada
- * vendedor al liquidarlo y se anota a mano lo que se acuerda. De ahí que sea
- * de tres columnas y no de seis — el saldo de la semana y lo ya liquidado son
- * datos de análisis, y en la calle sólo estorban la única cifra que importa:
- * cuánto tiene que entregar hoy este vendedor.
+ * QUÉ LLEVA Y QUÉ NO
+ * ------------------
+ * Cuatro columnas —número, vendedor, saldo anterior, saldo actual— y ningún
+ * adorno alrededor: ni encabezado, ni totales, ni firmas. Es la lista con la
+ * que se sale a cobrar, se trabaja encima de ella, y todo lo que no sea una
+ * fila de vendedor es sitio que le quita.
  *
- * La versión de seis columnas sigue existiendo en `imprimible-saldos-detallado`
- * por si hay que volver a ella.
+ * La semana y la fecha no se imprimen a propósito: quien manda imprimir acaba
+ * de elegirlas en la pantalla, y quien recibe el papel ya sabe de qué semana
+ * le hablan. Ponerlas gasta una franja de hoja para contestar algo que nadie
+ * está preguntando.
+ *
+ * La versión con encabezado, totales, firmas y las seis columnas de antes
+ * sigue entera en `imprimible-saldos-detallado`.
  *
  * SIN COLORES DE FONDO, PERO CON EL ROJO
  * --------------------------------------
@@ -74,16 +76,11 @@ function esc(s: string): string {
  * dice nada y esconde los pocos que sí. En blanco, el ojo va directo a los que
  * traen deuda — y deja el hueco para anotar a mano, que es lo que se hace.
  *
- * DOS ORIENTACIONES. Con tres columnas el vertical cabe de sobra y es el que
- * se usará casi siempre; el horizontal se conserva porque con muchas filas
- * permite dos columnas de vendedores por hoja.
+ * DOS ORIENTACIONES. Sin encabezado ni pie, el vertical se lleva las filas que
+ * antes ocupaban; el horizontal parte la lista en dos columnas de vendedores,
+ * que es lo que ese formato permite y el vertical no.
  */
 export function documentoSaldos(h: HojaSaldos): string {
-  const total = h.filas.reduce(
-    (a, f) => ({ anterior: a.anterior + f.anterior, actual: a.actual + f.actual }),
-    { anterior: 0, actual: 0 },
-  );
-
   const fila = (f: FilaSaldo, i: number) => `<tr>
     <td class="i">${i + 1}</td>
     <td>${esc(f.nombre)}</td>
@@ -98,9 +95,9 @@ export function documentoSaldos(h: HojaSaldos): string {
   /*
    * En horizontal, dos columnas de vendedores por hoja.
    *
-   * Un A4 apaisado gana ancho y pierde alto: con tres columnas sobra la mitad
-   * del papel a la derecha y las filas se derraman a una segunda página. Se
-   * parte la lista por la mitad y se ponen dos tablas lado a lado, que es
+   * Un A4 apaisado gana ancho y pierde alto: con cuatro columnas sobra la
+   * mitad del papel a la derecha y las filas se derraman a una segunda página.
+   * Se parte la lista por la mitad y se ponen dos tablas lado a lado, que es
    * exactamente lo que ese formato permite y el vertical no.
    */
   const mitad = Math.ceil(h.filas.length / 2);
@@ -125,12 +122,9 @@ export function documentoSaldos(h: HojaSaldos): string {
       ? `<div class="dos">${tabla(bloques[0], 0)}${tabla(bloques[1], mitad)}</div>`
       : tabla(bloques[0], 0);
 
-  const hoy = new Date();
-  const emitido = `${pad2(hoy.getDate())}/${pad2(hoy.getMonth() + 1)}/${hoy.getFullYear()}`;
-
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
-<title>Saldos por vendedor · semana ${h.semana ?? ""}</title>
+<title>Saldos por vendedor${h.semana === null ? "" : ` · semana ${h.semana}`}</title>
 <style>
   @page { size: A4 ${h.orientacion === "vertical" ? "portrait" : "landscape"}; margin: 10mm; }
   * { box-sizing: border-box; }
@@ -143,14 +137,6 @@ export function documentoSaldos(h: HojaSaldos): string {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .cab {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    border-bottom: 2px solid #000;
-    padding-bottom: ${h.orientacion === "vertical" ? "6px" : "4px"};
-    margin-bottom: ${h.orientacion === "vertical" ? "10px" : "7px"};
-  }
-  h1 { font-size: 13pt; margin: 0; letter-spacing: -0.01em; }
-  .sub { font-size: 8.5pt; color: #444; margin: 2px 0 0; }
 
   /* Las dos tablas del formato apaisado, lado a lado. */
   .dos { display: flex; gap: 14px; align-items: flex-start; }
@@ -168,8 +154,14 @@ export function documentoSaldos(h: HojaSaldos): string {
     padding: ${h.orientacion === "vertical" ? "3.5px 6px" : "1.5px 5px"};
     font-size: ${h.orientacion === "vertical" ? "9.5pt" : "8pt"};
   }
-  /* Al partirse en páginas, la cabecera se repite: una tabla de cifras sin
-     encabezado no se puede leer. */
+  /*
+     La cabecera de la tabla se repite en cada página.
+
+     Es lo único del encabezado que sobrevive, y por un motivo distinto: sin
+     ella, la segunda hoja son cuatro columnas de cifras sin decir cuál es
+     cuál. La regla break-inside de abajo evita además que una fila se parta
+     por la mitad entre dos páginas.
+  */
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
 
@@ -178,44 +170,9 @@ export function documentoSaldos(h: HojaSaldos): string {
   th.n { width: 22%; }
   td.b { font-weight: bold; }
   .rojo { color: #c00; }
-
-  tfoot td { background: #eee; font-weight: bold; border-top: 1.5px solid #000; }
-  .pie {
-    margin-top: ${h.orientacion === "vertical" ? "12px" : "8px"};
-    display: flex; justify-content: space-between; align-items: flex-end;
-    gap: 40px;
-  }
-  .tot { font-size: 10pt; font-weight: bold; }
-  .tot span { font-weight: normal; font-size: 8.5pt; color: #444; }
-  .firma { display: flex; gap: 50px; flex: 1; max-width: 60%; }
-  .firma div { flex: 1; border-top: 1px solid #000; padding-top: 3px; font-size: 8pt; }
 </style></head><body>
 
-<div class="cab">
-  <div>
-    <h1>Saldos por vendedor</h1>
-    <p class="sub">
-      ${h.semana === null ? "" : `Semana #${h.semana} &middot; `}${esc(fechaLargaSinDia(h.desde))} &mdash; ${esc(fechaLargaSinDia(h.hasta))}
-    </p>
-  </div>
-  <div style="text-align:right">
-    <p class="sub">Sistema de Control de Tickets &middot; Cort&eacute;s, Honduras</p>
-    <p class="sub">Emitido ${esc(emitido)} &middot; ${h.filas.length} vendedores</p>
-  </div>
-</div>
-
 ${cuerpo}
-
-<div class="pie">
-  <div class="tot">
-    Total a cuadrar: L${money(total.actual)}<br>
-    <span>De semanas anteriores: L${money(total.anterior)} &middot; en rojo, lo que entrega la empresa</span>
-  </div>
-  <div class="firma">
-    <div>Elaborado por</div>
-    <div>Recibido por</div>
-  </div>
-</div>
 
 </body></html>`;
 }
