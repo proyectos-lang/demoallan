@@ -9,6 +9,7 @@ import {
   type HojaSaldos,
   type Orientacion,
 } from "@/components/liquidacion/imprimible-saldos";
+import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
 import { cn } from "@/lib/cn";
 import { fmt } from "@/lib/format";
 
@@ -41,11 +42,14 @@ export function TablaSaldos({
   semana,
   desde,
   hasta,
+  hoy,
 }: {
   filas: FilaSaldoVendedor[];
   semana: number | null;
   desde: string;
   hasta: string;
+  /** Hoy en Honduras: tope del selector de fecha al saldar. */
+  hoy: string;
 }) {
   const [verTodos, setVerTodos] = useState(false);
   const marco = useRef<HTMLIFrameElement | null>(null);
@@ -186,8 +190,29 @@ export function TablaSaldos({
                     {f.nombre}
                     {!f.activo && <span className="text-th text-mudo ml-2">de baja</span>}
                   </td>
+                  {/*
+                    Saldar va PEGADO a la cifra que cierra, no en una columna
+                    de acciones al final: lo que se está dando por pagado es
+                    ese número, y verlos juntos evita cerrar el arrastre del
+                    vendedor de la fila de al lado.
+
+                    Sólo aparece si hay algo que saldar. Un cero no se paga.
+                  */}
                   <td className={cn(celda, f.anterior < 0 && "text-negativo")}>
-                    {f.anterior === 0 ? "—" : fmt(f.anterior, false)}
+                    {f.anterior === 0 ? (
+                      "—"
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        {fmt(f.anterior, false)}
+                        <SaldarArrastre
+                          vendedorId={f.id}
+                          vendedor={f.nombre}
+                          arrastre={f.anterior}
+                          desde={desde}
+                          hoy={hoy}
+                        />
+                      </span>
+                    )}
                   </td>
                   <td className={cn(celda, f.semana < 0 && "text-negativo")}>
                     {f.venta === 0 && f.semana === 0 ? "—" : fmt(f.semana, false)}

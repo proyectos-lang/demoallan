@@ -1,7 +1,7 @@
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { TablaSaldos, type FilaSaldoVendedor } from "@/components/liquidacion/tabla-saldos";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaLargaSinDia } from "@/lib/format";
+import { fechaLargaSinDia, hoyHonduras, iso } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -110,6 +110,7 @@ export async function VistaSaldos({
             semana={abierta.semana}
             desde={abierta.inicio}
             hasta={abierta.fin}
+            hoy={iso(hoyHonduras())}
           />
         )}
 

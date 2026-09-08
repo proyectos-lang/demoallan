@@ -981,6 +981,48 @@ export type Database = {
           r_saldo: number;
         }[];
       };
+      /**
+       * Los sorteos de semanas anteriores que un vendedor no ha pagado.
+       * Es lo que compone el arrastre; se consulta para poder enseñarlo
+       * antes de cerrarlo.
+       */
+      fn_arrastre_pendiente: {
+        Args: { p_vendedor_id: string; p_desde: string };
+        Returns: {
+          r_liquidacion_id: string;
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+        }[];
+      };
+      /**
+       * Cierra de una vez todo el arrastre de un vendedor.
+       *
+       * `p_entrega` es lo que se recibió de verdad y puede diferir del saldo:
+       * la diferencia se guarda como ajuste, y entonces `p_motivo` es
+       * obligatorio. `p_fecha_pago` es el día en que se recibió el dinero, que
+       * puede ser anterior al de la captura; no admite fechas futuras.
+       */
+      fn_saldar_arrastre: {
+        Args: {
+          p_vendedor_id: string;
+          p_desde: string;
+          p_entrega: number;
+          p_fecha_pago?: string | null;
+          p_motivo?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: {
+          r_corte_id: string;
+          r_sorteos: number;
+          r_saldo: number;
+          r_entrega: number;
+          r_ajuste: number;
+        }[];
+      };
       fn_registrar_corte: {
         Args: {
           p_vendedor_id: string;
