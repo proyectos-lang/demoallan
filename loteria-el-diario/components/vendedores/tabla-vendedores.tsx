@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Search, X } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
 import { Modal, CampoModal, CLASE_CONTROL_MODAL } from "@/components/ui/modal";
@@ -98,6 +98,7 @@ export function TablaVendedores({
     contrasena: string;
   } | null>(null);
   const [dandoAcceso, iniciarAcceso] = useTransition();
+  const [busqueda, setBusqueda] = useState("");
 
   const pedirAcceso = (fila: FilaVendedor) => {
     iniciarAcceso(async () => {
@@ -156,6 +157,43 @@ export function TablaVendedores({
     (["tope_por_numero", "comision", "factor_pago"] as Campo[]).some((c) => sucioCampo(fila, c));
 
   const sucio = filas.some(sucioFila);
+
+  /*
+   * El filtro, en memoria y sin ir al servidor.
+   *
+   * Las filas ya están todas aquí —la página las trae de una vez— así que
+   * filtrar es recorrer un array. Ir al servidor por cada tecla sería un viaje
+   * de red para responder algo que el navegador ya sabe, y con la lista
+   * parpadeando mientras se escribe.
+   *
+   * BUSCA POR CÓDIGO, NOMBRE Y ALIAS a la vez, no en un campo elegido de un
+   * desplegable: quien busca a alguien no sabe de antemano por cuál de los
+   * tres lo va a encontrar, y tener que decirlo antes es un paso de más.
+   *
+   * `toLowerCase` en los dos lados: nadie escribe «EMPEÑOS» en mayúsculas para
+   * buscarlo, y que el filtro distinga puede hacer creer que un vendedor no
+   * existe.
+   */
+  const termino = busqueda.trim().toLowerCase();
+  const visibles = termino
+    ? filas.filter((f) =>
+        [f.codigo, f.nombre, f.alias ?? ""].some((campo) =>
+          campo.toLowerCase().includes(termino),
+        ),
+      )
+    : filas;
+
+  /*
+   * Cuántos cambios sin guardar quedaron FUERA del filtro.
+   *
+   * «Guardar cambios» guarda todo lo tocado, esté visible o no — y así debe
+   * ser: haber filtrado no es haber descartado. Pero entonces se puede acabar
+   * pulsando Guardar con la lista mostrando tres vendedores y modificaciones en
+   * otros dos que no se ven. Se avisa en vez de sorprender.
+   */
+  const sucioOculto = termino
+    ? filas.filter((f) => sucioFila(f) && !visibles.includes(f)).length
+    : 0;
 
   const editar = (fila: FilaVendedor, campo: Campo, entrada: string) => {
     setBorrador((b) => ({ ...b, [`${fila.id}:${campo}`]: sanear(entrada) }));
@@ -384,6 +422,42 @@ export function TablaVendedores({
               {aviso.texto}
             </span>
           )}
+          {/*
+            El buscador va PRIMERO en la barra: con sesenta vendedores es lo
+            que se usa antes que nada, y ponerlo tras los botones obligaría a
+            saltárselos con la vista cada vez.
+          */}
+          <label className="relative flex items-center">
+            <Search
+              size={14}
+              strokeWidth={2}
+              absoluteStrokeWidth
+              className="absolute left-[10px] text-mudo pointer-events-none"
+            />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              onKeyDown={(e) => {
+                // Esc limpia sin tener que apuntar a la equis, que es lo que
+                // se hace cuando ya se encontró y se quiere volver a la lista.
+                if (e.key === "Escape") setBusqueda("");
+              }}
+              placeholder="Buscar por código, nombre o alias"
+              aria-label="Buscar vendedor por código, nombre o alias"
+              className="w-[230px] max-w-full pl-[30px] pr-[28px] py-[7px] rounded-campo border border-borde-campo bg-superficie text-meta outline-none focus:border-acento"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda("")}
+                aria-label="Limpiar la búsqueda"
+                className="absolute right-[6px] p-1 text-mudo hover:text-cuerpo"
+              >
+                <X size={13} strokeWidth={2.4} absoluteStrokeWidth />
+              </button>
+            )}
+          </label>
+
           <Boton
             variante="ghost"
             onClick={() => setModalAbierto(true)}
@@ -437,7 +511,7 @@ export function TablaVendedores({
               </tr>
             </thead>
             <tbody>
-              {filas.map((fila) => (
+              {visibles.map((fila) => (
                 <tr
                   key={fila.id}
                   className={cn(sucioFila(fila) && "bg-ambar-fila-sucia")}
@@ -595,7 +669,40 @@ export function TablaVendedores({
               ))}
             </tbody>
           </table>
+
+          {/* Sin resultados: se dice qué se buscó y se ofrece deshacerlo. Una
+              tabla vacía y sin explicación se lee como «no hay vendedores». */}
+          {visibles.length === 0 && (
+            <div className="px-4 py-8 text-center">
+              <p className="text-tabla text-cuerpo m-0">
+                Ningún vendedor coincide con «{busqueda.trim()}».
+              </p>
+              <button
+                type="button"
+                onClick={() => setBusqueda("")}
+                className="text-meta text-acento font-medium mt-2"
+              >
+                Ver los {filas.length} vendedores
+              </button>
+            </div>
+          )}
         </div>
+
+        {/*
+          Cambios sin guardar que el filtro dejó fuera de la vista.
+
+          «Guardar cambios» los guarda igual —haber filtrado no es haber
+          descartado— pero pulsarlo con la lista mostrando tres vendedores y
+          modificaciones en otros dos que no se ven es exactamente la clase de
+          sorpresa que hace desconfiar de una pantalla.
+        */}
+        {sucioOculto > 0 && (
+          <div className="px-4 py-[10px] bg-ambar-fila-sucia border-t border-riel text-meta text-ambar-texto leading-[1.5]">
+            Hay {sucioOculto} {sucioOculto === 1 ? "vendedor" : "vendedores"} con cambios sin
+            guardar que la búsqueda no está mostrando. Se guardarán igualmente.
+          </div>
+        )}
+
         <div className="px-4 py-[14px] bg-tinte border-t border-riel text-meta text-cuerpo leading-[1.55]">
           Al validar una venta se exige el tope del vendedor y el límite global de la casa (
           {fmt(limiteGlobal)} por número). Todo cambio queda en auditoría con valor anterior,
