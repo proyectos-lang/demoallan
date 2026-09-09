@@ -99,16 +99,53 @@ export function TablaVendedores({
   } | null>(null);
   const [dandoAcceso, iniciarAcceso] = useTransition();
   const [busqueda, setBusqueda] = useState("");
+  /*
+   * Restablecer pasa por un modal en vez de generar de golpe.
+   *
+   * Antes el botón cambiaba la contraseña en el acto: un clic de más dejaba a
+   * un vendedor fuera de su cuenta sin preguntar nada. Y ahora además hay algo
+   * que decidir —dictar una acordada o generar una— que no cabe en un clic.
+   */
+  const [reponiendo, setReponiendo] = useState<FilaVendedor | null>(null);
+  const [claveManual, setClaveManual] = useState("");
+  const [errorClave, setErrorClave] = useState("");
 
+  /*
+   * Crear un acceso sí va directo: no hay nada que decidir y no se pisa nada
+   * —quien no tenía cuenta no puede quedarse fuera de ella—.
+   */
   const pedirAcceso = (fila: FilaVendedor) => {
     iniciarAcceso(async () => {
-      const r = fila.usuario
-        ? await restablecerAcceso(fila.id)
-        : await crearAcceso(fila.id);
+      const r = await crearAcceso(fila.id);
       if (!r.ok) {
         setAviso({ texto: r.mensaje, tipo: "error" });
         return;
       }
+      setCredenciales({ nombre: fila.nombre, usuario: r.usuario, contrasena: r.contrasena });
+      setAviso({ texto: "", tipo: "neutro" });
+    });
+  };
+
+  /** Restablecer: con la contraseña que se teclee, o generada si se deja vacía. */
+  const reponerClave = () => {
+    if (!reponiendo) return;
+    const fila = reponiendo;
+    const puesta = claveManual.trim();
+
+    if (puesta && puesta.length < 8) {
+      setErrorClave("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    iniciarAcceso(async () => {
+      const r = await restablecerAcceso(fila.id, puesta || undefined);
+      if (!r.ok) {
+        setErrorClave(r.mensaje);
+        return;
+      }
+      setReponiendo(null);
+      setClaveManual("");
+      setErrorClave("");
       setCredenciales({ nombre: fila.nombre, usuario: r.usuario, contrasena: r.contrasena });
       setAviso({ texto: "", tipo: "neutro" });
     });
@@ -398,6 +435,89 @@ export function TablaVendedores({
         )}
       </Modal>
 
+      {/* Restablecer la contraseña: dictada o generada. */}
+      <Modal
+        abierto={reponiendo !== null}
+        onCerrar={() => {
+          setReponiendo(null);
+          setClaveManual("");
+          setErrorClave("");
+        }}
+        eyebrow={reponiendo?.codigo}
+        titulo="Restablecer la contraseña"
+        subtitulo={
+          reponiendo
+            ? `${reponiendo.nombre} entrará con la contraseña nueva y tendrá que ponerse otra.`
+            : ""
+        }
+        error={errorClave}
+        pie={
+          <>
+            <Boton
+              variante="ghost"
+              onClick={() => {
+                setReponiendo(null);
+                setClaveManual("");
+                setErrorClave("");
+              }}
+              disabled={dandoAcceso}
+            >
+              Cancelar
+            </Boton>
+            <Boton onClick={reponerClave} disabled={dandoAcceso}>
+              {dandoAcceso
+                ? "Cambiando…"
+                : claveManual.trim()
+                  ? "Poner esta contraseña"
+                  : "Generar una"}
+            </Boton>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <CampoModal etiqueta="Contraseña nueva (opcional)" anchoCompleto>
+            {/*
+              En claro y no oculta con puntos: quien la escribe se la va a
+              dictar por teléfono, así que necesita verla. Ocultarla aquí sólo
+              conseguiría que se tecleara mal y nadie lo notara hasta que el
+              vendedor no puede entrar.
+            */}
+            <input
+              value={claveManual}
+              onChange={(e) => {
+                setClaveManual(e.target.value.slice(0, 60));
+                setErrorClave("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  reponerClave();
+                }
+              }}
+              placeholder="Déjelo en blanco para generar una"
+              autoComplete="off"
+              autoFocus
+              className={CLASE_CONTROL_MODAL}
+            />
+            <span className="block text-label text-mudo mt-[5px]">
+              Mínimo 8 caracteres. En blanco, el sistema genera una que sólo se muestra
+              esta vez.
+            </span>
+          </CampoModal>
+
+          {/*
+            Se dice ANTES de confirmar, no después: quien pone una contraseña
+            acordada suele esperar que quede como definitiva, y descubrir que
+            no lo es cuando el vendedor llama otra vez es peor que leerlo aquí.
+          */}
+          <p className="text-meta text-secundario leading-[1.55] m-0">
+            Sea puesta a mano o generada, el vendedor tendrá que{" "}
+            <strong>cambiarla al entrar</strong>. Una contraseña que pasó por otra persona
+            no se queda como la suya.
+          </p>
+        </div>
+      </Modal>
+
       <div className="flex items-end justify-between gap-5 flex-wrap mb-[18px]">
         <div>
           <h1 className="text-h1 font-semibold tracking-titular m-0">Vendedores y límites</h1>
@@ -613,7 +733,11 @@ export function TablaVendedores({
                         <span className="block text-label font-medium">{fila.usuario}</span>
                         <button
                           type="button"
-                          onClick={() => pedirAcceso(fila)}
+                          onClick={() => {
+                            setReponiendo(fila);
+                            setClaveManual("");
+                            setErrorClave("");
+                          }}
                           disabled={dandoAcceso}
                           className="text-label text-acento font-medium disabled:text-mudo"
                         >

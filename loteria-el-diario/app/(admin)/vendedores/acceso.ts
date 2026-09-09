@@ -71,10 +71,44 @@ export async function crearAcceso(vendedorId: string): Promise<ResultadoAcceso> 
   };
 }
 
-/** Genera una contraseña nueva para un vendedor que perdió la suya. */
-export async function restablecerAcceso(vendedorId: string): Promise<ResultadoAcceso> {
+/**
+ * Contraseña nueva para un vendedor que perdió la suya.
+ *
+ * SE PUEDE DICTAR O SE PUEDE GENERAR.
+ *
+ * Generada es lo de siempre y sigue siendo lo sensato cuando el vendedor está
+ * delante: sale de `generarContrasena`, nadie más la ha visto nunca, y se
+ * muestra una sola vez.
+ *
+ * Pero muchas veces esto se resuelve por teléfono, y deletrear ocho caracteres
+ * aleatorios a alguien que está atendiendo acaba en tres intentos fallidos y
+ * otra llamada. Poder poner una acordada —«pongámosle su nombre y el año»—
+ * convierte eso en una frase.
+ *
+ * EN LOS DOS CASOS EL VENDEDOR LA CAMBIA AL ENTRAR. Lo hace la base, que pone
+ * `debe_cambiar` en `fn_restablecer_contrasena`, y no se toca: una contraseña
+ * que ha pasado por el teléfono de otra persona no puede quedarse como la
+ * definitiva. La manual sirve para entrar una vez, no para siempre.
+ */
+export async function restablecerAcceso(
+  vendedorId: string,
+  /*
+   * La contraseña a poner, o vacío para que se genere.
+   *
+   * Llega del navegador y no se valida aquí más allá del largo: lo que manda
+   * es `fn_restablecer_contrasena`, que exige ocho caracteres y es la única
+   * que escribe el hash. Repetir aquí la regla sirve para dar el mensaje
+   * inmediato, no para sustituirla.
+   */
+  manual?: string,
+): Promise<ResultadoAcceso> {
   const veto = await exigeAdministrador();
   if (veto) return { ok: false, mensaje: veto };
+
+  const puesta = (manual ?? "").trim();
+  if (puesta && puesta.length < 8) {
+    return { ok: false, mensaje: "La contraseña debe tener al menos 8 caracteres." };
+  }
 
   const supabase = crearClienteServicio();
 
@@ -90,7 +124,7 @@ export async function restablecerAcceso(vendedorId: string): Promise<ResultadoAc
 
   if (!u) return { ok: false, mensaje: "No se encontró la cuenta." };
 
-  const contrasena = generarContrasena();
+  const contrasena = puesta || generarContrasena();
   const { error } = await supabase.rpc("fn_restablecer_contrasena", {
     p_usuario_id: u.id,
     p_nueva: contrasena,
@@ -103,6 +137,11 @@ export async function restablecerAcceso(vendedorId: string): Promise<ResultadoAc
     ok: true,
     usuario: acceso.r_usuario,
     contrasena,
-    mensaje: "Contraseña nueva. Anótela: no se vuelve a mostrar.",
+    // La generada no se vuelve a ver nunca; la dictada la sabe quien la puso,
+    // así que el aviso cambia. Decir «anótela» de una que uno mismo eligió
+    // suena a que el sistema no se entera de lo que acaba de pasar.
+    mensaje: puesta
+      ? "Contraseña cambiada. El vendedor tendrá que ponerse otra al entrar."
+      : "Contraseña nueva. Anótela: no se vuelve a mostrar.",
   };
 }
