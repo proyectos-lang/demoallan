@@ -250,8 +250,28 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-[3px]">
-        {decenas.map((indice) => {
+      {/*
+        LOS CIEN NÚMEROS EN PANTALLA, SIN DESPLAZAR.
+        
+        Antes las diez decenas iban apiladas, una por fila: veinte filas de
+        alto. En una laptop de 768px se veían setenta números y había que
+        desplazar 189px para llegar al 96 — y en una de 640, sólo cincuenta y
+        cinco. El cliente dicta «el 02 y el 96» y el vendedor sube y baja por
+        cada número de la lista.
+        
+        Las celdas medían 173px de ancho por 34 de alto: sobraba ancho y
+        faltaba alto. Así que las decenas van de DOS EN DOS por fila. Diez
+        filas en vez de veinte, y el ancho sobrante se convierte en los cien
+        números a la vista.
+        
+        Se emparejan 00–09 con 50–59, 10–19 con 60–69, y así: la columna
+        izquierda lleva la primera mitad y la derecha la segunda, en orden. Es
+        lo que hace que el ojo sepa dónde mirar sin leer los rótulos — quien
+        busca el 96 va al final de la columna derecha, no a rastrear.
+      */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-[3px]">
+        {Array.from({ length: 5 }, (_, i) => i).flatMap((banda) =>
+          [banda, banda + 5].map((indice) => {
           const inicio = indice * POR_RANGO;
           const decena = Array.from({ length: POR_RANGO }, (_, i) => inicio + i);
           const conCupo = decena.filter((n) => pos.disponible[n] > 0);
@@ -261,7 +281,7 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
               key={indice}
               className="grid gap-[3px]"
               style={{
-                gridTemplateColumns: `72px repeat(${POR_LINEA}, minmax(0, 1fr))`,
+                gridTemplateColumns: `62px repeat(${POR_LINEA}, minmax(0, 1fr))`,
               }}
             >
               {/* El botón abarca las dos filas de su decena, para quedar a la
@@ -309,7 +329,8 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
               })}
             </div>
           );
-        })}
+          }),
+        )}
       </div>
     </div>
   );

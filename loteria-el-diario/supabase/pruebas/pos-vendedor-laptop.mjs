@@ -14,6 +14,9 @@
  *     ENFOCADO, que es lo que permite teclear sin tocar el ratón.
  *   · Que Enter agregue al ticket.
  *   · Que nada se salga de la pantalla.
+ *   · Que LOS CIEN NÚMEROS se vean SIN DESPLAZAR. Es lo que pidió el
+ *     vendedor: el cliente dicta «el 02 y el 96» y subir y bajar por cada
+ *     número de la lista cuesta segundos con la cola delante.
  *
  * Y que el ADMINISTRADOR conserve la suya: es la mitad que se rompe sin
  * querer al añadir una vista nueva.
@@ -157,7 +160,7 @@ try {
   await cdp("Network.enable");
   await cdp("Emulation.setDeviceMetricsOverride", {
     width: Number(process.env.ANCHO ?? 1366), // la laptop corriente
-    height: 768,
+    height: Number(process.env.ALTO ?? 768),
     deviceScaleFactor: 1,
     mobile: false,
   });
@@ -182,6 +185,9 @@ try {
       };
       const botones = [...document.querySelectorAll('button')].filter(visible);
       const texto = (b) => (b.textContent || '').trim();
+      // Dos dígitos, sin regex: las barras invertidas se pierden al pasar
+      // esta plantilla al navegador y la comprobación buscaba una «d».
+      const esNumero = (t) => t.length === 2 && t >= '00' && t <= '99';
 
       return {
         // El botón de decena: «00–09». Es la firma de la rejilla de 5 en 5.
@@ -194,6 +200,22 @@ try {
         // Los cien números.
         numeros: botones.filter((b) => /^\\d{2}$/.test(texto(b))).length,
         confirmar: botones.some((b) => /Confirmar y registrar/i.test(texto(b))),
+        // Cuántos números caben en pantalla sin mover nada, y cuánto habría
+        // que desplazar para alcanzar el último.
+        numerosVisibles: (() => {
+          const alto = document.documentElement.clientHeight;
+          return botones.filter((b) => {
+            if (!esNumero(texto(b))) return false;
+            const r = b.getBoundingClientRect();
+            return r.top >= 0 && r.bottom <= alto;
+          }).length;
+        })(),
+        celda: (() => {
+          const n = botones.find((b) => esNumero(texto(b)));
+          if (!n) return null;
+          const r = n.getBoundingClientRect();
+          return { ancho: Math.round(r.width), alto: Math.round(r.height) };
+        })(),
         cerrarTicket: botones.some((b) => /Cerrar ticket/i.test(texto(b))),
         desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
@@ -207,6 +229,16 @@ try {
   check("tiene «cerrar ticket»", v.cerrarTicket === true);
   check("tiene «confirmar y registrar»", v.confirmar === true);
   check("nada se sale de la pantalla", v.desborde <= 0, `${v.desborde}px`);
+  check(
+    "LOS CIEN NÚMEROS SE VEN SIN DESPLAZAR",
+    v.numerosVisibles === 100,
+    `sólo ${v.numerosVisibles} de 100 caben en pantalla`,
+  );
+  check(
+    "y las celdas siguen siendo cómodas de apuntar",
+    v.celda !== null && v.celda.ancho >= 30 && v.celda.alto >= 28,
+    v.celda ? `${v.celda.ancho}x${v.celda.alto}px` : "no se midió",
+  );
 
   // El monto: ventana centrada, campo enfocado, Enter agrega.
   const flujo = await ev(`
@@ -294,6 +326,9 @@ try {
       };
       const botones = [...document.querySelectorAll('button')].filter(visible);
       const texto = (b) => (b.textContent || '').trim();
+      // Dos dígitos, sin regex: las barras invertidas se pierden al pasar
+      // esta plantilla al navegador y la comprobación buscaba una «d».
+      const esNumero = (t) => t.length === 2 && t >= '00' && t <= '99';
       return {
         modos: botones.filter((b) =>
           /^(Número y monto|Línea rápida|Rejilla 00–99)$/.test(texto(b))).length,
