@@ -1196,6 +1196,14 @@ export type Database = {
           /** La parte de ese corte que cae en esta semana, no el total. */
           r_saldo: number;
           r_nota: string | null;
+          /**
+           * Lo que ese corte pagó de semanas ANTERIORES.
+           *
+           * Va aparte de `r_saldo` a propósito: suma en la constancia del
+           * pago pero NO en la aritmética de los siete días, o se restaría
+           * dos veces lo mismo. Opcional mientras la 0073 no se aplique.
+           */
+          r_arrastre?: number;
         }[];
       };
 

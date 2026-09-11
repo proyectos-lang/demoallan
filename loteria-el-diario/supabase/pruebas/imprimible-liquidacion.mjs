@@ -11,6 +11,10 @@
  *     permite cuadrar día a día con el vendedor sin sumar de cabeza.
  *   · Que la celda del día diga «LUNES 31 / AGOS 26» y abarque los tres
  *     sorteos, como el recuadro de la hoja de papel.
+ *   · Que el NÚMERO GANADOR, el VALOR PREMIADO y los PREMIOS salgan en rojo,
+ *     y que el rojo sobreviva a la impresión — el navegador lo pasa a gris
+ *     salvo que se le diga que no. Son las tres cifras que se leen juntas al
+ *     comprobar un premio.
  *   · Que la semana entera QUEPA EN UNA HOJA. Con siete gran totales nuevos
  *     el riesgo es que se derrame a una segunda página para llevar sólo las
  *     firmas, y eso se mide contra el área real de un A4.
@@ -91,6 +95,21 @@ const m = await ev(`
      celdaDia:f?f.textContent.replace(/\s+/g,' ').trim():null,
      rowspan:f?f.getAttribute('rowspan'):null,
      alto, util:window.innerHeight, paginas:Math.ceil(alto/window.innerHeight),
+     // Los colores TAL COMO los va a pintar la impresora, no la clase CSS.
+     colorGanador:(()=>{const c=document.querySelector('table.detalle tbody td.c');
+       return c?getComputedStyle(c).color:null;})(),
+     colorPremiado:(()=>{const f=document.querySelector('table.detalle tbody tr');
+       return f?getComputedStyle(f.children[4]).color:null;})(),
+     colorPremios:(()=>{const f=document.querySelector('table.detalle tbody tr');
+       return f?getComputedStyle(f.children[5]).color:null;})(),
+     colorComisionResumen:(()=>{
+       const filas=[...document.querySelectorAll('table.resumen tr')];
+       const f=filas.find(r=>/Comisión/.test(r.textContent||''));
+       return f?getComputedStyle(f.children[1]).color:null;})(),
+     colorPremiosResumen:(()=>{
+       const filas=[...document.querySelectorAll('table.resumen tr')];
+       const f=filas.find(r=>/Premios pagados/.test(r.textContent||''));
+       return f?getComputedStyle(f.children[1]).color:null;})(),
    };
  })()
 `);
@@ -110,6 +129,15 @@ check(
   String(m.celdaDia),
 );
 check("y abarca los tres sorteos", m.rowspan === "3", String(m.rowspan));
+
+const ROJO = "rgb(225, 29, 72)";
+check("el número ganador va en rojo", m.colorGanador === ROJO, String(m.colorGanador));
+check("el valor premiado, en rojo", m.colorPremiado === ROJO, String(m.colorPremiado));
+check("los premios, en rojo", m.colorPremios === ROJO, String(m.colorPremios));
+check("y en el cuadro de abajo, la comisión", m.colorComisionResumen === ROJO,
+      String(m.colorComisionResumen));
+check("y los premios pagados", m.colorPremiosResumen === ROJO,
+      String(m.colorPremiosResumen));
 
 console.log(`        ${m.alto}px de alto sobre ${m.util} útiles`);
 check("LA SEMANA ENTERA CABE EN UNA HOJA", m.paginas === 1, `${m.paginas} páginas`);

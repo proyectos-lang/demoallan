@@ -26,8 +26,11 @@ export type LineaImpresa = {
 export type AbonoImpreso = {
   pagadoEn: string;
   sorteos: number;
+  /** La parte de ESTA semana. Cero en un pago que sólo saldó lo de atrás. */
   saldo: number;
   nota: string | null;
+  /** Lo que ese pago cerró de semanas ANTERIORES. */
+  arrastre?: number;
 };
 
 export type HojaImpresa = {
@@ -181,10 +184,10 @@ export function documentoLiquidacion(h: HojaImpresa): string {
           return `<tr class="${i === 0 ? "dia " : ""}${l.pagado ? "pagado" : ""}">
         ${celdaFecha}
         <td>${esc(jornada(l.hora))}${l.pagado ? ' <span class="sello">liquidado</span>' : ""}</td>
-        <td class="c">${l.ganador === null ? "&mdash;" : pad2(l.ganador)}</td>
+        <td class="c rojo b">${l.ganador === null ? "&mdash;" : pad2(l.ganador)}</td>
         <td class="n">${money(l.venta)}</td>
-        <td class="n">${l.premiado > 0 ? money(l.premiado) : "&mdash;"}</td>
-        <td class="n">${money(l.premios)}</td>
+        <td class="n rojo">${l.premiado > 0 ? money(l.premiado) : "&mdash;"}</td>
+        <td class="n rojo">${money(l.premios)}</td>
         <td class="n">${money(l.comision)}</td>
         <td class="n b ${l.saldo < 0 ? "rojo" : ""}">${money(l.saldo)}</td>
       </tr>`;
@@ -271,10 +274,19 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   }
   td.b { font-weight: bold; }
   /*
-     El rojo del sistema. Funciona porque el body lleva print-color-adjust en
-     exacto: sin eso el navegador lo convierte en gris al imprimir, y la única
-     señal de que la empresa debe dinero desaparece justo en el papel.
-     
+     EL ROJO MARCA LO QUE TIENE QUE VER CON EL PREMIO: el número que salió, lo
+     que se le apostó y lo que se pagó. Son las tres cifras que se leen juntas
+     cuando alguien comprueba un premio, y en una columna de números todos
+     iguales encontrarlas costaba recorrer la fila entera.
+
+     Sigue marcando además los saldos negativos, que es lo que era antes. No
+     se confunden: el saldo va en su columna, en negrita, y con el signo menos
+     delante — que es lo que de verdad lo distingue en una fotocopia.
+
+     Funciona porque el body lleva print-color-adjust en exacto: sin eso el
+     navegador lo convierte en gris al imprimir y todo esto se pierde justo en
+     el papel, que es donde se cobra.
+
      Sin acentos graves aquí dentro: este CSS vive en una plantilla de
      JavaScript y un acento grave cierra la cadena.
   */
@@ -353,8 +365,8 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   <tfoot><tr>
     <td colspan="3">Totales</td>
     <td class="n">${money(total.venta)}</td>
-    <td class="n">${money(total.premiado)}</td>
-    <td class="n">${money(total.premios)}</td>
+    <td class="n rojo">${money(total.premiado)}</td>
+    <td class="n rojo">${money(total.premios)}</td>
     <td class="n">${money(total.comision)}</td>
     <td class="n ${total.saldo < 0 ? "rojo" : ""}">${money(total.saldo)}</td>
   </tr></tfoot>
@@ -362,8 +374,8 @@ export function documentoLiquidacion(h: HojaImpresa): string {
 
 <table class="resumen"><tbody>
   <tr><td class="et">Venta total</td><td class="n">L ${money(total.venta)}</td></tr>
-  <tr><td class="et">Comisión</td><td class="n">L ${money(total.comision)}</td></tr>
-  <tr><td class="et">Premios pagados</td><td class="n">L ${money(total.premios)}</td></tr>
+  <tr><td class="et">Comisión</td><td class="n rojo">L ${money(total.comision)}</td></tr>
+  <tr><td class="et">Premios pagados</td><td class="n rojo">L ${money(total.premios)}</td></tr>
   <tr>
     <td class="et">Saldo de la semana</td>
     <td class="n ${total.saldo < 0 ? "rojo" : ""}">L ${money(total.saldo)}</td>
@@ -415,12 +427,31 @@ export function documentoLiquidacion(h: HojaImpresa): string {
          <tr><td class="et">Abono 3</td><td></td><td class="et">Fecha</td><td></td></tr>`
       : h.abonos
           .map(
-            (a, i) => `<tr>
+            (a, i) => {
+              /*
+               * Un pago puede cerrar sorteos de esta semana, de anteriores, o
+               * de las dos. Se dice CUÁNTO de cada cosa: si sólo se imprimiera
+               * la parte de esta semana, un pago de arrastre saldría en cero y
+               * parecería que no se cobró nada.
+               */
+              const deAtras = a.arrastre ?? 0;
+              const total = a.saldo + deAtras;
+              const detalle = [
+                `${a.sorteos} ${a.sorteos === 1 ? "sorteo" : "sorteos"}`,
+                deAtras !== 0 && a.saldo !== 0
+                  ? `de los cuales L ${money(deAtras)} de semanas anteriores`
+                  : deAtras !== 0
+                    ? "de semanas anteriores"
+                    : "",
+                a.nota ?? "",
+              ].filter(Boolean);
+              return `<tr>
               <td class="et">Abono ${i + 1}</td>
-              <td class="n b ${a.saldo < 0 ? "rojo" : ""}">L ${money(a.saldo)}</td>
+              <td class="n b ${total < 0 ? "rojo" : ""}">L ${money(total)}</td>
               <td class="et">Fecha</td>
-              <td>${esc(instanteCorto(a.pagadoEn))}<span class="sub"> &middot; ${a.sorteos} ${a.sorteos === 1 ? "sorteo" : "sorteos"}${a.nota ? ` &middot; ${esc(a.nota)}` : ""}</span></td>
-            </tr>`,
+              <td>${esc(instanteCorto(a.pagadoEn))}<span class="sub"> &middot; ${detalle.map((d) => esc(d)).join(" &middot; ")}</span></td>
+            </tr>`;
+            },
           )
           .join("")
   }

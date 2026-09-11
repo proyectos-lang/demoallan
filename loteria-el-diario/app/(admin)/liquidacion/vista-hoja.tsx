@@ -6,11 +6,12 @@ import {
   HojaLiquidacion,
   type FilaLiquidacion,
 } from "@/components/liquidacion/hoja-liquidacion";
+import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { Kpi } from "@/components/informe/kpi";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLargaSinDia, fmt } from "@/lib/format";
+import { fechaLargaSinDia, fmt, hoyHonduras, iso } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -196,6 +197,9 @@ export async function VistaHoja({
     sorteos: a.r_sorteos,
     saldo: Number(a.r_saldo),
     nota: a.r_nota,
+    // Lo que ese pago cerró de semanas anteriores. La 0073 lo trae aparte:
+    // no entra en la aritmética de la semana, pero sí en la constancia.
+    arrastre: Number(a.r_arrastre ?? 0),
   }));
 
   const entrega = abierta.pendiente >= 0;
@@ -265,23 +269,46 @@ export async function VistaHoja({
             cobra sepa la cuenta completa antes de llamar.
           */}
           {hayArrastre && (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-              <Kpi
-                etiqueta="ARRASTRE DE SEMANAS ANTERIORES"
-                valor={fmt(abierta.arrastre)}
-                pie={
-                  abierta.arrastre >= 0
-                    ? "lo entrega el vendedor"
-                    : "lo entrega la casa"
-                }
-                color={abierta.arrastre < 0 ? "text-negativo" : undefined}
-              />
-              <Kpi
-                etiqueta="TOTAL ACUMULADO"
-                valor={fmt(abierta.acumulado)}
-                pie="esta semana más lo que viene de atrás"
-                color={abierta.acumulado < 0 ? "text-negativo" : undefined}
-              />
+            <div className="flex items-stretch gap-3 flex-wrap">
+              <div className="grid gap-3 flex-1 min-w-0 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+                <Kpi
+                  etiqueta="ARRASTRE DE SEMANAS ANTERIORES"
+                  valor={fmt(abierta.arrastre)}
+                  pie={
+                    abierta.arrastre >= 0
+                      ? "lo entrega el vendedor"
+                      : "lo entrega la casa"
+                  }
+                  color={abierta.arrastre < 0 ? "text-negativo" : undefined}
+                />
+                <Kpi
+                  etiqueta="TOTAL ACUMULADO"
+                  valor={fmt(abierta.acumulado)}
+                  pie="esta semana más lo que viene de atrás"
+                  color={abierta.acumulado < 0 ? "text-negativo" : undefined}
+                />
+              </div>
+
+              {/*
+                Saldar el arrastre, aquí mismo.
+
+                Vivía sólo en la pestaña de saldos, y quien está cuadrando con
+                un vendedor concreto está EN ESTA pantalla: mandarlo a otra
+                para cerrar lo de atrás, y volver, es el tipo de ida y vuelta
+                que acaba en «luego lo hago».
+
+                Es el mismo componente que allí: la regla de qué se salda y
+                cómo se registra el ajuste vive en un solo sitio.
+              */}
+              <div className="flex-none flex items-center bg-superficie border border-borde rounded-card shadow-card px-[18px]">
+                <SaldarArrastre
+                  vendedorId={vendedor.id}
+                  vendedor={`${vendedor.codigo} · ${vendedor.nombre}`}
+                  arrastre={abierta.arrastre}
+                  desde={abierta.inicio}
+                  hoy={iso(hoyHonduras())}
+                />
+              </div>
             </div>
           )}
 
