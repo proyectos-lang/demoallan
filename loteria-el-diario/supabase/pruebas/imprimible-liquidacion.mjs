@@ -15,6 +15,9 @@
  *     y que el rojo sobreviva a la impresión — el navegador lo pasa a gris
  *     salvo que se le diga que no. Son las tres cifras que se leen juntas al
  *     comprobar un premio.
+ *   · Que NO haya titular, sello de emisión, nota explicativa ni firmas: la
+ *     hoja se simplificó a imagen de la que ya se usa a mano, y todo lo que no
+ *     sea un dato es sitio que le quita.
  *   · Que la semana entera QUEPA EN UNA HOJA. Con siete gran totales nuevos
  *     el riesgo es que se derrame a una segunda página para llevar sólo las
  *     firmas, y eso se mide contra el área real de un A4.
@@ -95,6 +98,13 @@ const m = await ev(`
      celdaDia:f?f.textContent.replace(/\s+/g,' ').trim():null,
      rowspan:f?f.getAttribute('rowspan'):null,
      alto, util:window.innerHeight, paginas:Math.ceil(alto/window.innerHeight),
+     // Lo que la hoja NO debe llevar. Se mide sobre el documento, no sobre la
+     // ausencia de una clase: un bloque escondido con CSS seguiría contando.
+     titulares: document.querySelectorAll('h1,h2,h3').length,
+     bloques: Array.from(document.body.children, (e) => e.tagName).join(','),
+     textoSuelto: (document.body.innerText.match(
+       /Liquidación semanal|Sistema de Control|Emitido|Firma del|Recibido por/g) || []).length,
+     desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
      // Los colores TAL COMO los va a pintar la impresora, no la clase CSS.
      colorGanador:(()=>{const c=document.querySelector('table.detalle tbody td.c');
        return c?getComputedStyle(c).color:null;})(),
@@ -138,6 +148,19 @@ check("y en el cuadro de abajo, la comisión", m.colorComisionResumen === ROJO,
       String(m.colorComisionResumen));
 check("y los premios pagados", m.colorPremiosResumen === ROJO,
       String(m.colorPremiosResumen));
+
+check("sin titulares", m.titulares === 0, `${m.titulares}`);
+check(
+  "sin encabezado, sello de emisión ni firmas",
+  m.textoSuelto === 0,
+  `${m.textoSuelto} rastro(s)`,
+);
+check(
+  "sólo quedan los cuatro bloques de datos",
+  m.bloques === "TABLE,TABLE,TABLE,TABLE",
+  m.bloques,
+);
+check("la hoja no desborda a lo ancho", m.desborde <= 0, `${m.desborde}px`);
 
 console.log(`        ${m.alto}px de alto sobre ${m.util} útiles`);
 check("LA SEMANA ENTERA CABE EN UNA HOJA", m.paginas === 1, `${m.paginas} páginas`);

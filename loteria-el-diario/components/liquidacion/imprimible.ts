@@ -220,15 +220,10 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  h1 { font-size: 13pt; margin: 0; letter-spacing: -0.01em; }
-  .sub { font-size: 8.5pt; color: #444; margin: 2px 0 0; }
-  .cab {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    gap: 16px; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;
-  }
   .datos { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  .datos td { padding: 4px 8px; border: 1px solid #999; font-size: 9.5pt; }
-  .datos .et { background: #eee; font-weight: bold; width: 22%; }
+  .datos td { padding: 3px 8px; border: 1px solid #999; font-size: 9pt; }
+  .datos td.v { font-weight: bold; }
+  .datos .et { background: #eee; font-weight: bold; white-space: nowrap; }
   .datos .destacado { font-weight: bold; font-size: 11pt; }
   .datos .sub { font-weight: normal; font-size: 8.5pt; color: #555; }
   table.detalle { width: 100%; border-collapse: collapse; }
@@ -303,49 +298,29 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   .resumen td { padding: 4px 8px; border: 1px solid #999; font-size: 10pt; }
   .resumen .et { background: #eee; font-weight: bold; }
   .resumen tr.saldo td { border-top: 2px solid #000; font-size: 12pt; font-weight: bold; }
-  .nota { margin-top: 10px; font-size: 8.5pt; color: #444; line-height: 1.45; }
   .abonos { margin-top: 12px; width: 100%; border-collapse: collapse; }
   .abonos td { border: 1px solid #999; padding: 4px 8px; font-size: 9pt; }
   .abonos .et { background: #eee; font-weight: bold; width: 18%; padding: 4px 8px; }
   .abonos .sub { color: #666; font-size: 8pt; }
-  .firma { margin-top: 14px; display: flex; gap: 40px; }
-  .firma div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 8.5pt; }
 </style></head><body>
 
-<div class="cab">
-  <div>
-    <h1>Liquidación semanal</h1>
-    <p class="sub">Sistema de Control de Tickets &middot; Cortés, Honduras</p>
-  </div>
-  <div style="text-align:right">
-    <p class="sub">Emitido ${esc(sello)}</p>
-  </div>
-</div>
+
 
 <table class="datos"><tbody>
   <tr>
-    <td class="et">Vendedor</td><td>${esc(h.vendedor)}</td>
+    <td class="et">Vendedor</td>
+    <td class="v">${esc(h.vendedor)}</td>
     <td class="et">Comisión</td>
-    <td>${h.comisionTasa === null ? "&mdash;" : `${(h.comisionTasa * 100).toFixed(2)} %`}</td>
-  </tr>
-  <tr>
+    <td class="v">${h.comisionTasa === null ? "&mdash;" : `${(h.comisionTasa * 100).toFixed(2)} %`}</td>
     <td class="et">Semana</td>
-    <td colspan="3">${h.semana === null ? "" : `#${h.semana} &middot; `}${esc(fechaLargaSinDia(h.desde))} &mdash; ${esc(fechaLargaSinDia(h.hasta))}</td>
+    <td class="v">${esc(corta(h.desde))} &mdash; ${esc(corta(h.hasta))}</td>
   </tr>
   ${
     Math.round(h.arrastre * 100) === 0
       ? ""
       : `<tr>
           <td class="et">Saldo anterior</td>
-          <td colspan="3" class="destacado ${h.arrastre < 0 ? "rojo" : ""}">L ${money(h.arrastre)}
-            <span class="sub">
-              &middot; ${
-                h.arrastre < 0
-                  ? "sin liquidar de semanas anteriores, lo entrega la empresa"
-                  : "sin liquidar de semanas anteriores, lo entrega el vendedor"
-              }
-            </span>
-          </td>
+          <td colspan="5" class="v destacado ${h.arrastre < 0 ? "rojo" : ""}">L ${money(h.arrastre)}</td>
         </tr>`
   }
 </tbody></table>
@@ -403,21 +378,7 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   }
 </tbody></table>
 
-<p class="nota">
-  El <strong>saldo</strong> es la venta menos la comisión menos los premios que el vendedor
-  pagó de su bolsillo; el <strong>gran total</strong> de cada día suma sus tres sorteos. En
-  rojo y en negativo, la empresa le debe a él.
-  ${
-    liquidado === 0
-      ? ""
-      : " Los renglones marcados <strong>liquidado</strong> ya se cerraron; se dejan a la vista para que la semana se vea completa."
-  }
-  ${
-    conArrastre
-      ? " El <strong>saldo anterior</strong> es lo que quedó de semanas previas: no entra en los totales de la tabla, pero sí en el cierre de abajo."
-      : ""
-  }
-</p>
+
 
 <table class="abonos"><tbody>
   ${
@@ -457,9 +418,7 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   }
 </tbody></table>
 
-<div class="firma">
-  <div>Firma del vendedor</div>
-  <div>Recibido por</div>
+
 </div>
 
 </body></html>`;
