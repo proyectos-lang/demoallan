@@ -62,6 +62,23 @@ function money(n: number): string {
   return (n < 0 ? "−" : "") + s;
 }
 
+/**
+ * `LUNES 31` y `AGOS 26` en dos líneas, como la hoja que ya se usa a mano.
+ *
+ * El NOMBRE DEL DÍA es lo que permite ubicarse al repasar la hoja con el
+ * vendedor: se habla de «lo del martes», no de «lo del día 1». Y en dos líneas
+ * porque la columna es estrecha y de una sola se partiría por donde cayera.
+ */
+function diaDeHoja(iso: string): { dia: string; mes: string } {
+  const [a, m, d] = iso.split("-").map(Number);
+  const DOW = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+  const MES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGOS", "SEP", "OCT", "NOV", "DIC"];
+  return {
+    dia: `${DOW[new Date(a, m - 1, d).getDay()]} ${pad2(d)}`,
+    mes: `${MES[m - 1]} ${String(a).slice(2)}`,
+  };
+}
+
 /** `dd/mm/aaaa`. */
 function corta(iso: string): string {
   const [a, m, d] = iso.split("-");
@@ -133,21 +150,50 @@ export function documentoLiquidacion(h: HojaImpresa): string {
 
   // Una fila por sorteo, con la fecha escrita sólo en el primero del día: es
   // como está la hoja de papel y hace la columna mucho más fácil de recorrer.
-  let ultimaFecha = "";
-  const filas = h.lineas
-    .map((l) => {
-      const primera = l.fecha !== ultimaFecha;
-      ultimaFecha = l.fecha;
-      return `<tr class="${primera ? "dia " : ""}${l.pagado ? "pagado" : ""}">
-        <td class="f">${primera ? esc(fechaLargaSinDia(l.fecha)) : ""}</td>
+  /*
+   * Una fila por sorteo, y tras los tres de cada día su GRAN TOTAL.
+   *
+   * El subtotal diario es lo que permite cuadrar día a día con el vendedor en
+   * el mostrador; sin él hay que sumar tres renglones de cabeza, que es donde
+   * aparecen las discusiones.
+   *
+   * La fecha se escribe sólo en el primer sorteo del día y abarca los tres con
+   * `rowspan`, como el recuadro de la hoja de papel.
+   */
+  const porDia: { fecha: string; lineas: typeof h.lineas }[] = [];
+  for (const l of h.lineas) {
+    const ultimo = porDia[porDia.length - 1];
+    if (ultimo && ultimo.fecha === l.fecha) ultimo.lineas.push(l);
+    else porDia.push({ fecha: l.fecha, lineas: [l] });
+  }
+
+  const filas = porDia
+    .map(({ fecha, lineas }) => {
+      const { dia, mes } = diaDeHoja(fecha);
+      const saldoDia = lineas.reduce((a, l) => a + l.saldo, 0);
+
+      const renglones = lineas
+        .map((l, i) => {
+          const celdaFecha =
+            i === 0
+              ? `<td class="f" rowspan="${lineas.length}"><span class="d1">${esc(dia)}</span><span class="d2">${esc(mes)}</span></td>`
+              : "";
+          return `<tr class="${i === 0 ? "dia " : ""}${l.pagado ? "pagado" : ""}">
+        ${celdaFecha}
         <td>${esc(jornada(l.hora))}${l.pagado ? ' <span class="sello">liquidado</span>' : ""}</td>
         <td class="c">${l.ganador === null ? "&mdash;" : pad2(l.ganador)}</td>
         <td class="n">${money(l.venta)}</td>
         <td class="n">${l.premiado > 0 ? money(l.premiado) : "&mdash;"}</td>
-        <td class="c">${l.factor > 0 ? l.factor.toFixed(0) : "&mdash;"}</td>
         <td class="n">${money(l.premios)}</td>
         <td class="n">${money(l.comision)}</td>
         <td class="n b ${l.saldo < 0 ? "rojo" : ""}">${money(l.saldo)}</td>
+      </tr>`;
+        })
+        .join("");
+
+      return `${renglones}<tr class="grantotal">
+        <td colspan="7">Gran total</td>
+        <td class="n b ${saldoDia < 0 ? "rojo" : ""}">${money(saldoDia)}</td>
       </tr>`;
     })
     .join("");
@@ -184,14 +230,45 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   .datos .sub { font-weight: normal; font-size: 8.5pt; color: #555; }
   table.detalle { width: 100%; border-collapse: collapse; }
   table.detalle th {
-    background: #eee; border: 1px solid #666; padding: 5px 6px;
+    background: #eee; border: 1px solid #666; padding: 4px 6px;
     font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase;
   }
-  table.detalle td { border: 1px solid #999; padding: 4px 6px; font-size: 9.5pt; }
+  table.detalle td { border: 1px solid #999; padding: 2.5px 6px; font-size: 9.5pt; }
   table.detalle tr.dia td { border-top: 1.5px solid #666; }
   td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
   td.c, th.c { text-align: center; }
-  td.f { white-space: nowrap; }
+  /*
+     La celda del día, como el recuadro de la hoja de papel: abarca los tres
+     sorteos con rowspan, centrada y con el nombre del día encima de la fecha.
+     Las dos líneas van en span de bloque porque un salto dentro de una celda
+     con rowspan no centra igual en todos los navegadores.
+  */
+  td.f {
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: center;
+    font-weight: bold;
+    font-size: 8.5pt;
+    line-height: 1.25;
+    background: #fafafa;
+  }
+  td.f .d1, td.f .d2 { display: block; }
+  td.f .d2 { font-weight: normal; color: #444; }
+
+  /* El gran total del día: se lee de un vistazo al repasar la hoja, así que
+     va con fondo y una línea que lo separa del día siguiente. */
+  tr.grantotal td {
+    background: #f0ece2;
+    font-weight: bold;
+    font-size: 9pt;
+    border-top: 1px solid #999;
+  }
+  tr.grantotal td:first-child {
+    text-align: right;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #555;
+  }
   td.b { font-weight: bold; }
   /*
      El rojo del sistema. Funciona porque el body lleva print-color-adjust en
@@ -210,16 +287,16 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     border: 1px solid #888; border-radius: 3px; padding: 0 3px; color: #555;
   }
   tfoot td { background: #eee; font-weight: bold; border-top: 1.5px solid #000; }
-  .resumen { margin-top: 14px; width: 62%; border-collapse: collapse; }
-  .resumen td { padding: 5px 8px; border: 1px solid #999; font-size: 10pt; }
+  .resumen { margin-top: 10px; width: 62%; border-collapse: collapse; }
+  .resumen td { padding: 4px 8px; border: 1px solid #999; font-size: 10pt; }
   .resumen .et { background: #eee; font-weight: bold; }
   .resumen tr.saldo td { border-top: 2px solid #000; font-size: 12pt; font-weight: bold; }
   .nota { margin-top: 10px; font-size: 8.5pt; color: #444; line-height: 1.45; }
-  .abonos { margin-top: 18px; width: 100%; border-collapse: collapse; }
-  .abonos td { border: 1px solid #999; padding: 12px 8px; font-size: 9pt; }
-  .abonos .et { background: #eee; font-weight: bold; width: 18%; padding: 6px 8px; }
+  .abonos { margin-top: 12px; width: 100%; border-collapse: collapse; }
+  .abonos td { border: 1px solid #999; padding: 4px 8px; font-size: 9pt; }
+  .abonos .et { background: #eee; font-weight: bold; width: 18%; padding: 4px 8px; }
   .abonos .sub { color: #666; font-size: 8pt; }
-  .firma { margin-top: 26px; display: flex; gap: 40px; }
+  .firma { margin-top: 14px; display: flex; gap: 40px; }
   .firma div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 8.5pt; }
 </style></head><body>
 
@@ -268,7 +345,6 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     <th class="c">Ganador</th>
     <th class="n">Venta</th>
     <th class="n">Valor premiado</th>
-    <th class="c">Factor</th>
     <th class="n">Premios</th>
     <th class="n">Comisión</th>
     <th class="n">Saldo</th>
@@ -278,7 +354,6 @@ export function documentoLiquidacion(h: HojaImpresa): string {
     <td colspan="3">Totales</td>
     <td class="n">${money(total.venta)}</td>
     <td class="n">${money(total.premiado)}</td>
-    <td></td>
     <td class="n">${money(total.premios)}</td>
     <td class="n">${money(total.comision)}</td>
     <td class="n ${total.saldo < 0 ? "rojo" : ""}">${money(total.saldo)}</td>
@@ -317,18 +392,17 @@ export function documentoLiquidacion(h: HojaImpresa): string {
 </tbody></table>
 
 <p class="nota">
-  El <strong>saldo</strong> es la venta menos la comisión menos los premios que el vendedor pagó
-  de su bolsillo. En rojo y en negativo, la empresa le debe a él; en negro, él le entrega esa
-  cantidad a la empresa. El <strong>valor premiado</strong> es lo que se apostó al número que
-  salió —premios entre factor—, para poder rehacer la cuenta del premio.
+  El <strong>saldo</strong> es la venta menos la comisión menos los premios que el vendedor
+  pagó de su bolsillo; el <strong>gran total</strong> de cada día suma sus tres sorteos. En
+  rojo y en negativo, la empresa le debe a él.
   ${
     liquidado === 0
-      ? "Ninguno de los sorteos de la semana se ha liquidado todavía."
-      : "Los renglones marcados <strong>liquidado</strong> ya se cerraron y se detallan abajo; se dejan a la vista para que la semana se vea completa."
+      ? ""
+      : " Los renglones marcados <strong>liquidado</strong> ya se cerraron; se dejan a la vista para que la semana se vea completa."
   }
   ${
     conArrastre
-      ? "El <strong>saldo anterior</strong> de la cabecera es lo que quedó sin liquidar de semanas previas: no forma parte de esta semana y por eso no entra en los totales de la tabla, pero sí en el cierre de abajo, que es la cantidad que de verdad se cuadra."
+      ? " El <strong>saldo anterior</strong> es lo que quedó de semanas previas: no entra en los totales de la tabla, pero sí en el cierre de abajo."
       : ""
   }
 </p>

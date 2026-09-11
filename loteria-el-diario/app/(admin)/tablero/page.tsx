@@ -19,8 +19,19 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 
 export default async function TableroPage(props: PageProps<"/tablero">) {
   const params = await props.searchParams;
+  /*
+   * El RESUMEN DEL DÍA es lo primero que se ve.
+   *
+   * Quien abre el tablero está preguntando cómo va hoy, no cómo fueron los
+   * últimos noventa días: eso se consulta cuando se consulta, y tenía el sitio
+   * de honor sólo porque fue lo primero que se construyó.
+   */
   const tab =
-    params.tab === "dia" ? "dia" : params.tab === "consolidado" ? "consolidado" : "general";
+    params.tab === "general"
+      ? "general"
+      : params.tab === "consolidado"
+        ? "consolidado"
+        : "dia";
   const supabase = await crearClienteServidor();
 
   // Rango del histórico: desde el primer sorteo registrado hasta el último. Las
@@ -84,18 +95,21 @@ export default async function TableroPage(props: PageProps<"/tablero">) {
   const tabs = (
     <div className="flex gap-[6px] bg-riel rounded-boton p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {[
+        // El día primero: es el que abre y el que más se mira.
+        { id: "dia", etiqueta: "Resumen del día" },
         { id: "general", etiqueta: "Resumen general" },
         { id: "consolidado", etiqueta: "Consolidado mensual" },
-        { id: "dia", etiqueta: "Resumen del día" },
       ].map((t) => (
         <Link
           key={t.id}
           href={
-            t.id === "general"
-              ? "/tablero"
+            // `/tablero` a secas es el día, que es lo que abre por omisión:
+            // así el enlace del menú lleva directo a lo que se quiere ver.
+            t.id === "dia"
+              ? `/tablero?fecha=${fechaDia}`
               : t.id === "consolidado"
                 ? "/tablero?tab=consolidado"
-                : `/tablero?tab=dia&fecha=${fechaDia}`
+                : "/tablero?tab=general"
           }
           className={cn(
             "rounded-celda px-[15px] py-2 text-tabla font-medium flex-none whitespace-nowrap",
