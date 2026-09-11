@@ -3,10 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { BuscadorVendedor } from "@/components/ui/buscador-vendedor";
 import { cn } from "@/lib/cn";
 import { SORTEOS, hora12 } from "@/lib/format";
 
-export type OpcionVendedor = { id: string; nombre: string; codigo: string };
+export type OpcionVendedor = {
+  id: string;
+  nombre: string;
+  codigo: string;
+  /** Nombre comercial: es por lo que se le busca. */
+  alias?: string | null;
+};
 
 export type ValoresFiltro = {
   desde: string;
@@ -88,21 +95,17 @@ export function FiltrosReporte({
           />
         </label>
 
-        <label className="block">
-          <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
-          <select
-            value={valores.vendedor}
-            onChange={(e) => aplicar({ vendedor: e.target.value })}
-            className={cn(CLASE_CONTROL, "min-w-[210px]")}
-          >
-            <option value="">Todos</option>
-            {vendedores.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.nombre} · {v.codigo}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/*
+          Un buscador y no un desplegable: con sesenta vendedores ordenados por
+          código, encontrar a uno era recorrerlos con la vista. Aquí se teclea
+          el alias —que es como se le conoce— y aparece.
+        */}
+        <BuscadorVendedor
+          className="min-w-[230px]"
+          vendedores={vendedores}
+          valor={valores.vendedor}
+          onElegir={(id) => aplicar({ vendedor: id })}
+        />
 
         <label className="block">
           <span className="block text-label text-secundario font-medium mb-[6px]">Sorteo</span>

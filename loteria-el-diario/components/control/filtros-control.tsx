@@ -14,6 +14,8 @@ export type OpcionVendedor = {
   nombre: string;
   zona: string;
   color: string;
+  /** Nombre comercial: es por lo que se conoce al vendedor y por lo que se busca. */
+  alias?: string | null;
 };
 
 export type ValoresFiltro = {
@@ -53,11 +55,13 @@ export function FiltrosControl({
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return vendedores;
-    return vendedores.filter(
-      (v) =>
-        v.nombre.toLowerCase().includes(q) ||
-        v.codigo.toLowerCase().includes(q) ||
-        v.zona.toLowerCase().includes(q),
+    // El ALIAS entra en la búsqueda: es como se conoce al vendedor —y lo que
+    // se recuerda al buscarlo—, mientras que el nombre registrado es la razón
+    // social que casi nadie usa al hablar.
+    return vendedores.filter((v) =>
+      [v.alias ?? "", v.nombre, v.codigo, v.zona].some((c) =>
+        c.toLowerCase().includes(q),
+      ),
     );
   }, [busqueda, vendedores]);
 

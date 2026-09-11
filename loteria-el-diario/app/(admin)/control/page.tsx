@@ -24,7 +24,7 @@ export default async function ControlPage(props: PageProps<"/control">) {
 
   const { data: vendedores } = await supabase
     .from("vendedor")
-    .select("id, nombre, codigo, zona, color")
+    .select("id, nombre, alias, codigo, zona, color")
     .eq("activo", true)
     .order("codigo");
 
@@ -118,6 +118,7 @@ export default async function ControlPage(props: PageProps<"/control">) {
     id: v.id,
     codigo: v.codigo,
     nombre: v.nombre,
+    alias: v.alias,
     zona: v.zona,
     color: v.color,
   }));

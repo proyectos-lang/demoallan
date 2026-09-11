@@ -21,7 +21,7 @@ export async function VistaVendedor({ vendedorPedido }: { vendedorPedido: string
   const supabase = await crearClienteServidor();
 
   const [{ data: padron }, { data: semanas, error: errorSemanas }] = await Promise.all([
-    supabase.from("vendedor").select("id, codigo, nombre, activo").order("codigo"),
+    supabase.from("vendedor").select("id, codigo, nombre, alias, activo").order("codigo"),
     supabase.rpc("fn_semanas_operadas"),
   ]);
 
@@ -29,6 +29,7 @@ export async function VistaVendedor({ vendedorPedido }: { vendedorPedido: string
     id: v.id,
     codigo: v.codigo,
     nombre: v.nombre,
+    alias: v.alias,
     activo: v.activo,
   }));
 

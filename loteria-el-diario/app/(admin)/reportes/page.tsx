@@ -51,7 +51,7 @@ export default async function ReportesPage(props: PageProps<"/reportes">) {
   };
 
   const [{ data: vendedores }, { data: totales }, { data: filas }] = await Promise.all([
-    supabase.from("vendedor").select("id, nombre, codigo").eq("activo", true).order("codigo"),
+    supabase.from("vendedor").select("id, nombre, alias, codigo").eq("activo", true).order("codigo"),
     supabase.rpc("fn_reporte_totales", argumentos),
     supabase.rpc("fn_reporte_filas", {
       ...argumentos,

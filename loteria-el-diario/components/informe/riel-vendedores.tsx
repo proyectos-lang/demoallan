@@ -10,6 +10,8 @@ export type VendedorDelRiel = {
   codigo: string;
   nombre: string;
   activo: boolean;
+  /** Nombre comercial: es por lo que se le busca. */
+  alias?: string | null;
 };
 
 /**
@@ -38,7 +40,11 @@ export function RielVendedores({
     const q = busca.trim().toLowerCase();
     if (!q) return vendedores;
     return vendedores.filter(
-      (v) => v.nombre.toLowerCase().includes(q) || v.codigo.toLowerCase().includes(q),
+      // Con el alias incluido: es el nombre por el que se le llama.
+      (v) =>
+        v.nombre.toLowerCase().includes(q) ||
+        v.codigo.toLowerCase().includes(q) ||
+        (v.alias ?? "").toLowerCase().includes(q),
     );
   }, [busca, vendedores]);
 

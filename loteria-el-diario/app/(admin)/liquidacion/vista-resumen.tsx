@@ -43,6 +43,7 @@ export async function VistaResumen({
     activo: v.r_activo,
     eliminado: v.r_eliminado,
     pendientes: Number(v.r_pendientes),
+    alias: v.r_alias,
   }));
 
   // El padrón va primero y la consulta después: un id inventado en la

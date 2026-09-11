@@ -1070,6 +1070,8 @@ export type Database = {
           r_activo: boolean;
           r_eliminado: boolean;
           r_pendientes: number;
+          /** Nombre comercial. Va aparte del nombre: el buscador usa los dos. */
+          r_alias: string | null;
         }[];
       };
 

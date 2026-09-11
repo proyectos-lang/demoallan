@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { Boton } from "@/components/ui/boton";
+import { BuscadorVendedor } from "@/components/ui/buscador-vendedor";
 import { cn } from "@/lib/cn";
 
 export type OpcionVendedorLiq = {
@@ -14,6 +15,8 @@ export type OpcionVendedorLiq = {
   eliminado: boolean;
   /** Sorteos liquidados que todavía no se le han cerrado. */
   pendientes: number;
+  /** Nombre comercial: es por lo que se le busca. */
+  alias?: string | null;
 };
 
 const CLASE_CONTROL =
@@ -59,23 +62,30 @@ export function FiltrosLiquidacion({
 
   return (
     <div className="bg-superficie border border-borde rounded-card shadow-card px-[18px] py-[14px] flex items-end gap-4 flex-wrap">
-      <label className="block">
-        <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
-        <select
-          value={vendedorId}
-          onChange={(e) => ir(e.target.value)}
-          className={cn(CLASE_CONTROL, "w-full sm:w-auto sm:min-w-[280px]")}
-        >
-          <option value="">Elija un vendedor…</option>
-          {vendedores.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.codigo} · {v.nombre}
-              {v.eliminado ? " (eliminado)" : v.activo ? "" : " (inactivo)"}
-              {v.pendientes > 0 ? ` — ${v.pendientes} sin liquidar` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/*
+        Buscador y no desplegable: aquí se cierra un pago con una persona
+        concreta, y encontrarla entre sesenta ordenadas por código era recorrer
+        la lista con la vista.
+
+        `permitirTodos` va en falso: este módulo trabaja SOBRE un vendedor, no
+        sobre el padrón. «Todos» no significaría nada.
+      */}
+      <BuscadorVendedor
+        className="w-full sm:w-auto sm:min-w-[300px]"
+        vendedores={vendedores.map((v) => ({
+          id: v.id,
+          codigo: v.codigo,
+          nombre: v.nombre,
+          alias: v.alias,
+          apagado: v.eliminado ? "(eliminado)" : v.activo ? undefined : "(inactivo)",
+          detalle: v.pendientes > 0 ? `${v.pendientes} sin liquidar` : undefined,
+        }))}
+        valor={vendedorId}
+        onElegir={ir}
+        permitirTodos={false}
+        placeholder="Escriba el alias, el nombre o el código"
+        textoTodos="Elija un vendedor…"
+      />
 
       {vendedorId && (
         <Boton variante="ghost" onClick={() => ir("")}>

@@ -46,6 +46,7 @@ export async function VistaHoja({
     activo: v.r_activo,
     eliminado: v.r_eliminado,
     pendientes: Number(v.r_pendientes),
+    alias: v.r_alias,
   }));
 
   const vendedor = vendedores.find((v) => v.id === texto("vendedor")) ?? null;
