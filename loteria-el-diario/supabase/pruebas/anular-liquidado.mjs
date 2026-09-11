@@ -251,6 +251,10 @@ async function main() {
   const { error: eCorte } = await sb.rpc("fn_registrar_corte", {
     p_vendedor_id: vendedorId,
     p_liquidacion_ids: [liqFila.id],
+    // El rango que se consultó. No es el criterio de lo pagado —eso son las
+    // filas de corte_detalle— pero la firma lo pide y sin él no resuelve.
+    p_desde: FECHA,
+    p_hasta: FECHA,
     p_nota: "prueba",
     p_usuario_id: admin.id,
   });

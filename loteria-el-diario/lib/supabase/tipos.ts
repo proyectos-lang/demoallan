@@ -746,8 +746,12 @@ export type Database = {
       fn_mis_tickets: {
         Args: { p_vendedor_id: string; p_fecha: string; p_limite?: number };
         Returns: {
+          /** Para poder pedir la anulación de esta venta. */
+          r_ticket_id: string;
           r_folio: string;
           r_hora: HoraSorteo;
+          /** El del SORTEO: decide si la venta todavía se puede quitar. */
+          r_estado: EstadoSorteo;
           r_creado_en: string;
           r_total: number;
           r_lineas: number;

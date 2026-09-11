@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AnularMiVenta } from "@/components/vendedor/anular-mi-venta";
 import { ReimprimirTicket } from "@/components/vendedor/reimprimir-ticket";
 import { fechaHonduras, fechaLarga, fmt, hora12, horaHonduras12, pad2 } from "@/lib/format";
 import { sesionActual } from "@/lib/sesion";
@@ -140,7 +141,7 @@ export default async function MiDiaPage() {
             </thead>
             <tbody>
               {(tickets ?? []).map((t) => (
-                <tr key={t.r_folio} className="border-t border-fondo">
+                <tr key={t.r_ticket_id} className="border-t border-fondo">
                   <td className="px-4 py-[10px] text-meta text-secundario">
                     {horaHonduras12(t.r_creado_en)}
                   </td>
@@ -156,8 +157,24 @@ export default async function MiDiaPage() {
                   {/* Reimprimir vive en su propia columna, al final de la fila:
                       es una acción, no un dato, y mezclarla con las cifras
                       invita al clic accidental sobre la fila equivocada. */}
-                  <td className="px-4 py-[10px] text-right">
-                    <ReimprimirTicket folio={t.r_folio} />
+                  <td className="px-4 py-[10px] text-right whitespace-nowrap">
+                    <span className="inline-flex items-center gap-3">
+                      <ReimprimirTicket folio={t.r_folio} />
+                      {/*
+                        Quitar sólo donde se puede: sorteo abierto y venta
+                        viva. Ofrecerlo en las demás para que la base rechace
+                        la mitad enseñaría a esperar errores, y quien los
+                        espera deja de leerlos.
+                      */}
+                      {t.r_estado === "abierto" && !t.r_anulado && (
+                        <AnularMiVenta
+                          ticketId={t.r_ticket_id}
+                          folio={t.r_folio}
+                          sorteo={hora12(t.r_hora)}
+                          total={fmt(Number(t.r_total))}
+                        />
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}

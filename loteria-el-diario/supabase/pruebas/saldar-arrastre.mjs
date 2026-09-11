@@ -43,6 +43,13 @@ const VIEJA = "2031-03-03"; // lunes
 const ACTUAL = "2031-03-10"; // lunes siguiente
 const NOMBRE = "ZZZ Arrastre";
 
+/*
+ * Hoy en Honduras. El pago se registra HOY aunque los sorteos sean de 2031:
+ * la función rechaza fechas de pago futuras, y hace bien — un pago que aún no
+ * ocurrió no se registra.
+ */
+const HOY = new Date().toLocaleDateString("en-CA", { timeZone: "America/Tegucigalpa" });
+
 let ok = 0;
 let fallos = 0;
 const check = (n, c, d = "") => {
@@ -209,7 +216,7 @@ async function main() {
     p_vendedor_id: id,
     p_desde: ACTUAL,
     p_entrega: 2500,
-    p_fecha_pago: "2031-03-07",
+    p_fecha_pago: HOY,
     p_motivo: "se redondeó el resto",
     p_usuario_id: admin.id,
   });
@@ -240,9 +247,9 @@ async function main() {
         Number(corte.ajuste) === -200 && corte.motivo_ajuste === "se redondeó el resto",
         `${corte.ajuste} / ${corte.motivo_ajuste}`);
   check("la fecha de pago es la que se puso",
-        String(corte.pagado_en).startsWith("2031-03-07"), String(corte.pagado_en));
+        String(corte.pagado_en).startsWith(HOY), String(corte.pagado_en));
   check("y se guarda aparte cuándo se tecleó",
-        String(corte.registrado_en).slice(0, 4) !== "2031", String(corte.registrado_en));
+        corte.registrado_en !== null, String(corte.registrado_en));
 
   const { data: aud } = await sb
     .from("auditoria")
