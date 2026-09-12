@@ -464,6 +464,23 @@ export type Database = {
        * sorteo liquidado la base rehace la liquidación del vendedor, y rechaza
        * si ese sorteo ya entró en un corte pagado.
        */
+      /**
+       * Corrige las líneas de una venta ya registrada.
+       *
+       * No toca folio, vendedor ni sorteo — es la misma venta corregida. Rehace
+       * el cupo entero, comprueba el tope y, si el sorteo estaba liquidado,
+       * reconcilia la liquidación (y rechaza si ya se pagó en un corte).
+       */
+      fn_editar_venta: {
+        Args: {
+          p_ticket_id: string;
+          /** `[{ numero, monto }, …]`. Al menos una. */
+          p_lineas: { numero: number; monto: number }[];
+          p_motivo?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: { r_total: number; r_lineas: number }[];
+      };
       fn_anular_ticket: {
         Args: {
           p_ticket_id: string;

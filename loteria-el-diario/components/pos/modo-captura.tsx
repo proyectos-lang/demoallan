@@ -18,13 +18,16 @@ import { cn } from "@/lib/cn";
  * tampoco: para eso está la digitalización de la hoja, que sí deja rastro de
  * lo que había escrito.
  */
+/** Los tres modos de la pantalla. `ventas` mira lo ya registrado. */
+export type Modo = "detalle" | "totales" | "ventas";
+
 export function ModoCaptura({
   modo,
   sorteoId,
   capturas,
   fecha,
 }: {
-  modo: "detalle" | "totales";
+  modo: Modo;
   sorteoId: string;
   /** Cuántas capturas por totales vivas tiene este sorteo. */
   capturas: number;
@@ -34,12 +37,18 @@ export function ModoCaptura({
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
 
-  const ir = (m: "detalle" | "totales") => {
+  const ir = (m: Modo) => {
     const p = new URLSearchParams();
     if (sorteoId) p.set("sorteo", sorteoId);
     if (m === "totales") {
       p.set("modo", "totales");
       p.set("fecha", fecha);
+    } else if (m === "ventas") {
+      // El detalle mira un DÍA entero, no un sorteo: se lleva la fecha y
+      // suelta el sorteo, que ahí no significa nada.
+      p.delete("sorteo");
+      p.set("modo", "ventas");
+      p.set("dia", fecha);
     } else {
       p.delete("sorteo");
     }
@@ -62,6 +71,17 @@ export function ModoCaptura({
       <div className="flex gap-1 bg-riel rounded-banner p-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button type="button" onClick={() => ir("detalle")} className={clase(modo === "detalle")}>
           Número a número
+        </button>
+        {/*
+          Ver lo ya registrado, aquí mismo.
+
+          Vivía sólo en el informe de gerencia, que es donde se analiza. Pero
+          quien acaba de registrar mal una venta está EN ESTA pantalla, y
+          mandarlo a otra sección para corregirla es el tipo de rodeo que
+          termina en «que lo arregle administración».
+        */}
+        <button type="button" onClick={() => ir("ventas")} className={clase(modo === "ventas")}>
+          Ventas registradas
         </button>
         <button type="button" onClick={() => ir("totales")} className={clase(modo === "totales")}>
           Por totales

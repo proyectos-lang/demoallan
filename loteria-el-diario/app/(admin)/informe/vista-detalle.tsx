@@ -1,4 +1,5 @@
 import { AnularVenta } from "@/components/informe/anular-venta";
+import { EditarVenta } from "@/components/informe/editar-venta";
 import {
   FiltrosDetalle,
   type VendedorFiltro,
@@ -267,6 +268,16 @@ export async function VistaDetalle({
                             vuelve a anular, y ofrecerlo sería prometer algo
                             que la base rechaza.
                           */}
+                          {/* Corregir antes que anular: es lo que se
+                              intenta primero cuando algo está mal. */}
+                          <EditarVenta
+                            ticketId={f.r_ticket_id}
+                            folio={f.r_folio}
+                            vendedor={`${f.r_vendedor} · ${f.r_codigo}`}
+                            sorteo={`${hora12(f.r_hora)} · ${fechaLarga(f.r_fecha)}`}
+                            jugada={f.r_jugada}
+                            estado={f.r_estado}
+                          />
                           <AnularVenta
                             ticketId={f.r_ticket_id}
                             folio={f.r_folio}

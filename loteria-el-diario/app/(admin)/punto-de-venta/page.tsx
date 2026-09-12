@@ -1,5 +1,6 @@
 import { CapturaTotales, type CapturaExistente } from "@/components/pos/captura-totales";
 import { ModoCaptura } from "@/components/pos/modo-captura";
+import { VistaDetalle } from "@/app/(admin)/informe/vista-detalle";
 import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
@@ -30,6 +31,19 @@ export default async function PuntoDeVentaPage({
    * con la rejilla: se elige uno u otro, y el que elige es quien puede.
    */
   const porTotales = puedeForzar && params.modo === "totales";
+
+  /*
+   * Ver las ventas ya registradas, con su detalle.
+   *
+   * Es la MISMA pantalla del informe de gerencia, no una copia: un fallo que
+   * se arregle allí queda arreglado aquí, y lo que se añada aparece en los dos
+   * sitios. Duplicarla habría significado corregir cada cosa dos veces.
+   *
+   * Vive también aquí porque quien acaba de registrar mal una venta está en
+   * esta pantalla; mandarlo a otra sección para corregirla es el rodeo que
+   * acaba en «que lo arregle administración».
+   */
+  const verVentas = puedeForzar && params.modo === "ventas";
 
   /*
    * La captura por totales puede mirar OTRO día, no sólo hoy.
@@ -85,6 +99,28 @@ export default async function PuntoDeVentaPage({
     sorteos.find((s) => s.id === elegido) ??
     sorteos.find((s) => s.estado === "abierto") ??
     sorteos[0];
+
+  /*
+   * Va antes de exigir un sorteo abierto, a propósito.
+   *
+   * Mirar lo ya vendido de un día no depende de que haya un sorteo en curso
+   * —de hecho el caso corriente es revisar lo de ayer— y dejarlo debajo de esa
+   * comprobación lo habría hecho inalcanzable justo cuando más se necesita.
+   */
+  if (verVentas) {
+    return (
+      <Pagina>
+        <EncabezadoPagina
+          titulo="Punto de venta"
+          subtitulo="Cada venta registrada, con sus números. Se puede corregir o anular sin importar si el sorteo ya cerró."
+        />
+        <div className="mb-4">
+          <ModoCaptura modo="ventas" sorteoId="" capturas={0} fecha={dia} />
+        </div>
+        <VistaDetalle params={params} />
+      </Pagina>
+    );
+  }
 
   if (!sorteo) {
     return (
