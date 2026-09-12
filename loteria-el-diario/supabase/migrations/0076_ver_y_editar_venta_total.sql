@@ -66,7 +66,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $ventas_dia$
   select vt.id,
          s.id,
          s.hora,
@@ -88,7 +88,7 @@ as $$
   where s.fecha = p_fecha
     and (p_vendedor_id is null or vt.vendedor_id = p_vendedor_id)
   order by s.hora, v.codigo, vt.creado_en;
-$$;
+$ventas_dia$;
 
 comment on function public.fn_ventas_totales_dia(date, uuid) is
   'Lo capturado por totales en un día, los tres sorteos juntos, con el alias del vendedor y el saldo ya calculado.';
@@ -110,7 +110,7 @@ create or replace function public.fn_editar_venta_total(
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $editar_total$
 declare
   v_fila   public.venta_total%rowtype;
   v_estado public.estado_sorteo;
@@ -176,7 +176,7 @@ begin
   select round(p_venta * v_fila.comision_congelada, 2),
          round(p_venta - p_venta * v_fila.comision_congelada - p_premios, 2);
 end;
-$$;
+$editar_total$;
 
 comment on function public.fn_editar_venta_total(uuid, numeric, numeric, text, uuid) is
   'Corrige venta, premiado y nota de una captura por totales. No toca vendedor, sorteo ni comisión congelada. Reconcilia la liquidación si el sorteo estaba liquidado.';
@@ -216,7 +216,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $desglose$
   select a.vendedor_id,
          public.fn_rotulo(v.alias, v.nombre),
          a.hora, a.estado,
@@ -225,7 +225,7 @@ as $$
   join public.vendedor v on v.id = a.vendedor_id
   where a.fecha = p_fecha
   order by v.codigo, a.hora;
-$$;
+$desglose$;
 
 comment on function public.fn_desglose_dia(date) is
   'Un día, desglose por vendedor y sorteo. Muestra el alias cuando lo hay.';
@@ -256,7 +256,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $semanal$
   with liquidado as (
     select lq.vendedor_id,
            sum(lq.venta)    as venta,
@@ -303,7 +303,7 @@ as $$
   left join vigente   g on g.vendedor_id = v.id
   where v.activo or q.venta is not null
   order by v.codigo;
-$$;
+$semanal$;
 
 comment on function public.fn_resumen_semanal(date, date) is
   'Resumen de una semana por vendedor, con los parámetros vigentes entonces. Muestra el alias cuando lo hay.';
