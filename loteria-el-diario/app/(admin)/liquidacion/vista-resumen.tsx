@@ -5,7 +5,7 @@ import {
 import { Kpi } from "@/components/informe/kpi";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLargaSinDia, fmt } from "@/lib/format";
+import { fechaLargaSinDia, fmt, rotulo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 /**
@@ -122,7 +122,7 @@ export async function VistaResumen({
       ) : semanas.length === 0 ? (
         <TarjetaNota>
           {vendedor
-            ? `${vendedor.nombre} no tiene ninguna semana liquidada todavía.`
+            ? `${rotulo(vendedor)} no tiene ninguna semana liquidada todavía.`
             : "Todavía no hay ninguna semana liquidada."}
         </TarjetaNota>
       ) : (

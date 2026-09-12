@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { cn } from "@/lib/cn";
+import { rotulo } from "@/lib/format";
 
 export type VendedorDelRiel = {
   id: string;
@@ -91,7 +92,7 @@ export function RielVendedores({
                   abierto ? "text-acento-fuerte font-semibold" : "text-cuerpo",
                 )}
               >
-                {v.nombre}
+                {rotulo(v)}
               </span>
               {/* Un vendedor dado de baja sigue teniendo historia que mirar,
                   así que aparece; pero se dice que está de baja. */}

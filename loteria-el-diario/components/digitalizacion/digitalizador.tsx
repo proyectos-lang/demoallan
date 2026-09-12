@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
-import { fmt, hora12, pad2 } from "@/lib/format";
+import { fmt, hora12, pad2, rotulo } from "@/lib/format";
 import {
   confirmarLote,
   digitalizarHoja,
@@ -14,7 +14,7 @@ import {
 
 const CONFIANZA_BAJA = 0.85;
 
-export type OpcionVendedor = { id: string; nombre: string; codigo: string };
+export type OpcionVendedor = { id: string; nombre: string; alias?: string | null; codigo: string };
 export type OpcionSorteo = { id: string; fecha: string; hora: string };
 
 type Fila = LineaPropuesta & { corregida?: boolean };
@@ -179,7 +179,7 @@ export function Digitalizador({
               >
                 {vendedores.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.nombre} · {v.codigo}
+                    {rotulo(v)} · {v.codigo}
                   </option>
                 ))}
               </select>

@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { SORTEOS, hora12 } from "@/lib/format";
+import { SORTEOS, hora12, rotulo } from "@/lib/format";
 
 export type Grano = "sorteo" | "dia" | "semana" | "mes" | "anio";
-export type OpcionVendedor = { id: string; codigo: string; nombre: string };
+export type OpcionVendedor = { id: string; codigo: string; nombre: string; alias?: string | null };
 export type Vista = { etiqueta: string; desde: string; hasta: string; grano: Grano };
 
 const GRANOS: { id: Grano; etiqueta: string }[] = [
@@ -145,7 +145,7 @@ export function FiltrosAnalisis({
             <option value="">Todos</option>
             {vendedores.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.codigo} · {v.nombre}
+                {v.codigo} · {rotulo(v)}
               </option>
             ))}
           </select>

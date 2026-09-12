@@ -10,7 +10,7 @@ import {
 } from "@/components/pos/piezas";
 import { HojaMonto } from "@/components/pos/hoja-monto";
 import { cn } from "@/lib/cn";
-import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
+import { countdownHasta, fmt, hora12, pad2, rotulo } from "@/lib/format";
 import { CUPO_BAJO, POR_LINEA, POR_RANGO, type Pos } from "@/lib/pos/use-pos";
 
 /**
@@ -82,7 +82,7 @@ export function VistaMovil({ pos }: { pos: Pos }) {
           </span>
         </div>
         <div className="text-label text-secundario mt-[6px]">
-          {vendedor.nombre} · {vendedor.codigo} · factor {vendedor.factor_pago.toFixed(2)} ·
+          {rotulo(vendedor)} · {vendedor.codigo} · factor {vendedor.factor_pago.toFixed(2)} ·
           comisión {(vendedor.comision * 100).toFixed(2)}%
         </div>
       </div>

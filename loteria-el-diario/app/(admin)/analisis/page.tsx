@@ -8,7 +8,7 @@ import { TarjetaPeriodo } from "@/components/analisis/tarjeta-periodo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre } from "@/lib/format";
+import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre, rotulo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -139,7 +139,7 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
   // siempre el que se APLICÓ, que es lo que hace creíble una cifra.
   const { data: vendedores } = await supabase
     .from("vendedor")
-    .select("id, codigo, nombre")
+    .select("id, codigo, nombre, alias")
     .order("codigo");
 
   const vendedor = (vendedores ?? []).find((v) => v.id === vendedorPedido);
@@ -203,7 +203,7 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
             Lo que de verdad ocurrió, partido como haga falta. Sólo entran sorteos ya
             liquidados: la utilidad de uno sin número ganador no existe todavía, y contarlo con
             los premios en cero inflaría el margen del período en curso.
-            {vendedor && ` · ${vendedor.codigo} ${vendedor.nombre}`}
+            {vendedor && ` · ${vendedor.codigo} ${rotulo(vendedor)}`}
             {hora && ` · lotería de las ${hora12(hora)}`}
           </>
         }

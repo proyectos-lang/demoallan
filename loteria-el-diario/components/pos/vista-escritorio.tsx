@@ -12,7 +12,7 @@ import {
   TicketEnCurso,
 } from "@/components/pos/piezas";
 import { cn } from "@/lib/cn";
-import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
+import { countdownHasta, fmt, hora12, pad2, rotulo } from "@/lib/format";
 import { ATAJOS, CUPO_BAJO, MONTOS_RAPIDOS, type Pos } from "@/lib/pos/use-pos";
 
 const MODOS: { id: "teclado" | "rapida" | "rejilla"; etiqueta: string }[] = [
@@ -85,7 +85,7 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
             >
               {datos.vendedores.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.nombre} · {v.codigo}
+                  {rotulo(v)} · {v.codigo}
                 </option>
               ))}
             </select>

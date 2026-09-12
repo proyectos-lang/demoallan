@@ -11,7 +11,7 @@ import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-seman
 import { Kpi } from "@/components/informe/kpi";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLargaSinDia, fmt, hoyHonduras, iso } from "@/lib/format";
+import { fechaLargaSinDia, fmt, hoyHonduras, iso, rotulo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -106,7 +106,7 @@ export async function VistaHoja({
       <>
         <FiltrosLiquidacion vendedores={vendedores} vendedorId={vendedor.id} vista="hoja" />
         <TarjetaNota>
-          {vendedor.nombre} no tiene ninguna semana liquidada todavía. Un sorteo sin número
+          {rotulo(vendedor)} no tiene ninguna semana liquidada todavía. Un sorteo sin número
           ganador no genera saldo y por eso no aparece aquí.
         </TarjetaNota>
       </>
@@ -226,8 +226,17 @@ export async function VistaHoja({
                 · {fechaLargaSinDia(abierta.inicio)} — {fechaLargaSinDia(abierta.fin)}
               </span>
             </h2>
+            {/*
+              El alias delante, el nombre registrado detrás.
+
+              Aquí se entrega dinero: el alias es como se le conoce y como se
+              le acaba de buscar, pero el nombre registrado es lo que hay que
+              poder cotejar antes de pagar. Es la única pantalla donde se
+              muestran los dos, y por eso.
+            */}
             <span className="text-meta text-secundario">
-              {vendedor.codigo} · {vendedor.nombre}
+              {vendedor.codigo} · {rotulo(vendedor)}
+              {vendedor.alias?.trim() ? ` · ${vendedor.nombre}` : ""}
             </span>
           </div>
 
@@ -303,7 +312,7 @@ export async function VistaHoja({
               <div className="flex-none flex items-center bg-superficie border border-borde rounded-card shadow-card px-[18px]">
                 <SaldarArrastre
                   vendedorId={vendedor.id}
-                  vendedor={`${vendedor.codigo} · ${vendedor.nombre}`}
+                  vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
                   arrastre={abierta.arrastre}
                   desde={abierta.inicio}
                   hoy={iso(hoyHonduras())}
@@ -315,7 +324,7 @@ export async function VistaHoja({
           <HojaLiquidacion
             filas={filas}
             vendedorId={vendedor.id}
-            vendedorNombre={`${vendedor.codigo} · ${vendedor.nombre}`}
+            vendedorNombre={`${vendedor.codigo} · ${rotulo(vendedor)}`}
             desde={abierta.inicio}
             hasta={abierta.fin}
             sinLiquidar={sinNumero?.length ?? 0}
@@ -332,7 +341,7 @@ export async function VistaHoja({
                   Liquidaciones anteriores
                 </h2>
                 <p className="text-meta text-secundario mt-[4px] mb-0">
-                  Lo que ya se cerró con {vendedor.nombre}, en las dos direcciones. Sus sorteos no
+                  Lo que ya se cerró con {rotulo(vendedor)}, en las dos direcciones. Sus sorteos no
                   vuelven al informe ni salen en el papel.
                 </p>
               </div>

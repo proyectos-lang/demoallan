@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import type { Punto } from "@/components/geo/mapa";
 import { cn } from "@/lib/cn";
-import { fmt, fmtK } from "@/lib/format";
+import { fmt, fmtK, rotulo } from "@/lib/format";
 
 /**
  * Leaflet toca `window` al cargarse, así que el mapa no puede renderizarse en
@@ -24,6 +24,8 @@ const Mapa = dynamic(() => import("@/components/geo/mapa"), {
 export type OpcionVendedor = {
   id: string;
   nombre: string;
+  /** Nombre comercial. Es por lo que se le conoce. */
+  alias?: string | null;
   codigo: string;
   color: string;
   zona: string;
@@ -78,7 +80,7 @@ export function PanelGeo({
             <option value="">Todos los vendedores</option>
             {vendedores.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.nombre} · {v.codigo}
+                {rotulo(v)} · {v.codigo}
               </option>
             ))}
           </select>

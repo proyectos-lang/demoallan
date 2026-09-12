@@ -6,7 +6,7 @@ import { Check, Search } from "lucide-react";
 
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
-import { hora12, iso } from "@/lib/format";
+import { hora12, iso, rotulo } from "@/lib/format";
 
 export type OpcionVendedor = {
   id: string;
@@ -220,7 +220,7 @@ export function FiltrosControl({
               <input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre o zona"
+                placeholder="Buscar por alias, nombre, código o zona"
                 className="w-[220px] pl-[28px] pr-3 py-[7px] border border-borde-campo rounded-campo text-meta outline-none"
               />
             </span>
@@ -265,7 +265,7 @@ export function FiltrosControl({
                   style={{ background: v.color }}
                 />
                 <span className="block min-w-0">
-                  <span className="block text-meta font-medium truncate">{v.nombre}</span>
+                  <span className="block text-meta font-medium truncate">{rotulo(v)}</span>
                   <span className="block text-label text-secundario truncate">
                     {v.codigo} · {v.zona}
                   </span>

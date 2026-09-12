@@ -261,3 +261,19 @@ export function iniciales(nombre: string): string {
     .map((w) => w[0])
     .join("");
 }
+
+/**
+ * El alias si lo tiene, si no el nombre.
+ *
+ * Es `fn_rotulo` de la base (migración 0064) escrito para el cliente. Vive
+ * aquí y no en cada pantalla porque la caída ya se estaba copiando en cinco
+ * sitios, y basta que uno se olvide para que el mismo vendedor aparezca con
+ * dos rótulos distintos según dónde se le mire — que es justo lo que hace
+ * dudar de si son la misma persona.
+ *
+ * Lo que llega de un RPC ya rotulado no necesita pasar por aquí: la base ya
+ * lo resolvió.
+ */
+export function rotulo(v: { nombre: string; alias?: string | null }): string {
+  return v.alias?.trim() || v.nombre;
+}

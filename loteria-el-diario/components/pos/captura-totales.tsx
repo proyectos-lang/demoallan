@@ -9,7 +9,7 @@ import {
 } from "@/app/(admin)/punto-de-venta/acciones";
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/cn";
-import { fmt, hora12, jornada } from "@/lib/format";
+import { fmt, hora12, jornada, rotulo } from "@/lib/format";
 import type { SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 
 export type CapturaExistente = {
@@ -201,7 +201,7 @@ export function CapturaTotales({
               <option value="">Elija un vendedor…</option>
               {vendedores.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.codigo} · {v.nombre}
+                  {v.codigo} · {rotulo(v)}
                 </option>
               ))}
             </select>

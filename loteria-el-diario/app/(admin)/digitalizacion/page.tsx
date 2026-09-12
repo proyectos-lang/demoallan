@@ -16,7 +16,7 @@ export default async function DigitalizacionPage() {
   const primeroDeMes = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
 
   const [{ data: vendedores }, { data: sorteos }, { data: gasto }] = await Promise.all([
-    supabase.from("vendedor").select("id, nombre, codigo").eq("activo", true).order("codigo"),
+    supabase.from("vendedor").select("id, nombre, alias, codigo").eq("activo", true).order("codigo"),
     // Sólo tiene sentido digitalizar hacia un sorteo que aún admite ventas: los
     // tickets se crean por la misma puerta que una venta móvil, y esa puerta
     // exige que el sorteo esté abierto.

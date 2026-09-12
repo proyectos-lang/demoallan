@@ -39,7 +39,7 @@ export default async function MiDigitalizacionPage() {
   const supabase = await crearClienteServidor();
 
   const [{ data: vendedor }, { data: sorteos }] = await Promise.all([
-    supabase.from("vendedor").select("id, nombre, codigo").eq("id", vendedorId).maybeSingle(),
+    supabase.from("vendedor").select("id, nombre, alias, codigo").eq("id", vendedorId).maybeSingle(),
     // Sólo tiene sentido digitalizar hacia un sorteo que aún admite ventas: los
     // tickets se crean por la misma puerta que una venta móvil, y esa puerta
     // exige que el sorteo esté abierto.
