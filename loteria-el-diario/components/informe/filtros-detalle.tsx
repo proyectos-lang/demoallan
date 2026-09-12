@@ -1,14 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
+import { X } from "lucide-react";
 
+import { BuscadorVendedor } from "@/components/ui/buscador-vendedor";
 import { cn } from "@/lib/cn";
 import { SORTEOS, hora12 } from "@/lib/format";
 
 export type VendedorFiltro = {
   id: string;
   codigo: string;
+  /** El rótulo: el alias si lo tiene, si no el nombre. Lo resuelve la base. */
   nombre: string;
   /** Cuántos tickets tiene ese día, para no ofrecer a quien no vendió. */
   tickets: number;
@@ -59,6 +62,31 @@ export function FiltrosDetalle({
     }
     iniciar(() => router.push(`/informe?${p.toString()}`));
   };
+
+  /*
+   * En el buscador sólo se ofrece a quien no está ya elegido.
+   *
+   * Dejar a los elegidos en la lista invitaba a tocarlos para quitarlos —el
+   * gesto natural— y eso los habría vuelto a añadir. Quitar se hace en la
+   * ficha, que es donde se ven.
+   *
+   * El rótulo que llega ya es el alias cuando lo hay: lo resuelve `fn_rotulo`
+   * en la base. El nombre registrado baja a la línea gris, para poder
+   * comprobar que el alias es de quien uno cree.
+   */
+  const disponibles = useMemo(
+    () =>
+      vendedores
+        .filter((v) => !elegidos.includes(v.id))
+        .map((v) => ({
+          id: v.id,
+          codigo: v.codigo,
+          nombre: v.nombre,
+          alias: null,
+          detalle: `${v.tickets} ${v.tickets === 1 ? "ticket" : "tickets"}`,
+        })),
+    [vendedores, elegidos],
+  );
 
   const alternar = (id: string) => {
     const siguiente = elegidos.includes(id)
@@ -149,33 +177,58 @@ export function FiltrosDetalle({
               </button>
             )}
           </span>
-          <div className="flex gap-2 flex-wrap">
-            {vendedores.map((v) => {
-              const activo = elegidos.includes(v.id);
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => alternar(v.id)}
-                  className={cn(
-                    "px-[13px] py-[9px] rounded-campo text-meta border text-left cursor-pointer",
-                    activo
-                      ? "bg-acento border-acento text-white"
-                      : "bg-superficie border-borde-campo text-cuerpo",
-                  )}
-                >
-                  <span className="font-medium">{v.nombre}</span>
-                  <span
-                    className={cn(
-                      "block text-label",
-                      activo ? "text-navy-etiqueta" : "text-mudo",
-                    )}
-                  >
-                    {v.codigo} · {v.tickets} {v.tickets === 1 ? "ticket" : "tickets"}
-                  </span>
-                </button>
-              );
-            })}
+          {/*
+            Se escribe el alias en vez de buscar el botón con la vista.
+
+            Con ochenta vendedores el muro de botones ocupaba más que la tabla
+            que venía a mirarse, y estaba ordenado por código —que es justo lo
+            que nadie recuerda—. El buscador añade de uno en uno; lo ya elegido
+            baja a fichas, que es donde se quita.
+
+            `permitirTodos={false}`: aquí «todos» no se elige, se consigue
+            quitando fichas hasta no dejar ninguna. La opción habría sido un
+            segundo camino para lo mismo, y uno de los dos siempre confunde.
+          */}
+          <div className="flex flex-col gap-2">
+            <BuscadorVendedor
+              vendedores={disponibles}
+              valor=""
+              onElegir={(id) => id && alternar(id)}
+              etiqueta=""
+              permitirTodos={false}
+              placeholder={
+                disponibles.length === 0
+                  ? "Ya están todos elegidos"
+                  : "Escriba el alias, el nombre o el código"
+              }
+              className="max-w-[340px]"
+            />
+
+            {elegidos.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {elegidos.map((id) => {
+                  const v = vendedores.find((x) => x.id === id);
+                  if (!v) return null;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => alternar(id)}
+                      aria-label={`Quitar a ${v.nombre} del filtro`}
+                      className="flex items-center gap-2 px-[11px] py-[7px] rounded-campo text-meta border bg-acento border-acento text-white text-left cursor-pointer"
+                    >
+                      <span>
+                        <span className="font-medium">{v.nombre}</span>
+                        <span className="block text-label text-navy-etiqueta">
+                          {v.codigo} · {v.tickets} {v.tickets === 1 ? "ticket" : "tickets"}
+                        </span>
+                      </span>
+                      <X size={13} strokeWidth={2.4} absoluteStrokeWidth className="flex-none" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

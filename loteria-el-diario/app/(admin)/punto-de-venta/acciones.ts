@@ -378,3 +378,83 @@ export async function anularVentaPorTotales(id: string): Promise<ResultadoTotale
 
   return { ok: true, comision: 0, saldo: 0, mensaje: "Captura anulada." };
 }
+
+/**
+ * Corregir una captura por totales.
+ *
+ * Hasta ahora un dedazo —4.500 tecleado como 450— sólo se arreglaba anulando y
+ * volviendo a capturar, y eso deja dos filas en el histórico para lo que fue
+ * un error en un dígito.
+ *
+ * NO SE TOCAN el vendedor ni el sorteo: eso no es corregir, es trasladar
+ * dinero de un sitio a otro, y para eso está anular y capturar donde toque,
+ * que deja las dos huellas. La comisión congelada tampoco: vive en la fila
+ * desde el día de la captura y no hay razón para perderla.
+ *
+ * SÓLO ADMINISTRADOR, decidido aquí. La base habla como `service_role` desde
+ * la 0024 y sus guardas de rol no miran nada.
+ */
+export async function editarVentaPorTotales(
+  id: string,
+  venta: number,
+  premios: number,
+  nota: string,
+): Promise<ResultadoTotales> {
+  const sesion = await sesionVigente();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede corregir una captura." };
+  }
+
+  if (!Number.isFinite(venta) || venta < 0) {
+    return { ok: false, mensaje: "La venta no puede ser negativa." };
+  }
+  if (!Number.isFinite(premios) || premios < 0) {
+    return { ok: false, mensaje: "El premio no puede ser negativo." };
+  }
+  if (venta === 0 && premios === 0) {
+    return {
+      ok: false,
+      mensaje: "Una captura no puede quedar en cero y cero. Para dejarla sin efecto, anúlela.",
+    };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  const { data, error } = await supabase.rpc("fn_editar_venta_total", {
+    p_id: id,
+    p_venta: venta,
+    p_premios: premios,
+    p_nota: nota.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje:
+          "Corregir capturas todavía no está habilitado en la base de datos. Falta aplicar la migración 0076.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const fila = data?.[0];
+  if (!fila) return { ok: false, mensaje: "La corrección no devolvió resultado." };
+
+  revalidatePath("/punto-de-venta");
+  revalidatePath("/liquidacion");
+  revalidatePath("/informe");
+
+  const saldo = Number(fila.r_saldo);
+
+  return {
+    ok: true,
+    comision: Number(fila.r_comision),
+    saldo,
+    mensaje: `Corregido: venta ${venta.toLocaleString("en-US")}, premio ${premios.toLocaleString("en-US")}. ${
+      saldo >= 0 ? "El vendedor entrega" : "La empresa le entrega"
+    } ${Math.abs(saldo).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
+  };
+}

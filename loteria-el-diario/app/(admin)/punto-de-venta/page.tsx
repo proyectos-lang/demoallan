@@ -1,10 +1,11 @@
 import { CapturaTotales, type CapturaExistente } from "@/components/pos/captura-totales";
 import { ModoCaptura } from "@/components/pos/modo-captura";
+import { TotalesDelDia, type CapturaDelDia } from "@/components/pos/totales-del-dia";
 import { VistaDetalle } from "@/app/(admin)/informe/vista-detalle";
 import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras } from "@/lib/format";
+import { fechaHonduras, rotulo } from "@/lib/format";
 import type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -108,6 +109,38 @@ export default async function PuntoDeVentaPage({
    * comprobación lo habría hecho inalcanzable justo cuando más se necesita.
    */
   if (verVentas) {
+    /*
+     * La venta por totales va en la MISMA pestaña, debajo del detalle.
+     *
+     * Son dos formas de registrar lo mismo —lo que vendió alguien ese día— y
+     * separarlas en dos sitios obligaba a recordar por cuál de las dos entró
+     * cada vendedor antes de saber dónde buscarlo. Quien revisa el día quiere
+     * verlo entero.
+     */
+    // El detalle mira el día que traiga la dirección; si no trae ninguno, hoy.
+    const diaPedido = typeof params.dia === "string" ? params.dia : "";
+    const diaDetalle = FECHA.test(diaPedido) ? diaPedido : dia;
+
+    const { data: totalesCrudos } = await supabase.rpc("fn_ventas_totales_dia", {
+      p_fecha: diaDetalle,
+      p_vendedor_id: null,
+    });
+
+    const capturasDia: CapturaDelDia[] = (totalesCrudos ?? []).map((c) => ({
+      id: c.r_id,
+      hora: c.r_hora,
+      estado: c.r_estado,
+      vendedorId: c.r_vendedor_id,
+      codigo: c.r_codigo,
+      vendedor: c.r_vendedor,
+      venta: Number(c.r_venta),
+      premios: Number(c.r_premios),
+      comision: Number(c.r_comision),
+      saldo: Number(c.r_saldo),
+      nota: c.r_nota,
+      anulado: c.r_anulado,
+    }));
+
     return (
       <Pagina>
         <EncabezadoPagina
@@ -118,6 +151,16 @@ export default async function PuntoDeVentaPage({
           <ModoCaptura modo="ventas" sorteoId="" capturas={0} fecha={dia} />
         </div>
         <VistaDetalle params={params} />
+
+        <div className="mt-7">
+          <h2 className="text-h2 font-semibold tracking-sutil mt-0 mb-1">
+            Capturado por totales
+          </h2>
+          <p className="text-micro text-secundario mt-0 mb-4">
+            Lo registrado sin detalle de números, los tres sorteos del día.
+          </p>
+          <TotalesDelDia capturas={capturasDia} dia={diaDetalle} />
+        </div>
       </Pagina>
     );
   }
@@ -211,7 +254,7 @@ export default async function PuntoDeVentaPage({
     return {
       id: c.id,
       vendedorId: c.vendedor_id,
-      vendedor: v ? `${v.codigo} · ${v.nombre}` : "—",
+      vendedor: v ? `${v.codigo} · ${rotulo(v)}` : "—",
       venta: Number(c.venta),
       premios: Number(c.premios),
       comision: Number(c.venta) * Number(c.comision_congelada),

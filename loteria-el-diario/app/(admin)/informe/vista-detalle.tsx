@@ -173,9 +173,21 @@ export async function VistaDetalle({
         </TarjetaNota>
       ) : (
         <Tarjeta padding="0">
-          <div className="overflow-x-auto">
+          {/*
+            La tabla se queda en una altura fija y se recorre por dentro.
+
+            Un día con seiscientas ventas estiraba la tarjeta hasta que el
+            resumen de arriba —la venta, los números, el pago de premios—
+            quedaba a media pantalla de distancia, y volver a él costaba un
+            viaje de rueda. Con el alto acotado, la cabecera de columnas se
+            queda pegada arriba y el resumen nunca sale de la vista.
+
+            `70dvh` y no `vh`: en un teléfono la barra del navegador se come
+            una franja que `vh` ignora, y la última fila quedaría debajo.
+          */}
+          <div className="overflow-auto max-h-[70dvh]">
             <table className="w-full border-collapse text-tabla">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-superficie">
                 <tr className="text-left">
                   {[
                     "HORA",

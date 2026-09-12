@@ -481,6 +481,40 @@ export type Database = {
         };
         Returns: { r_total: number; r_lineas: number }[];
       };
+      /** Lo capturado por totales en un día, los tres sorteos juntos. */
+      fn_ventas_totales_dia: {
+        Args: {
+          p_fecha: string;
+          p_vendedor_id?: string | null;
+        };
+        Returns: {
+          r_id: string;
+          r_sorteo_id: string;
+          r_hora: HoraSorteo;
+          r_estado: EstadoSorteo;
+          r_vendedor_id: string;
+          r_codigo: string;
+          /** El alias si lo tiene; si no, el nombre. */
+          r_vendedor: string;
+          r_venta: number;
+          r_premios: number;
+          r_comision: number;
+          r_saldo: number;
+          r_nota: string | null;
+          r_creado_en: string;
+          r_anulado: boolean;
+        }[];
+      };
+      fn_editar_venta_total: {
+        Args: {
+          p_id: string;
+          p_venta: number;
+          p_premios: number;
+          p_nota?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: { r_comision: number; r_saldo: number }[];
+      };
       fn_anular_ticket: {
         Args: {
           p_ticket_id: string;
