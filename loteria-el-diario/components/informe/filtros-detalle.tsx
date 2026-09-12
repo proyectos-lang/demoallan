@@ -40,18 +40,35 @@ export function FiltrosDetalle({
   vendedores,
   elegidos,
   conAnulados,
+  destino = "/informe",
+  fijos,
 }: {
   dia: string;
   hora: string;
   vendedores: VendedorFiltro[];
   elegidos: string[];
   conAnulados: boolean;
+  /**
+   * A qué pantalla vuelve al tocar un filtro.
+   *
+   * Esta vista vive en dos sitios —el informe de gerencia y la pestaña de
+   * ventas del punto de venta— y la dirección la tenía escrita a mano. El
+   * resultado: elegir un vendedor desde el punto de venta te sacaba al
+   * informe, que no es donde estabas trabajando.
+   */
+  destino?: string;
+  /**
+   * Parámetros que identifican la pantalla y tienen que sobrevivir a cada
+   * filtro. En el punto de venta es `modo=ventas`: sin él la dirección deja
+   * de apuntar a esa pestaña y se cae a la rejilla de captura.
+   */
+  fijos?: Record<string, string>;
 }) {
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
 
   const ir = (cambios: Record<string, string | null>) => {
-    const p = new URLSearchParams({ vista: "detalle", dia });
+    const p = new URLSearchParams({ ...fijos, dia });
     if (hora) p.set("hora", hora);
     if (elegidos.length) p.set("vs", elegidos.join(","));
     if (conAnulados) p.set("anulados", "1");
@@ -60,7 +77,7 @@ export function FiltrosDetalle({
       if (v === null) p.delete(k);
       else p.set(k, v);
     }
-    iniciar(() => router.push(`/informe?${p.toString()}`));
+    iniciar(() => router.push(`${destino}?${p.toString()}`));
   };
 
   /*

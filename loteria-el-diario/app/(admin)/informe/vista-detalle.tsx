@@ -29,8 +29,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function VistaDetalle({
   params,
+  destino = "/informe",
+  fijos = { vista: "detalle" },
 }: {
   params: Record<string, string | string[] | undefined>;
+  /*
+   * Dónde vive esta vista. Se muestra en el informe de gerencia y en la
+   * pestaña de ventas del punto de venta, y los filtros tienen que devolver
+   * a la pantalla en la que uno está trabajando, no a la otra.
+   */
+  destino?: string;
+  /** Los parámetros que identifican esa pantalla y sobreviven a los filtros. */
+  fijos?: Record<string, string>;
 }) {
   const supabase = await crearClienteServidor();
 
@@ -108,6 +118,8 @@ export async function VistaDetalle({
     <div className="flex flex-col gap-4">
       <Tarjeta padding="14px 18px">
         <FiltrosDetalle
+          destino={destino}
+          fijos={fijos}
           dia={dia}
           hora={hora}
           vendedores={vendedores}

@@ -279,6 +279,7 @@ try {
     `);
     const trasElegir = await ev(`
       (() => ({
+        ruta: location.pathname,
         url: location.search,
         ficha: [...document.querySelectorAll('button')]
           .some((b) => /Quitar a /.test(b.getAttribute('aria-label') || '')),
@@ -291,6 +292,41 @@ try {
     check("la tabla se recorta al vendedor elegido",
           trasElegir.filas > 0 && trasElegir.filas < cargó.filas,
           `${trasElegir.filas} de ${cargó.filas}`);
+
+    /*
+     * Que NO se salga al informe de gerencia.
+     *
+     * Esta vista se comparte con el informe, y la dirección a la que vuelven
+     * los filtros estaba escrita a mano: elegir un vendedor desde el punto de
+     * venta sacaba a la otra pantalla. Se comprueban las dos mitades —la ruta
+     * y el modo— porque quedarse en /punto-de-venta sin `modo=ventas` cae en
+     * la rejilla de captura, que tampoco es donde uno estaba.
+     */
+    check("SE QUEDA EN EL PUNTO DE VENTA, no salta al informe",
+          trasElegir.ruta === "/punto-de-venta", trasElegir.ruta);
+    check("y sigue en la pestaña de ventas registradas",
+          /modo=ventas/.test(trasElegir.url), trasElegir.url);
+
+    // Y lo mismo al cambiar la fecha, que es el otro filtro de la barra.
+    const trasFecha = await ev(`
+      (async () => {
+        const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+        const campo = document.querySelector('input[type="date"]');
+        if (!campo) return { error: 'no hay campo de fecha' };
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype, 'value').set;
+        setter.call(campo, ${JSON.stringify(DIA)});
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+        await esperar(3000);
+        return { ruta: location.pathname, url: location.search };
+      })()
+    `);
+    if (!trasFecha.error) {
+      check("cambiar la fecha tampoco saca de la pantalla",
+            trasFecha.ruta === "/punto-de-venta", trasFecha.ruta);
+    } else {
+      check("hay campo de fecha", false, trasFecha.error);
+    }
   }
 
   // ---------- 3. La tabla no crece sin fin ----------

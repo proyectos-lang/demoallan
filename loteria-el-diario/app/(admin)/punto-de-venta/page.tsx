@@ -148,9 +148,25 @@ export default async function PuntoDeVentaPage({
           subtitulo="Cada venta registrada, con sus números. Se puede corregir o anular sin importar si el sorteo ya cerró."
         />
         <div className="mb-4">
-          <ModoCaptura modo="ventas" sorteoId="" capturas={0} fecha={dia} />
+          {/*
+            La fecha que se lleva a las otras pestañas es la que se está
+            mirando, no hoy: quien revisa el sábado y salta a «por totales»
+            quiere seguir en el sábado.
+          */}
+          <ModoCaptura modo="ventas" sorteoId="" capturas={0} fecha={diaDetalle} />
         </div>
-        <VistaDetalle params={params} />
+        {/*
+          Los filtros vuelven AQUÍ, no al informe.
+
+          `modo=ventas` viaja con cada filtro: sin él la dirección deja de
+          apuntar a esta pestaña y el punto de venta se cae a la rejilla de
+          captura, que no es donde estaba trabajando quien filtró.
+        */}
+        <VistaDetalle
+          params={params}
+          destino="/punto-de-venta"
+          fijos={{ modo: "ventas" }}
+        />
 
         <div className="mt-7">
           <h2 className="text-h2 font-semibold tracking-sutil mt-0 mb-1">
