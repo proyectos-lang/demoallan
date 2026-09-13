@@ -5,12 +5,21 @@ import { useTransition } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type VistaLiq = "hoja" | "resumen" | "saldos";
+export type VistaLiq = "hoja" | "resumen" | "saldos" | "cobranza";
 
 const VISTAS: { id: VistaLiq; etiqueta: string }[] = [
   { id: "hoja", etiqueta: "Hoja del vendedor" },
   { id: "resumen", etiqueta: "Resumen por semana" },
   { id: "saldos", etiqueta: "Saldos por vendedor" },
+  /*
+   * La ronda de cobro.
+   *
+   * «Saldos» contesta cuánto debe cada uno de los 103 vendedores, incluidos
+   * los que no deben nada. Ésta contesta otra pregunta: a quién hay que ir a
+   * cobrarle hoy, y por cuánto, de mayor a menor. Es la lista que se lleva
+   * encima, no un informe que se consulta.
+   */
+  { id: "cobranza", etiqueta: "Cobranza" },
 ];
 
 /**

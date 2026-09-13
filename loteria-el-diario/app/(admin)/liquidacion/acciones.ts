@@ -206,3 +206,175 @@ export async function saldarArrastre(
         : `Arrastre saldado con un ajuste de ${ajuste.toFixed(2)}. Queda registrado con su motivo.`,
   };
 }
+
+/* ========================================================================
+ * ABONOS: pagar a cuenta y seguir debiendo el resto.
+ *
+ * Es lo corriente en la calle. El vendedor trae 400 de los 900 que debe y el
+ * lunes siguiente trae el resto. Antes eso no se podía registrar: o se cerraba
+ * la deuda entera perdonándole 500, o el dinero entraba sin constancia.
+ *
+ * Un abono NO cierra sorteos. Sólo dice «entregó esto a cuenta», y el
+ * pendiente baja. Los sorteos se cierran cuando termina de pagar, con el corte
+ * de siempre — que ahora absorbe los abonos para no contarlos dos veces.
+ * ====================================================================== */
+
+export type DeudaVendedor = {
+  sorteos: number;
+  desde: string | null;
+  hasta: string | null;
+  /** Lo que suman los sorteos sin cerrar. */
+  deuda: number;
+  /** Lo ya entregado a cuenta y todavía sin cerrar en un corte. */
+  abonado: number;
+  /** Lo que falta de verdad: deuda − abonado. */
+  pendiente: number;
+};
+
+export type AbonoVendedor = {
+  id: string;
+  monto: number;
+  fechaPago: string;
+  nota: string | null;
+  /** Ya absorbido por un corte: su dinero está contado ahí dentro. */
+  cerrado: boolean;
+};
+
+export type ResultadoAbono =
+  | { ok: true; monto: number; pendiente: number; mensaje: string }
+  | { ok: false; mensaje: string };
+
+/** Lo que un vendedor debe hoy, con sus abonos ya descontados. */
+export async function deudaDe(
+  vendedorId: string,
+): Promise<{ ok: true; deuda: DeudaVendedor; abonos: AbonoVendedor[] } | { ok: false; mensaje: string }> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede ver la cuenta de un vendedor." };
+  }
+
+  const supabase = crearClienteServicio();
+
+  const [{ data: d, error: eD }, { data: a, error: eA }] = await Promise.all([
+    supabase.rpc("fn_deuda_vendedor", { p_vendedor_id: vendedorId }),
+    supabase.rpc("fn_abonos_vendedor", { p_vendedor_id: vendedorId, p_incluir_cerrados: false }),
+  ]);
+
+  const falta = eD ?? eA;
+  if (falta) {
+    if (falta.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Los abonos todavía no están habilitados en la base de datos. Falta aplicar la migración 0079.",
+      };
+    }
+    return { ok: false, mensaje: falta.message };
+  }
+
+  const f = d?.[0];
+  return {
+    ok: true,
+    deuda: {
+      sorteos: f?.r_sorteos ?? 0,
+      desde: f?.r_desde ?? null,
+      hasta: f?.r_hasta ?? null,
+      deuda: Number(f?.r_deuda ?? 0),
+      abonado: Number(f?.r_abonado ?? 0),
+      pendiente: Number(f?.r_pendiente ?? 0),
+    },
+    abonos: (a ?? []).map((x) => ({
+      id: x.r_abono_id,
+      monto: Number(x.r_monto),
+      fechaPago: x.r_fecha_pago,
+      nota: x.r_nota,
+      cerrado: x.r_cerrado,
+    })),
+  };
+}
+
+/**
+ * Registrar dinero entregado a cuenta.
+ *
+ * El monto y la fecha viajan, pero la base los valida de nuevo: que no pase de
+ * lo que debe y que la fecha no sea futura. Lo que esta acción decide es lo
+ * único que la base no puede — que quien lo pide sea administrador.
+ */
+export async function registrarAbono(
+  vendedorId: string,
+  monto: number,
+  fechaPago: string,
+  nota: string,
+): Promise<ResultadoAbono> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede registrar un abono." };
+  }
+
+  if (!Number.isFinite(monto) || monto <= 0) {
+    return { ok: false, mensaje: "Escriba cuánto entregó el vendedor." };
+  }
+
+  const supabase = crearClienteServicio();
+
+  const { data, error } = await supabase.rpc("fn_registrar_abono", {
+    p_vendedor_id: vendedorId,
+    p_monto: monto,
+    p_fecha_pago: fechaPago || null,
+    p_nota: nota.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Los abonos todavía no están habilitados en la base de datos. Falta aplicar la migración 0079.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const f = data?.[0];
+  if (!f) return { ok: false, mensaje: "El abono no devolvió resultado." };
+
+  revalidatePath("/liquidacion");
+  revalidatePath("/cobranza");
+
+  const pendiente = Number(f.r_pendiente);
+  return {
+    ok: true,
+    monto: Number(f.r_monto),
+    pendiente,
+    mensaje:
+      pendiente > 0
+        ? `Abono registrado. Le quedan ${pendiente.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por pagar.`
+        : "Abono registrado. Queda al día: ya puede cerrarse el corte.",
+  };
+}
+
+/** Quita un abono mal tecleado. Sólo si no entró todavía en ningún corte. */
+export async function anularAbono(
+  abonoId: string,
+  motivo: string,
+): Promise<{ ok: boolean; mensaje: string }> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede quitar un abono." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { error } = await supabase.rpc("fn_anular_abono", {
+    p_abono_id: abonoId,
+    p_motivo: motivo.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath("/liquidacion");
+  revalidatePath("/cobranza");
+  return { ok: true, mensaje: "Abono quitado." };
+}

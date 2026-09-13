@@ -1094,6 +1094,63 @@ export type Database = {
           r_comision: number;
           r_premios: number;
           r_saldo: number;
+          /** Lo que ya había entregado a cuenta, absorbido por este corte. */
+          r_abonado: number;
+          /** Lo que le queda por entregar al cerrar: saldo − abonado. */
+          r_resta: number;
+        }[];
+      };
+      /* --- Abonos a cuenta (0079) --- */
+      fn_registrar_abono: {
+        Args: {
+          p_vendedor_id: string;
+          p_monto: number;
+          p_fecha_pago?: string | null;
+          p_nota?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: { r_abono_id: string; r_monto: number; r_pendiente: number }[];
+      };
+      fn_anular_abono: {
+        Args: { p_abono_id: string; p_motivo?: string | null; p_usuario_id?: string | null };
+        Returns: undefined;
+      };
+      fn_deuda_vendedor: {
+        Args: { p_vendedor_id: string };
+        Returns: {
+          r_sorteos: number;
+          r_desde: string | null;
+          r_hasta: string | null;
+          r_deuda: number;
+          r_abonado: number;
+          r_pendiente: number;
+        }[];
+      };
+      fn_abonos_vendedor: {
+        Args: { p_vendedor_id: string; p_incluir_cerrados?: boolean };
+        Returns: {
+          r_abono_id: string;
+          r_monto: number;
+          r_fecha_pago: string;
+          r_nota: string | null;
+          r_cerrado: boolean;
+          r_registrado: string;
+        }[];
+      };
+      fn_cobranza: {
+        Args: Record<string, never>;
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_vendedor: string;
+          r_activo: boolean;
+          r_sorteos: number;
+          r_desde: string;
+          r_hasta: string;
+          r_deuda: number;
+          r_abonado: number;
+          r_pendiente: number;
+          r_ultimo_pago: string | null;
         }[];
       };
       fn_cortes_vendedor: {

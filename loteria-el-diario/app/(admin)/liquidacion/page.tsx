@@ -9,6 +9,7 @@ import { sesionActual } from "@/lib/sesion";
 
 import { VistaHoja } from "./vista-hoja";
 import { VistaResumen } from "./vista-resumen";
+import { VistaCobranza } from "./vista-cobranza";
 import { VistaSaldos } from "./vista-saldos";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ const SUBTITULO: Record<VistaLiq, string> = {
     "Cómo va la liquidación, semana a semana: cuánto había, cuánto se cerró, y lo que falta separado en lo que se cobra y lo que se paga. Sin vendedor es el padrón entero.",
   saldos:
     "Qué debe cada vendedor de una semana: lo que traía de antes, lo que dejó estos días y lo que hay que cuadrar hoy. Es la lista con la que se sale a cobrar, y se imprime.",
+  cobranza:
+    "Sólo quienes deben, del que más debe al que menos, con lo que ya entregaron a cuenta y cuánto hace que no pagan. Se puede cobrar el total o recibir un abono, y lo que no entregue sigue pendiente.",
 };
 
 export default async function LiquidacionPage({ searchParams }: PageProps<"/liquidacion">) {
@@ -31,7 +34,13 @@ export default async function LiquidacionPage({ searchParams }: PageProps<"/liqu
   const params = await searchParams;
   const pedida = typeof params.vista === "string" ? params.vista : "";
   const vista: VistaLiq =
-    pedida === "resumen" ? "resumen" : pedida === "saldos" ? "saldos" : "hoja";
+    pedida === "resumen"
+      ? "resumen"
+      : pedida === "saldos"
+        ? "saldos"
+        : pedida === "cobranza"
+          ? "cobranza"
+          : "hoja";
   const vendedorId = typeof params.vendedor === "string" ? params.vendedor : "";
 
   return (
@@ -44,6 +53,7 @@ export default async function LiquidacionPage({ searchParams }: PageProps<"/liqu
         {vista === "hoja" && <VistaHoja params={params} />}
         {vista === "resumen" && <VistaResumen params={params} />}
         {vista === "saldos" && <VistaSaldos params={params} />}
+        {vista === "cobranza" && <VistaCobranza />}
       </div>
     </Pagina>
   );

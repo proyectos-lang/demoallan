@@ -6,6 +6,7 @@ import {
   HojaLiquidacion,
   type FilaLiquidacion,
 } from "@/components/liquidacion/hoja-liquidacion";
+import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
 import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { Kpi } from "@/components/informe/kpi";
@@ -309,7 +310,22 @@ export async function VistaHoja({
                 Es el mismo componente que allí: la regla de qué se salda y
                 cómo se registra el ajuste vive en un solo sitio.
               */}
-              <div className="flex-none flex items-center bg-superficie border border-borde rounded-card shadow-card px-[18px]">
+              <div className="flex-none flex items-center gap-3 bg-superficie border border-borde rounded-card shadow-card px-[18px]">
+                {/*
+                  Cobrar admite un ABONO: lo corriente es que traiga una parte
+                  y el resto la semana siguiente. Saldar cierra la deuda entera
+                  de un golpe. Sólo se cobra lo que debe él; un arrastre
+                  negativo es dinero que la casa le debe.
+                */}
+                {abierta.arrastre > 0 && (
+                  <PagarSaldos
+                    vendedorId={vendedor.id}
+                    vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
+                    pendiente={abierta.arrastre}
+                    hoy={iso(hoyHonduras())}
+                    variante="fila"
+                  />
+                )}
                 <SaldarArrastre
                   vendedorId={vendedor.id}
                   vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}

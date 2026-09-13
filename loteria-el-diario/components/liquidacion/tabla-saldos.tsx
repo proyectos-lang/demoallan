@@ -9,6 +9,7 @@ import {
   type HojaSaldos,
   type Orientacion,
 } from "@/components/liquidacion/imprimible-saldos";
+import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
 import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
 import { cn } from "@/lib/cn";
 import { fmt } from "@/lib/format";
@@ -204,6 +205,27 @@ export function TablaSaldos({
                     ) : (
                       <span className="inline-flex items-center gap-2">
                         {fmt(f.anterior, false)}
+                        {/*
+                          Dos gestos distintos, a propósito:
+
+                          «cobrar» abre la cuenta y admite un abono a cuenta —lo
+                          corriente: trae 400 de 900 y el resto la semana que
+                          viene—. «saldar» cierra la deuda entera de un golpe,
+                          perdonando la diferencia si la hay.
+
+                          Sólo se ofrece cobrar cuando debe él: un saldo
+                          negativo es dinero que la casa le debe, y eso no se
+                          cobra, se paga con un corte.
+                        */}
+                        {f.anterior > 0 && (
+                          <PagarSaldos
+                            vendedorId={f.id}
+                            vendedor={f.nombre}
+                            pendiente={f.anterior}
+                            hoy={hoy}
+                            variante="fila"
+                          />
+                        )}
                         <SaldarArrastre
                           vendedorId={f.id}
                           vendedor={f.nombre}
