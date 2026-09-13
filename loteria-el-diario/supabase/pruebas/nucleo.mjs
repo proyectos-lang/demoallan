@@ -133,7 +133,7 @@ try {
   const s = await rest("sorteo", {
     method: "POST",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ fecha: "2099-01-01", hora: "20:00", hora_cierre: cierre }),
+    body: JSON.stringify({ fecha: "2099-01-01", hora: "21:00", hora_cierre: cierre }),
   });
   comprobar("crea sorteo programado", s.status === 201, JSON.stringify(s.cuerpo));
   const sorteoId = s.cuerpo?.[0]?.id;
@@ -221,7 +221,9 @@ try {
   });
   comprobar(
     "rechaza pasarse del tope del vendedor",
-    excede.status >= 400 && JSON.stringify(excede.cuerpo).includes("Cupo del vendedor"),
+    // Por el código de error, no por la redacción: el mensaje se reescribió en
+    // la 0077 y atarse al texto hacía fallar una comprobación que iba bien.
+    excede.status >= 400 && JSON.stringify(excede.cuerpo).includes('"23514"'),
     JSON.stringify(excede.cuerpo),
   );
 
@@ -324,11 +326,26 @@ try {
     [...acciones].join(","),
   );
 
-  const anonVendedor = await anon("vendedor?select=id&limit=1");
-  comprobar("anon NO puede leer vendedor", anonVendedor.status >= 400, `http=${anonVendedor.status}`);
+  /*
+   * Lo que hay que demostrar es que NO SALE NINGÚN DATO, no el código HTTP.
+   *
+   * Con RLS activo PostgREST no devuelve 401: devuelve 200 con una lista
+   * vacía, porque la política no le deja ver ninguna fila. Exigir un 4xx hacía
+   * fallar esta comprobación mientras la protección funcionaba perfectamente,
+   * que es la peor clase de prueba roja: la que enseña un problema donde no lo
+   * hay y distrae del que sí importa.
+   *
+   * Se comprueba lo único que de verdad significa una fuga: que lleguen filas.
+   */
+  const sinFilas = async (tabla) => {
+    const r = await anon(`${tabla}?select=id&limit=1`);
+    if (r.status >= 400) return true;          // también vale un rechazo seco
+    const cuerpo = await r.json().catch(() => []);
+    return Array.isArray(cuerpo) && cuerpo.length === 0;
+  };
 
-  const anonTicket = await anon("ticket?select=id&limit=1");
-  comprobar("anon NO puede leer tickets", anonTicket.status >= 400, `http=${anonTicket.status}`);
+  comprobar("anon NO obtiene ninguna fila de vendedor", await sinFilas("vendedor"));
+  comprobar("anon NO obtiene ningún ticket", await sinFilas("ticket"));
 
   const anonPublico = await anon("v_resultado_publico?select=*");
   const cuerpoPublico = await anonPublico.json();

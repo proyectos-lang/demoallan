@@ -86,7 +86,7 @@ try {
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
       fecha: "2099-06-06",
-      hora: "20:00",
+      hora: "21:00",
       hora_cierre: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
     }),
   });
@@ -113,8 +113,20 @@ try {
 
   const aceptadas = resultados.filter((r) => r.status === 200);
   const rechazadas = resultados.filter((r) => r.status >= 400);
-  const porCupo = rechazadas.filter((r) => JSON.stringify(r.cuerpo).includes("Cupo"));
-  const otros = rechazadas.filter((r) => !JSON.stringify(r.cuerpo).includes("Cupo"));
+  /*
+   * Se clasifica por el CÓDIGO de error, no por el texto.
+   *
+   * Antes se buscaba la palabra «Cupo» en el mensaje, y al reescribirlo en la
+   * 0077 —«Ya vendió todo lo que tiene permitido…»— esta prueba empezó a
+   * contar como «otro error» lo que era exactamente el rechazo esperado. El
+   * `check_violation` (23514) es lo que la base promete; la redacción no.
+   */
+  const esCupo = (r) => {
+    const c = JSON.stringify(r.cuerpo);
+    return c.includes('"23514"') || /cupo|tiene permitido/i.test(c);
+  };
+  const porCupo = rechazadas.filter(esCupo);
+  const otros = rechazadas.filter((r) => !esCupo(r));
 
   const cupo = await rest(`cupo_numero?sorteo_id=eq.${sorteoId}&numero=eq.47&select=vendido,limite_casa`);
   const vendido = Number(cupo.cuerpo[0].vendido);

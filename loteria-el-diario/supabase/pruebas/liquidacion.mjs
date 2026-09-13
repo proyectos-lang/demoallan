@@ -51,12 +51,22 @@ try {
   console.log("\n1. Montaje");
   await sb.rpc("fn_programar_dia", { p_fecha: FECHA });
   const { data: sorteos } = await sb.from("sorteo").select("id, hora").eq("fecha", FECHA);
-  const sorteoId = sorteos.find((s) => s.hora === "20:00").id;
+  const sorteoId = sorteos.find((s) => s.hora === "21:00").id;
   await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: sorteoId, p_limite_por_numero: 50000 });
 
+  /*
+   * Vendedores ACTIVOS, no los dos primeros por código.
+   *
+   * V-001 y V-003 se dieron de baja, y `fn_registrar_ticket` rechaza a un
+   * vendedor inactivo —hace bien—. La prueba los seguía eligiendo y fallaba
+   * entera desde el montaje, señalando la liquidación cuando el problema
+   * estaba tres pasos antes.
+   */
   const { data: vs } = await sb
     .from("vendedor")
-    .select("id, codigo, parametro_vendedor!inner(comision, factor_pago, vigente_hasta)")
+    .select("id, codigo, parametro_vendedor!inner(comision, factor_pago, tope_por_numero, vigente_hasta)")
+    .eq("activo", true)
+    .is("eliminado_en", null)
     .is("parametro_vendedor.vigente_hasta", null)
     .order("codigo");
 
