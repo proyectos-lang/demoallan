@@ -359,14 +359,19 @@ export function usePos(datos: DatosPos) {
     for (const t of tanda) for (const l of t.lineas) pendiente[l.numero] += l.monto;
     for (const l of carrito) pendiente[l.numero] += l.monto;
 
+    /*
+     * SÓLO CUENTA EL TOPE DE ESTE VENDEDOR.
+     *
+     * Antes se tomaba el mínimo entre esto y lo que le quedaba a la casa, un
+     * techo compartido por todos. Eso cerraba un número a quien no había
+     * vendido nada en él sólo porque los demás lo habían completado, y es el
+     * fallo que reportaron con el 94. El tope es de cada quien.
+     *
+     * `datos.disponibleCasa` se sigue trayendo: de ahí sale la lectura de
+     * exposición de la casa, que es información de gestión. Ya no limita.
+     */
     return Array.from({ length: 100 }, (_, n) =>
-      Math.max(
-        0,
-        Math.min(
-          datos.disponibleCasa[n] - pendiente[n],
-          (vendedor?.tope_por_numero ?? 0) - propio[n] - pendiente[n],
-        ),
-      ),
+      Math.max(0, (vendedor?.tope_por_numero ?? 0) - propio[n] - pendiente[n]),
     );
   }, [datos, vendedorId, carrito, tanda, vendedor]);
 
@@ -424,9 +429,18 @@ export function usePos(datos: DatosPos) {
         ? `el ${pad2(seleccion[0])}`
         : `${seleccion.length} números`;
 
+    /*
+     * El aviso habla del tope de QUIEN VENDE, que ahora es el único que hay.
+     *
+     * Decía «cupo agotado» a secas, y esa frase se leía igual tanto si el
+     * vendedor había llegado a su límite como si el número se había acabado
+     * entre todos. Lo segundo ya no ocurre —el techo compartido se retiró— y
+     * lo primero se dice con todas las letras: «ya vendió lo suyo», no «no
+     * hay cupo», que suena a que el sistema falló.
+     */
     if (disp == null || disp <= 0) {
       return {
-        texto: `Cupo agotado en el ${pad2(numeroApretado!)}: no se acepta monto.`,
+        texto: `Ya vendió todo lo que tiene permitido en el ${pad2(numeroApretado!)}.`,
         clase: "bg-negativo-fondo text-negativo-texto",
       };
     }
@@ -435,14 +449,14 @@ export function usePos(datos: DatosPos) {
     // uno en uno cuál de los diez estorba.
     if (montoNum > disp) {
       return {
-        texto: `El ${pad2(numeroApretado!)} sólo admite ${fmt(disp)}. Baje el monto o quítelo de la selección.`,
+        texto: `Sólo puede vender ${fmt(disp)} más en el ${pad2(numeroApretado!)}. Baje el monto o quítelo de la selección.`,
         clase: "bg-negativo-fondo text-negativo-texto",
       };
     }
 
     if (disp < CUPO_BAJO) {
       return {
-        texto: `Cupo bajo: el ${pad2(numeroApretado!)} admite ${fmt(disp)}.`,
+        texto: `Le quedan ${fmt(disp)} en el ${pad2(numeroApretado!)}.`,
         clase: "bg-ambar-fondo text-ambar-texto",
       };
     }

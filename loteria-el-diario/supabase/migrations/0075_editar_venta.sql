@@ -155,7 +155,16 @@ begin
         using errcode = 'invalid_parameter_value';
     end if;
 
-    select (c.limite_casa - c.vendido) into v_disp
+    /*
+     * Se bloquea la fila de cupo, pero su límite ya NO rechaza.
+     *
+     * El `limite_casa` era un techo compartido entre todos los vendedores, y
+     * se retiró en la 0077: el tope es de cada quien. Aquí se conserva el
+     * `for update` porque la fila hay que bloquearla igual —más abajo se le
+     * suma lo corregido— y el orden ascendente de número es lo que evita el
+     * interbloqueo.
+     */
+    select 1 into v_disp
     from public.cupo_numero c
     where c.sorteo_id = v_ticket.sorteo_id and c.numero = v_linea.numero
     for update;
@@ -163,12 +172,6 @@ begin
     if v_disp is null then
       raise exception 'El sorteo no tiene cupo sembrado para el número %.', v_linea.numero
         using errcode = 'no_data_found';
-    end if;
-
-    if v_linea.monto > v_disp then
-      raise exception 'El número % sólo admite % más; se pidieron %.',
-        lpad(v_linea.numero::text, 2, '0'), v_disp, v_linea.monto
-        using errcode = 'check_violation';
     end if;
 
     -- El tope del vendedor, contando lo que ya tiene en OTROS tickets vivos:
