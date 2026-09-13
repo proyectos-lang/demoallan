@@ -148,6 +148,9 @@ async function main() {
   };
 
   // Una captura en cada sorteo, para que el día tenga los tres.
+  // El de las 21:00 se queda abierto para la venta con números de más abajo.
+  const abierto = sorteos[2];
+
   const c11 = await capturar(sorteos[0].id, conAlias, 1000, 0);
   await capturar(sorteos[1].id, sinAlias, 500, 100);
   await capturar(sorteos[2].id, conAlias, 800, 0);
@@ -285,13 +288,28 @@ async function main() {
         String(liqDespues.data.venta));
 
   // --- El alias en las dos funciones que faltaban -----------------------------
+  /*
+   * El desglose se alimenta de LÍNEAS, no de capturas por totales.
+   *
+   * Una captura por totales no lleva números, así que no aparece aquí — es
+   * correcto y deliberado. Para comprobar el alias en esta función hace falta
+   * una venta de verdad, con su número.
+   */
+  const { error: eTicket } = await sb.rpc("fn_registrar_tanda", {
+    p_sorteo_id: abierto.id,
+    p_vendedor_id: conAlias,
+    p_tickets: [[{ numero: 7, monto: 50 }]],
+    p_forzar: true,
+  });
+  check("se registra una venta con números", !eTicket, eTicket?.message ?? "");
+
   const { data: desglose, error: eDes } = await sb.rpc("fn_desglose_dia", {
     p_fecha: FECHA,
   });
   check("fn_desglose_dia responde", !eDes, eDes?.message ?? "");
   const enDesglose = (desglose ?? []).find((d) => d.vendedor_id === conAlias);
   check("FN_DESGLOSE_DIA DICE EL ALIAS", enDesglose?.nombre === ALIAS,
-        String(enDesglose?.nombre));
+        enDesglose ? String(enDesglose.nombre) : "el vendedor no aparece en el desglose");
 
   const { data: semanal, error: eSem } = await sb.rpc("fn_resumen_semanal", {
     p_desde: FECHA,
