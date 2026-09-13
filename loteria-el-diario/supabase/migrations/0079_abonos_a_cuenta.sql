@@ -405,7 +405,20 @@ revoke execute on function public.fn_cobranza() from public, anon;
 -- decir «de los 900, ya había entregado 400; recibe 500».
 -- ---------------------------------------------------------------------------
 
-create or replace function public.fn_registrar_corte(
+/*
+ * Se SUELTA antes de recrearla.
+ *
+ * `create or replace` no puede cambiar el tipo de salida de una función que ya
+ * existe, y aquí la salida gana dos columnas —`r_abonado` y `r_resta`—. La
+ * base lo rechaza con «cannot change return type of existing function», y
+ * tiene razón: quien la llamara esperando seis columnas se encontraría ocho.
+ *
+ * Soltarla y recrearla en la misma transacción no deja hueco: si algo fallara
+ * después, el `drop` se deshace con el resto.
+ */
+drop function if exists public.fn_registrar_corte(uuid, uuid[], date, date, text, uuid);
+
+create function public.fn_registrar_corte(
   p_vendedor_id     uuid,
   p_liquidacion_ids uuid[],
   p_desde           date,
@@ -424,7 +437,7 @@ create or replace function public.fn_registrar_corte(
 )
 language plpgsql
 security definer
-set search_path = allan, public
+set search_path = public
 as $corte$
 declare
   v_corte_id uuid := gen_random_uuid();
