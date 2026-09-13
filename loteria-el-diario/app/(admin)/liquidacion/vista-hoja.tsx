@@ -273,6 +273,33 @@ export async function VistaHoja({
           </div>
 
           {/*
+            COBRAR, esté donde esté la deuda.
+
+            El botón del arrastre sólo sale cuando hay arrastre, y eso deja
+            fuera al vendedor que debe mucho pero todo de esta semana: V-096
+            debía 180.450 y su tarjeta no aparecía, porque los quince sorteos
+            eran de la semana en curso.
+
+            Ésta mira la deuda entera del vendedor —lo que sume, de la semana
+            que sea— que es la pregunta de quien lo tiene delante con dinero en
+            la mano. La cifra la recalcula la base al abrir.
+          */}
+          {abierta.acumulado > 0 && (
+            <div className="flex items-center justify-between gap-3 flex-wrap bg-superficie border border-borde rounded-card shadow-card px-[18px] py-3">
+              <span className="text-meta text-secundario">
+                Si viene a entregar dinero, se registra aquí: el pago completo o un abono
+                a cuenta.
+              </span>
+              <PagarSaldos
+                vendedorId={vendedor.id}
+                vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
+                pendiente={abierta.acumulado}
+                hoy={iso(hoyHonduras())}
+              />
+            </div>
+          )}
+
+          {/*
             El arrastre va ENTRE las cifras de la semana y la hoja de cobro, no
             dentro de ella: la hoja cierra sorteos de esta semana y lo de atrás
             se cierra en su propia semana. Aquí sólo se dice, para que quien

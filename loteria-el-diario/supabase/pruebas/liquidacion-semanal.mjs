@@ -76,7 +76,7 @@ try {
   for (const fecha of DIAS) {
     await sb.rpc("fn_programar_dia", { p_fecha: fecha });
     const { data: ss } = await sb.from("sorteo").select("id, hora").eq("fecha", fecha);
-    const s = ss.find((x) => x.hora === "20:00");
+    const s = ss.find((x) => x.hora === "21:00");
     await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: s.id, p_limite_por_numero: 50000 });
     await sb.rpc("fn_registrar_ticket", {
       p_sorteo_id: s.id,
