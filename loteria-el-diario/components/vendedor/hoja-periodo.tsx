@@ -18,9 +18,12 @@ export type FilaPeriodo = {
   premios: number;
   pagado: boolean;
   /**
-   * La parte que registró administración por él —su hoja de papel—, ya sumada
-   * en `venta`. Se trae aparte para poder decirlo: si la venta crece sin
-   * explicación, el vendedor no puede cuadrar contra su libreta.
+   * La parte que registró administración por él, YA SUMADA en `venta`.
+   *
+   * No se pinta: el vendedor ve una sola cifra, la del total. Se conserva
+   * porque la base la devuelve y porque es el dato con el que se explica un
+   * descuadre si alguien pregunta por qué su venta no coincide con lo que
+   * lleva en el teléfono.
    */
   ventaAdmin: number;
   capturas: number;
@@ -232,20 +235,6 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
 
                   <div className="grid gap-x-4 gap-y-[5px] mt-[10px] [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
                     <Dato etiqueta="Venta" valor={fmt(f.venta, false)} />
-                    {/*
-                      Lo que administración registró por él, dicho aparte.
-
-                      Su venta incluye la hoja de papel que entregó y que
-                      capturó la oficina; sin decirlo, la cifra no cuadra con
-                      lo que él lleva en el teléfono y la conclusión razonable
-                      es que el sistema se equivoca.
-                    */}
-                    {f.ventaAdmin > 0 && (
-                      <Dato
-                        etiqueta="De administración"
-                        valor={fmt(f.ventaAdmin, false)}
-                      />
-                    )}
                     <Dato etiqueta="Premiado" valor={fmt(f.premiado, false)} />
                     <Dato etiqueta="Factor" valor={factor(f)} />
                     <Dato etiqueta="%" valor={porcentaje(f)} />
@@ -320,14 +309,6 @@ export function HojaPeriodo({ filas }: { filas: FilaPeriodo[] }) {
                       </td>
                       <td className="border-b border-fondo py-[11px] px-3 text-right font-medium">
                         {fmt(f.venta, false)}
-                        {/* De cuánto de esa venta es la hoja que entregó en la
-                            oficina: sin esto la cifra no cuadra con su
-                            teléfono y no hay forma de saber por qué. */}
-                        {f.ventaAdmin > 0 && (
-                          <span className="block text-label text-secundario font-normal">
-                            incluye {fmt(f.ventaAdmin, false)} de administración
-                          </span>
-                        )}
                       </td>
                       <td className="border-b border-fondo py-[11px] px-3 text-right text-cuerpo">
                         {fmt(f.premiado, false)}
