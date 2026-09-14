@@ -107,7 +107,17 @@ export default async function MiDiaPage() {
                       ? "en venta"
                       : "cerrado · pendiente"}
                 </td>
-                <td className="px-4 py-[11px] text-tabla text-right">{fmt(Number(f.r_venta))}</td>
+                <td className="px-4 py-[11px] text-tabla text-right">
+                  {fmt(Number(f.r_venta))}
+                  {/* Si parte de la venta la registró la oficina —la hoja de
+                      papel que entregó—, se dice: sin eso la cifra no cuadra
+                      con lo que él lleva en el teléfono. */}
+                  {Number(f.r_venta_admin) > 0 && (
+                    <span className="block text-label text-secundario">
+                      incluye {fmt(Number(f.r_venta_admin))} de administración
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-[11px] text-tabla text-right">{fmt(Number(f.r_comision))}</td>
                 <td className="px-4 py-[11px] text-tabla text-right">
                   {f.r_estado === "liquidado" ? fmt(Number(f.r_premios)) : "—"}

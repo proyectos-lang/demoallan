@@ -792,6 +792,9 @@ export type Database = {
           r_venta: number;
           r_comision: number;
           r_premios: number;
+          /** La parte que registró administración por él, ya incluida arriba. */
+          r_venta_admin: number;
+          r_capturas: number;
         }[];
       };
       fn_mis_tickets: {
@@ -1199,6 +1202,9 @@ export type Database = {
           r_comision: number;
           r_premios: number;
           r_pagado: boolean;
+          /** Lo registrado por administración, ya sumado en `r_venta`. */
+          r_venta_admin: number;
+          r_capturas: number;
         }[];
       };
 

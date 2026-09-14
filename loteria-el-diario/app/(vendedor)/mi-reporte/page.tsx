@@ -92,6 +92,8 @@ export default async function MiReportePage({ searchParams }: PageProps<"/mi-rep
     comision: Number(f.r_comision),
     premios: Number(f.r_premios),
     pagado: f.r_pagado,
+    ventaAdmin: Number(f.r_venta_admin),
+    capturas: f.r_capturas,
   }));
 
   return (
@@ -99,8 +101,9 @@ export default async function MiReportePage({ searchParams }: PageProps<"/mi-rep
       <div>
         <h1 className="text-h1 font-semibold tracking-titular m-0">Informes por período</h1>
         <p className="text-meta text-secundario mt-[5px] mb-0">
-          Día por día y sorteo por sorteo, con las mismas columnas que mira la gerencia —pero
-          sólo con lo suyo. Para cuadrar una semana entera con administración, «Mi liquidación».
+          Día por día y sorteo por sorteo, con las mismas columnas y las mismas cifras que
+          mira la gerencia: sus ventas del teléfono más lo que la oficina haya registrado
+          por usted. Para cuadrar una semana entera, «Mi liquidación».
         </p>
       </div>
 
