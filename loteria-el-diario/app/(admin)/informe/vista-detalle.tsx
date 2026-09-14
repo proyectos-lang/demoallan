@@ -31,8 +31,23 @@ export async function VistaDetalle({
   params,
   destino = "/informe",
   fijos = { vista: "detalle" },
+  tambien,
 }: {
   params: Record<string, string | string[] | undefined>;
+  /**
+   * Vendedores que el filtro tiene que ofrecer AUNQUE no tengan tickets ese
+   * día.
+   *
+   * En el punto de venta, debajo de esta tabla van las capturas por totales, y
+   * quien sólo entregó su hoja de papel no tiene ni un ticket con números: sin
+   * esto no aparecía en el filtro y no había forma de aislarlo. Un día real
+   * llegó a tener 67 vendedores con captura y sólo 4 en la lista.
+   *
+   * El informe de gerencia no lo pasa: allí no hay capturas debajo que
+   * filtrar, y ofrecer a alguien que no puede aparecer en la tabla sería
+   * prometer un filtro que deja la pantalla vacía.
+   */
+  tambien?: { id: string; codigo: string; nombre: string }[];
   /*
    * Dónde vive esta vista. Se muestra en el informe de gerencia y en la
    * pestaña de ventas del punto de venta, y los filtros tienen que devolver
@@ -89,6 +104,14 @@ export async function VistaDetalle({
         tickets: 1,
       });
   }
+  // Los que sólo tienen captura por totales: cero tickets, pero sí hay algo
+  // suyo debajo que se puede aislar.
+  for (const v of tambien ?? []) {
+    if (!porVendedor.has(v.id)) {
+      porVendedor.set(v.id, { id: v.id, codigo: v.codigo, nombre: v.nombre, tickets: 0 });
+    }
+  }
+
   const vendedores = [...porVendedor.values()].sort((a, b) =>
     a.codigo.localeCompare(b.codigo),
   );

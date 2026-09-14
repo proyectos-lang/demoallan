@@ -100,7 +100,17 @@ export function FiltrosDetalle({
           codigo: v.codigo,
           nombre: v.nombre,
           alias: null,
-          detalle: `${v.tickets} ${v.tickets === 1 ? "ticket" : "tickets"}`,
+          /*
+           * «0 tickets» haría dudar de si el filtro sirve para algo.
+           *
+           * Quien sólo entregó su hoja de papel no tiene ni un ticket con
+           * números, pero sí tiene una captura por totales debajo que se puede
+           * aislar. Se dice eso en vez de un cero.
+           */
+          detalle:
+            v.tickets === 0
+              ? "sólo por totales"
+              : `${v.tickets} ${v.tickets === 1 ? "ticket" : "tickets"}`,
         })),
     [vendedores, elegidos],
   );
@@ -237,7 +247,10 @@ export function FiltrosDetalle({
                       <span>
                         <span className="font-medium">{v.nombre}</span>
                         <span className="block text-label text-navy-etiqueta">
-                          {v.codigo} · {v.tickets} {v.tickets === 1 ? "ticket" : "tickets"}
+                          {v.codigo} ·{" "}
+                          {v.tickets === 0
+                            ? "sólo por totales"
+                            : `${v.tickets} ${v.tickets === 1 ? "ticket" : "tickets"}`}
                         </span>
                       </span>
                       <X size={13} strokeWidth={2.4} absoluteStrokeWidth className="flex-none" />

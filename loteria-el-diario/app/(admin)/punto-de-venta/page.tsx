@@ -121,25 +121,61 @@ export default async function PuntoDeVentaPage({
     const diaPedido = typeof params.dia === "string" ? params.dia : "";
     const diaDetalle = FECHA.test(diaPedido) ? diaPedido : dia;
 
+    /*
+     * Se piden TODAS las capturas del día y se filtran aquí.
+     *
+     * Podría pedirse ya filtrado con `p_vendedor_id`, pero entonces el filtro
+     * no podría OFRECER a quien sólo tiene captura: para saber que existe hay
+     * que haberlo traído antes de filtrar. Son unas decenas de filas, así que
+     * el viaje de más no compensa el agujero.
+     */
     const { data: totalesCrudos } = await supabase.rpc("fn_ventas_totales_dia", {
       p_fecha: diaDetalle,
       p_vendedor_id: null,
     });
 
-    const capturasDia: CapturaDelDia[] = (totalesCrudos ?? []).map((c) => ({
-      id: c.r_id,
-      hora: c.r_hora,
-      estado: c.r_estado,
-      vendedorId: c.r_vendedor_id,
-      codigo: c.r_codigo,
-      vendedor: c.r_vendedor,
-      venta: Number(c.r_venta),
-      premios: Number(c.r_premios),
-      comision: Number(c.r_comision),
-      saldo: Number(c.r_saldo),
-      nota: c.r_nota,
-      anulado: c.r_anulado,
-    }));
+    // Los mismos que lee el detalle de arriba, para filtrar las dos tablas con
+    // una sola elección.
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const elegidos = (typeof params.vs === "string" ? params.vs : "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter((x) => UUID.test(x));
+
+    /*
+     * Quién tiene captura ese día, para que el filtro pueda ofrecerlo.
+     *
+     * Sin esto, un vendedor que sólo entregó su hoja de papel no aparecía en
+     * la lista y no había forma de aislarlo: un día real llegó a tener 67 con
+     * captura y sólo 4 en el filtro.
+     */
+    const conCaptura = new Map<string, { id: string; codigo: string; nombre: string }>();
+    for (const c of totalesCrudos ?? []) {
+      if (!c.r_anulado && !conCaptura.has(c.r_vendedor_id)) {
+        conCaptura.set(c.r_vendedor_id, {
+          id: c.r_vendedor_id,
+          codigo: c.r_codigo,
+          nombre: c.r_vendedor,
+        });
+      }
+    }
+
+    const capturasDia: CapturaDelDia[] = (totalesCrudos ?? [])
+      .filter((c) => elegidos.length === 0 || elegidos.includes(c.r_vendedor_id))
+      .map((c) => ({
+        id: c.r_id,
+        hora: c.r_hora,
+        estado: c.r_estado,
+        vendedorId: c.r_vendedor_id,
+        codigo: c.r_codigo,
+        vendedor: c.r_vendedor,
+        venta: Number(c.r_venta),
+        premios: Number(c.r_premios),
+        comision: Number(c.r_comision),
+        saldo: Number(c.r_saldo),
+        nota: c.r_nota,
+        anulado: c.r_anulado,
+      }));
 
     return (
       <Pagina>
@@ -166,6 +202,7 @@ export default async function PuntoDeVentaPage({
           params={params}
           destino="/punto-de-venta"
           fijos={{ modo: "ventas" }}
+          tambien={[...conCaptura.values()]}
         />
 
         <div className="mt-7">
