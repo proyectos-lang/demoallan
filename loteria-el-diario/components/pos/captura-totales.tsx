@@ -8,8 +8,9 @@ import {
   registrarVentaPorTotales,
 } from "@/app/(admin)/punto-de-venta/acciones";
 import { Boton } from "@/components/ui/boton";
+import { BuscadorVendedor } from "@/components/ui/buscador-vendedor";
 import { cn } from "@/lib/cn";
-import { fmt, hora12, jornada, rotulo } from "@/lib/format";
+import { fmt, hora12, jornada } from "@/lib/format";
 import type { SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 
 export type CapturaExistente = {
@@ -191,21 +192,23 @@ export function CapturaTotales({
         </div>
 
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
-          <label className="block">
-            <span className="block text-label text-secundario font-medium mb-[6px]">Vendedor</span>
-            <select
-              value={vendedorId}
-              onChange={(e) => setVendedorId(e.target.value)}
-              className="w-full px-3 py-[11px] border border-borde-campo rounded-campo text-base outline-none bg-superficie text-tinta"
-            >
-              <option value="">Elija un vendedor…</option>
-              {vendedores.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.codigo} · {rotulo(v)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/*
+            Se escribe el alias, no se busca en un desplegable.
+
+            Con más de cien vendedores un `select` obliga a recorrerlos con la
+            vista, y ordenado por código —que es justo lo que nadie recuerda—.
+            Aquí se teclea «merka» y aparece.
+
+            `permitirTodos={false}`: capturar exige elegir a alguien concreto.
+          */}
+          <BuscadorVendedor
+            vendedores={vendedores}
+            valor={vendedorId}
+            onElegir={setVendedorId}
+            etiqueta="Vendedor"
+            permitirTodos={false}
+            textoTodos="Elija un vendedor…"
+          />
 
           <label className="block">
             <span className="block text-label text-secundario font-medium mb-[6px]">

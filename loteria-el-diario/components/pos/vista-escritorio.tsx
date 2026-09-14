@@ -11,8 +11,9 @@ import {
   SelectorSorteo,
   TicketEnCurso,
 } from "@/components/pos/piezas";
+import { BuscadorVendedor } from "@/components/ui/buscador-vendedor";
 import { cn } from "@/lib/cn";
-import { countdownHasta, fmt, hora12, pad2, rotulo } from "@/lib/format";
+import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
 import { ATAJOS, CUPO_BAJO, MONTOS_RAPIDOS, type Pos } from "@/lib/pos/use-pos";
 
 const MODOS: { id: "teclado" | "rapida" | "rejilla"; etiqueta: string }[] = [
@@ -74,21 +75,22 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
         </div>
 
         {!datos.propio && (
-          <div>
-            <span className="block text-th font-semibold tracking-th text-secundario mb-[6px]">
-              VENDEDOR
-            </span>
-            <select
-              value={pos.vendedorId}
-              onChange={(e) => pos.cambiarVendedor(e.target.value)}
-              className="min-w-[240px] px-3 py-[9px] border border-borde-campo rounded-campo text-base outline-none bg-superficie"
-            >
-              {datos.vendedores.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {rotulo(v)} · {v.codigo}
-                </option>
-              ))}
-            </select>
+          /*
+            Se escribe el alias en vez de buscarlo en un desplegable.
+
+            Con más de cien vendedores el `select` obligaba a recorrerlos con
+            la vista, ordenados por código —lo que nadie recuerda—. Y es el
+            gesto que abre cada venta: quien registra empieza por elegir al
+            vendedor, así que el coste se paga entero, cincuenta veces al día.
+          */
+          <div className="min-w-[240px]">
+            <BuscadorVendedor
+              vendedores={datos.vendedores}
+              valor={pos.vendedorId}
+              onElegir={pos.cambiarVendedor}
+              etiqueta="VENDEDOR"
+              permitirTodos={false}
+            />
           </div>
         )}
 
