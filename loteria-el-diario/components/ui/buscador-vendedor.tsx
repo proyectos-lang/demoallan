@@ -56,6 +56,7 @@ export function BuscadorVendedor({
   placeholder = "Escriba el alias, el nombre o el código",
   textoTodos = "Todos",
   permitirTodos = true,
+  enfocar,
   className,
 }: {
   vendedores: VendedorBuscable[];
@@ -68,6 +69,15 @@ export function BuscadorVendedor({
   textoTodos?: string;
   /** En liquidación hay que elegir a alguien: ahí no vale «todos». */
   permitirTodos?: boolean;
+  /**
+   * Señal para pedirle el foco desde fuera: cada vez que este número cambia,
+   * el buscador se abre listo para teclear.
+   *
+   * Es un contador y no un booleano a propósito: en la captura por totales hay
+   * que volver aquí DESPUÉS DE CADA registro, y un booleano que ya estaba en
+   * `true` no volvería a disparar nada.
+   */
+  enfocar?: number;
   className?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -123,6 +133,25 @@ export function BuscadorVendedor({
     // elemento que todavía se está montando.
     setTimeout(() => campo.current?.focus(), 0);
   };
+
+  /*
+   * Quien lo pida desde fuera lo abre listo para teclear.
+   *
+   * Se recuerda el VALOR visto, no un «es la primera vez»: en desarrollo React
+   * monta los efectos dos veces, así que una bandera booleana ya venía en
+   * `false` en la segunda pasada y el buscador se abría solo al cargar la
+   * pantalla, tapando lo que hay debajo sin que nadie lo hubiera pedido.
+   * Comparando el valor, la segunda pasada ve el mismo número y no hace nada.
+   */
+  const ultimoEnfocar = useRef(enfocar);
+  useEffect(() => {
+    if (enfocar === undefined) return;
+    if (ultimoEnfocar.current === enfocar) return;
+    ultimoEnfocar.current = enfocar;
+    abrir();
+    // `abrir` se redefine en cada render; depender de ella reabriría en bucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enfocar]);
 
   const elegir = (id: string) => {
     onElegir(id);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
   anularVentaPorTotales,
@@ -77,6 +77,8 @@ export function CapturaTotales({
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [enviando, iniciar] = useTransition();
+  /** Contador: cada incremento devuelve el foco al buscador de vendedor. */
+  const [volverAlVendedor, setVolverAlVendedor] = useState(0);
 
   /*
    * La fecha y el sorteo viven en la dirección, no en estado local.
@@ -124,7 +126,59 @@ export function CapturaTotales({
       setPremiado("");
       setNota("");
       setVendedorId("");
+      // Y de vuelta al vendedor, listo para la siguiente hoja: quien captura
+      // tiene una pila delante y el ciclo se cierra sin tocar el ratón.
+      setVolverAlVendedor((n) => n + 1);
     });
+  };
+
+  /*
+   * CAPTURAR SIN SOLTAR EL TECLADO.
+   *
+   * Quien captura tiene una pila de hojas delante y repite el mismo gesto
+   * decenas de veces: vendedor, venta, premiado, confirmar. Bajar al ratón
+   * entre cada campo es lo que hace lento algo que se hace cincuenta veces al
+   * día.
+   *
+   * Al elegir el vendedor el foco salta solo a «venta total». De ahí, la
+   * flecha derecha pasa a «valor premiado» y la izquierda vuelve. Enter en
+   * cualquiera de los dos registra.
+   *
+   * Las flechas sólo saltan de campo con el cursor en el extremo del texto:
+   * dentro de una cifra a medio corregir tienen que seguir moviendo el cursor,
+   * que es lo que cualquiera espera de ellas.
+   */
+  const campoVenta = useRef<HTMLInputElement>(null);
+  const campoPremiado = useRef<HTMLInputElement>(null);
+
+  const alTeclear = (e: React.KeyboardEvent<HTMLInputElement>, otro: "venta" | "premiado") => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (listo && !enviando) registrar();
+      return;
+    }
+
+    const campo = e.currentTarget;
+    const alFinal = campo.selectionStart === campo.value.length;
+    const alPrincipio = campo.selectionStart === 0;
+
+    if (e.key === "ArrowRight" && otro === "premiado" && alFinal) {
+      e.preventDefault();
+      campoPremiado.current?.focus();
+      campoPremiado.current?.select();
+    }
+    if (e.key === "ArrowLeft" && otro === "venta" && alPrincipio) {
+      e.preventDefault();
+      campoVenta.current?.focus();
+      campoVenta.current?.select();
+    }
+  };
+
+  const elegirVendedor = (id: string) => {
+    setVendedorId(id);
+    // Tras el pintado: pedirlo en el mismo ciclo se lo lleva el elemento que
+    // todavía se está montando.
+    if (id) setTimeout(() => campoVenta.current?.focus(), 0);
   };
 
   const anular = (id: string) => {
@@ -204,10 +258,11 @@ export function CapturaTotales({
           <BuscadorVendedor
             vendedores={vendedores}
             valor={vendedorId}
-            onElegir={setVendedorId}
+            onElegir={elegirVendedor}
             etiqueta="Vendedor"
             permitirTodos={false}
             textoTodos="Elija un vendedor…"
+            enfocar={volverAlVendedor}
           />
 
           <label className="block">
@@ -215,9 +270,11 @@ export function CapturaTotales({
               Venta total
             </span>
             <input
+              ref={campoVenta}
               inputMode="decimal"
               value={venta}
               onChange={(e) => setVenta(limpiar(e.target.value))}
+              onKeyDown={(e) => alTeclear(e, "premiado")}
               placeholder="0"
               className={CLASE_CAMPO}
             />
@@ -229,9 +286,11 @@ export function CapturaTotales({
               <span className="text-mudo">(lo que le jugaron al ganador)</span>
             </span>
             <input
+              ref={campoPremiado}
               inputMode="decimal"
               value={premiado}
               onChange={(e) => setPremiado(limpiar(e.target.value))}
+              onKeyDown={(e) => alTeclear(e, "venta")}
               placeholder="0"
               className={CLASE_CAMPO}
             />
