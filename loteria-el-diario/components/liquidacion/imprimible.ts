@@ -186,7 +186,21 @@ export function documentoLiquidacion(h: HojaImpresa): string {
         <td>${esc(jornada(l.hora))}${l.pagado ? ' <span class="sello">liquidado</span>' : ""}</td>
         <td class="c rojo b">${l.ganador === null ? "&mdash;" : pad2(l.ganador)}</td>
         <td class="n">${money(l.venta)}</td>
-        <td class="n rojo">${l.premiado > 0 ? money(l.premiado) : "&mdash;"}</td>
+        <td class="n rojo">${
+          l.premiado > 0
+            ? money(l.premiado)
+            /*
+             * Con premios pagados y premiado en cero el papel se contradice:
+             * se pagó por algo que nadie apostó. Antes salía una raya y había
+             * que ir a preguntar por qué; ahora se dice que falta el dato, que
+             * es lo que de verdad ocurre —normalmente un vendedor sin factor
+             * configurado, porque de ahí se deduce el premiado de una captura
+             * por totales—.
+             */
+            : l.premios > 0
+              ? '<span class="falta">sin dato</span>'
+              : "&mdash;"
+        }</td>
         <td class="n rojo">${money(l.premios)}</td>
         <td class="n">${money(l.comision)}</td>
         <td class="n b ${l.saldo < 0 ? "rojo" : ""}">${money(l.saldo)}</td>
@@ -292,6 +306,11 @@ export function documentoLiquidacion(h: HojaImpresa): string {
   .sello {
     font-size: 7pt; text-transform: uppercase; letter-spacing: 0.06em;
     border: 1px solid #888; border-radius: 3px; padding: 0 3px; color: #555;
+  }
+  /* Un dato que falta se dice, no se disimula con una raya: en gris y en
+     minúscula, para que se lea como una nota y no como una cifra. */
+  .falta {
+    font-size: 7.5pt; font-style: italic; color: #777; letter-spacing: 0;
   }
   tfoot td { background: #eee; font-weight: bold; border-top: 1.5px solid #000; }
   .resumen { margin-top: 10px; width: 62%; border-collapse: collapse; }
