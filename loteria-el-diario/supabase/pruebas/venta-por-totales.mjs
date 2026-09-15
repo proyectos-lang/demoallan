@@ -57,7 +57,10 @@ try {
   console.log("\n1. Montaje");
   await sb.rpc("fn_programar_dia", { p_fecha: FECHA });
   const { data: sorteos } = await sb.from("sorteo").select("id, hora").eq("fecha", FECHA);
-  const sorteoId = sorteos.find((s) => s.hora === "20:00").id;
+  // El de la noche, sin escribir su hora: la 0059 lo movió de las 20:00 a las
+  // 21:00 y una prueba que la fije se cae sola en la siguiente mudanza.
+  const nocturno = [...sorteos].sort((a, b) => (a.hora < b.hora ? 1 : -1))[0];
+  const sorteoId = nocturno.id;
   await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: sorteoId, p_limite_por_numero: 500000 });
 
   const { data: vend } = await sb
