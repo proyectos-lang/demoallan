@@ -245,48 +245,71 @@ try {
     );
   }
 
-  // ---------- 2. Por totales ----------
+  /* ---------- 2. Por totales: ya no hay combobox ----------
+   *
+   * Esa pantalla dejó de elegir un vendedor: ahora es una matriz con el padrón
+   * entero, una fila por cabeza, y se busca escribiendo en un campo de texto
+   * que recorta la tabla. Comprobar aquí un combobox sería exigir una pantalla
+   * que ya no existe.
+   *
+   * Lo que sí tiene que seguir cumpliéndose es el propósito: encontrar a
+   * alguien concreto escribiendo, sin recorrer cien filas con la vista.
+   */
   await cdp("Page.navigate", { url: `${BASE}/punto-de-venta?modo=totales` });
-  await esperar(11000);
-  console.log("\n--- Por totales ---");
+  await esperar(12000);
+  console.log("\n--- Por totales: la matriz ---");
 
-  const r2 = await ev(buscar(TROZO));
-  check("hay un buscador de vendedor", !r2.error, r2.error ?? "");
-  if (!r2.error) {
+  const buscarEnMatriz = (texto) => `
+    (async () => {
+      const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+      const campo = [...document.querySelectorAll('input')]
+        .find((i) => /Alias o código/.test(i.placeholder || ''));
+      if (!campo) return { error: 'no hay campo de búsqueda en la matriz' };
+      const antes = document.querySelectorAll('tbody tr').length;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value').set;
+      setter.call(campo, ${JSON.stringify("__TEXTO__")});
+      campo.dispatchEvent(new Event('input', { bubbles: true }));
+      await esperar(500);
+      const filas = [...document.querySelectorAll('tbody tr')];
+      return {
+        antes,
+        despues: filas.length,
+        textos: filas.map((f) => (f.querySelector('td')?.textContent || '').trim()).slice(0, 5),
+      };
+    })()
+  `.replace('"__TEXTO__"', JSON.stringify(texto));
+
+  const m1 = await ev(buscarEnMatriz(TROZO));
+  check("la matriz tiene buscador", !m1.error, m1.error ?? "");
+  if (!m1.error) {
     check(
-      "ya no queda ningún desplegable con el padrón dentro",
-      r2.selectsDeVendedor === 0,
-      `${r2.selectsDeVendedor} selects`,
+      "trae el padrón entero antes de buscar",
+      m1.antes > 10,
+      `${m1.antes} filas`,
     );
     check(
-      `escribiendo «${TROZO}» aparece el vendedor`,
-      r2.textos.some((t) => t.includes(TROZO)),
-      `${r2.cuantas}: ${r2.textos.join(" | ")}`,
+      `escribiendo «${TROZO}» se recorta a quien coincide`,
+      m1.despues > 0 && m1.despues < m1.antes,
+      `${m1.antes} -> ${m1.despues}`,
     );
     check(
-      "la lista se recorta",
-      r2.cuantas > 0 && r2.cuantas < 10,
-      `${r2.cuantas} de ${cuantos}`,
+      "y el vendedor buscado está entre ellos",
+      m1.textos.some((t) => t.includes(TROZO)),
+      m1.textos.join(" | "),
     );
   }
 
   // ---------- 3. También se encuentra por código ----------
-  //
-  // Se recarga antes: en el paso anterior quedó un vendedor elegido y el
-  // combobox cerrado sobre él. Sin recargar, `buscar` no encontraría el botón
-  // y la prueba acusaría de un fallo que no existe.
-  await cdp("Page.navigate", { url: `${BASE}/punto-de-venta?modo=totales` });
-  await esperar(11000);
-  console.log("\n--- Y por código, para quien lo tenga apuntado ---");
-  const r3 = await ev(buscar(conAlias.codigo));
-  if (!r3.error) {
+  const m2 = await ev(buscarEnMatriz(conAlias.codigo));
+  if (!m2.error) {
     check(
       `escribiendo «${conAlias.codigo}» aparece`,
-      r3.textos.some((t) => t.includes(conAlias.codigo)),
-      r3.textos.join(" | "),
+      m2.textos.some((t) => t.includes(conAlias.codigo)),
+      m2.textos.join(" | "),
     );
   } else {
-    check("el buscador sigue disponible", false, r3.error);
+    check("el buscador sigue disponible", false, m2.error);
   }
 } finally {
   try {
