@@ -123,6 +123,20 @@ export function HojaLiquidacion({
     });
   };
 
+  /*
+   * El primer y el último día de lo MARCADO.
+   *
+   * Las filas vienen ordenadas por fecha y hora, pero marcar es libre: se
+   * puede marcar el lunes y el viernes y nada en medio. Se calcula el mínimo y
+   * el máximo en vez de tomar la primera y la última, que daría lo mismo hoy y
+   * dejaría de darlo en cuanto cambie el orden.
+   */
+  const rangoMarcado = useMemo(() => {
+    if (elegidas.length === 0) return { desde, hasta };
+    const fechas = elegidas.map((f) => f.fecha).sort();
+    return { desde: fechas[0], hasta: fechas[fechas.length - 1] };
+  }, [elegidas, desde, hasta]);
+
   const liquidar = () => {
     setError("");
     iniciar(async () => {
@@ -226,6 +240,7 @@ export function HojaLiquidacion({
             ahora— y no cambia el papel.
           */}
           <BotonImprimir
+            etiqueta="Imprimir la semana"
             hoja={{
               vendedor: vendedorNombre,
               comisionTasa,
@@ -248,6 +263,51 @@ export function HojaLiquidacion({
               })),
             }}
           />
+          {/*
+            Y el papel de SÓLO LO MARCADO.
+
+            Es otro documento, no una variante del anterior: sirve para dejar
+            comprobante de un cierre suelto —«le liquidé la mañana del lunes»—
+            mientras el de la semana sigue siendo el que el vendedor firma.
+
+            Sólo aparece cuando hay algo marcado y no es la semana entera: si
+            coinciden, dos botones que imprimen lo mismo sólo confunden.
+          */}
+          {elegidas.length > 0 && elegidas.length < filas.length && (
+            <BotonImprimir
+              etiqueta={`Imprimir lo marcado (${elegidas.length})`}
+              hoja={{
+                vendedor: vendedorNombre,
+                comisionTasa,
+                // El rango REAL de lo que lleva el papel, no el de la semana:
+                // un comprobante de la mañana del lunes no puede decir que
+                // cubre siete días.
+                desde: rangoMarcado.desde,
+                hasta: rangoMarcado.hasta,
+                semana,
+                /*
+                 * Sin abonos ni arrastre: los dos hablan de la semana entera
+                 * —lo ya cobrado de ella, y lo que se trae de atrás— y en un
+                 * comprobante de tres sorteos no significan nada. Meterlos
+                 * haría que el total del papel no cuadrara con sus líneas.
+                 */
+                abonos: [],
+                arrastre: 0,
+                lineas: elegidas.map((f) => ({
+                  fecha: f.fecha,
+                  hora: f.hora,
+                  ganador: f.ganador,
+                  venta: f.venta,
+                  premiado: f.premiado ?? 0,
+                  factor: f.factor ?? 0,
+                  comision: f.comision,
+                  premios: f.premios,
+                  saldo: f.saldo,
+                  pagado: Boolean(f.pagadoEn),
+                })),
+              }}
+            />
+          )}
           <Boton
             variante="ghost"
             onClick={() => setMarcados(new Set(pendientes.map((f) => f.liquidacionId)))}

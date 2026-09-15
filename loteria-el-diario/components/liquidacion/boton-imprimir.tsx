@@ -24,9 +24,15 @@ import { documentoLiquidacion, type HojaImpresa } from "@/components/liquidacion
 export function BotonImprimir({
   hoja,
   disabled,
+  etiqueta = "Imprimir hoja",
 }: {
   hoja: HojaImpresa;
   disabled?: boolean;
+  /**
+   * Qué dice el botón. Hay dos en la misma barra —la semana entera y sólo lo
+   * marcado— y con la misma etiqueta no habría forma de saber cuál es cuál.
+   */
+  etiqueta?: string;
 }) {
   const marco = useRef<HTMLIFrameElement | null>(null);
 
@@ -61,7 +67,7 @@ export function BotonImprimir({
   return (
     <Boton variante="ghost" onClick={imprimir} disabled={disabled}>
       <Printer size={15} strokeWidth={2} absoluteStrokeWidth />
-      Imprimir hoja
+      {etiqueta}
     </Boton>
   );
 }
