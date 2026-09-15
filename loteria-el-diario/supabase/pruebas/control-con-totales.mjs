@@ -372,5 +372,45 @@ check(
   `barra ${num(serieTodos?.[0]?.r_venta)} contra ${ventaTodos}`,
 );
 
+// ---------------------------------------------------------------------------
+// 5. Las dos consultas del tablero tienen que mirar el mismo padrón.
+//
+// Esto lo destapó la comprobación anterior al arreglar la barra: `fn_control_
+// vendedores` filtra por `activo` desde siempre y `fn_control_serie` no lo
+// hizo nunca, así que la barra contaba a los dados de baja y la tabla no. Los
+// 23.625 de diferencia del 07/09 eran exactamente eso. Antes quedaba tapado
+// porque la barra tampoco contaba las capturas y los dos errores se restaban.
+// ---------------------------------------------------------------------------
+console.log("\n--- Barra y tabla, el mismo padrón ---");
+
+const { data: capsDia } = await sb
+  .from("venta_total")
+  .select("venta, vendedor:vendedor_id(activo, eliminado_en)")
+  .in(
+    "sorteo_id",
+    ((await sb.from("sorteo").select("id").eq("fecha", "2026-09-07")).data ?? []).map((s) => s.id),
+  )
+  .is("anulado_en", null);
+
+const deBaja = (capsDia ?? [])
+  .filter((c) => !c.vendedor?.activo || c.vendedor?.eliminado_en)
+  .reduce((a, c) => a + num(c.venta), 0);
+
+check(
+  "el día elegido tiene venta de vendedores dados de baja, que es lo que lo hace una prueba",
+  deBaja > 0,
+  `${deBaja} de baja`,
+);
+check(
+  "la barra no cuenta a los dados de baja, porque la tabla tampoco",
+  cerca(num(serieTodos?.[0]?.r_venta), ventaTodos, 2),
+  `barra ${num(serieTodos?.[0]?.r_venta)} · tabla ${ventaTodos} · de baja ${deBaja}`,
+);
+check(
+  "lo capturado que se anuncia nunca puede pasar de la venta que se enseña",
+  num(capTodos) <= ventaTodos + 1,
+  `capturado ${num(capTodos)} contra venta ${ventaTodos}`,
+);
+
 console.log(`\n=== ${ok} ok · ${fallos} fallos ===`);
 if (fallos) process.exit(1);
