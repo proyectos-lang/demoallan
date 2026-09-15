@@ -378,3 +378,121 @@ export async function anularAbono(
   revalidatePath("/cobranza");
   return { ok: true, mensaje: "Abono quitado." };
 }
+
+/* ========================================================================
+ * REVERSAR UNA LIQUIDACIÓN.
+ *
+ * Deshacer un corte para que sus sorteos vuelvan a estar pendientes, como si
+ * nunca se hubiera cerrado. Para cuando se liquidó la semana equivocada, se
+ * marcó un sorteo de más, o llegó una corrección después de cerrar.
+ * ====================================================================== */
+
+export type SorteoDelCorte = {
+  fecha: string;
+  hora: string;
+  ganador: number | null;
+  venta: number;
+  comision: number;
+  premios: number;
+  saldo: number;
+};
+
+/** Qué contiene un corte, para poder ver qué se desharía antes de confirmar. */
+export async function detalleCorte(
+  corteId: string,
+): Promise<{ ok: true; sorteos: SorteoDelCorte[] } | { ok: false; mensaje: string }> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede ver un corte." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { data, error } = await supabase.rpc("fn_detalle_corte", { p_corte_id: corteId });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Reversar todavía no está habilitado en la base de datos. Falta aplicar la migración 0084.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  return {
+    ok: true,
+    sorteos: (data ?? []).map((s) => ({
+      fecha: s.r_fecha,
+      hora: s.r_hora,
+      ganador: s.r_ganador,
+      venta: Number(s.r_venta),
+      comision: Number(s.r_comision),
+      premios: Number(s.r_premios),
+      saldo: Number(s.r_saldo),
+    })),
+  };
+}
+
+/**
+ * Deshace un corte.
+ *
+ * Los sorteos vuelven a estar pendientes y los abonos que ese corte había
+ * absorbido vuelven a estar vivos — si no se liberaran, el dinero que el
+ * vendedor ya entregó desaparecería de la cuenta y se le volvería a cobrar.
+ *
+ * El corte se borra, no se marca: uno anulado seguiría figurando en su
+ * historial de pagos diciendo que se le entregó algo. La auditoría conserva
+ * que existió, de cuánto era y quién lo revirtió.
+ */
+export async function reversarCorte(
+  corteId: string,
+  motivo: string,
+): Promise<
+  | { ok: true; sorteos: number; abonos: number; mensaje: string }
+  | { ok: false; mensaje: string }
+> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede reversar una liquidación." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { data, error } = await supabase.rpc("fn_reversar_corte", {
+    p_corte_id: corteId,
+    p_motivo: motivo.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Reversar todavía no está habilitado en la base de datos. Falta aplicar la migración 0084.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const f = data?.[0];
+  if (!f) return { ok: false, mensaje: "La reversa no devolvió resultado." };
+
+  revalidatePath("/liquidacion");
+  revalidatePath("/informe");
+  revalidatePath("/tablero");
+
+  const sorteos = f.r_sorteos ?? 0;
+  const abonos = f.r_abonos ?? 0;
+
+  return {
+    ok: true,
+    sorteos,
+    abonos,
+    mensaje:
+      `Liquidación revertida: ${sorteos} ${sorteos === 1 ? "sorteo vuelve" : "sorteos vuelven"} a estar pendientes.` +
+      (abonos > 0
+        ? ` ${abonos} ${abonos === 1 ? "abono vuelve" : "abonos vuelven"} a descontar del saldo.`
+        : ""),
+  };
+}

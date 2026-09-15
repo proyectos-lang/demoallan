@@ -7,6 +7,7 @@ import {
   type FilaLiquidacion,
 } from "@/components/liquidacion/hoja-liquidacion";
 import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
+import { ReversarCorte } from "@/components/liquidacion/reversar-corte";
 import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { Kpi } from "@/components/informe/kpi";
@@ -392,14 +393,14 @@ export async function VistaHoja({
                 <table className="w-full border-collapse text-tabla min-w-[640px]">
                   <thead>
                     <tr className="bg-tinte">
-                      {["RANGO", "SORTEOS", "VENTA", "COMISIÓN", "PREMIOS", "SALDO", "QUIÉN ENTREGÓ", "NOTA"].map(
+                      {["RANGO", "SORTEOS", "VENTA", "COMISIÓN", "PREMIOS", "SALDO", "QUIÉN ENTREGÓ", "NOTA", ""].map(
                         (th, i) => (
                           <th
-                            key={th}
+                            key={th + i}
                             className={cn(
                               "text-th font-semibold tracking-th text-secundario border-b border-riel py-[8px]",
                               i >= 1 && i <= 5 ? "text-right" : "text-left",
-                              i === 0 ? "pl-4 pr-3" : i === 7 ? "pl-3 pr-4" : "px-3",
+                              i === 0 ? "pl-4 pr-3" : i === 8 ? "pl-3 pr-4" : "px-3",
                             )}
                           >
                             {th}
@@ -440,8 +441,20 @@ export async function VistaHoja({
                         <td className="border-b border-fondo py-[7px] px-3 text-meta">
                           {Number(c.r_saldo) < 0 ? "la casa" : "el vendedor"}
                         </td>
-                        <td className="border-b border-fondo py-[7px] pl-3 pr-4 text-label text-secundario">
+                        <td className="border-b border-fondo py-[7px] px-3 text-label text-secundario">
                           {c.r_nota ?? "—"}
+                        </td>
+                        {/* Deshacer va aquí, en la fila del corte: es donde se
+                            mira cuando uno descubre que se liquidó de más. */}
+                        <td className="border-b border-fondo py-[7px] pl-3 pr-4 whitespace-nowrap">
+                          <ReversarCorte
+                            corteId={c.r_corte_id}
+                            vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
+                            desde={c.r_desde}
+                            hasta={c.r_hasta}
+                            sorteos={c.r_sorteos}
+                            saldo={Number(c.r_saldo)}
+                          />
                         </td>
                       </tr>
                     ))}

@@ -535,6 +535,31 @@ export type Database = {
         };
         Returns: string;
       };
+      /* --- Reversar una liquidación (0084) --- */
+      fn_reversar_corte: {
+        Args: { p_corte_id: string; p_motivo?: string | null; p_usuario_id?: string | null };
+        Returns: {
+          /** Cuántos sorteos vuelven a estar pendientes. */
+          r_sorteos: number;
+          /** Abonos que ese corte había absorbido y vuelven a estar vivos. */
+          r_abonos: number;
+          r_saldo: number;
+          r_desde: string;
+          r_hasta: string;
+        }[];
+      };
+      fn_detalle_corte: {
+        Args: { p_corte_id: string };
+        Returns: {
+          r_fecha: string;
+          r_hora: HoraSorteo;
+          r_ganador: number | null;
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+        }[];
+      };
       /* --- Trazabilidad (0083) --- */
       fn_trazabilidad: {
         Args: {
