@@ -46,8 +46,18 @@ const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_
   auth: { persistSession: false },
 });
 
-const VIEJA = "2031-03-10";   // antes del corte: no se debe tocar
-const NUEVA = "2031-03-11";   // desde aquí se recalcula
+/*
+ * Fechas PASADAS, no futuras.
+ *
+ * El resto de pruebas usa 2031 para no chocar con la operación real, pero aquí
+ * no sirve: `fn_recalcular_parametros` rechaza una fecha futura —casi siempre
+ * es un dedazo en el año— y con 2031 fallaba todo por esa guarda, que estaba
+ * haciendo bien su trabajo.
+ *
+ * Se usa un año muy anterior a los datos reales, que empiezan en 2026.
+ */
+const VIEJA = "2019-03-10";   // antes del corte: no se debe tocar
+const NUEVA = "2019-03-11";   // desde aquí se recalcula
 const NOMBRE = "ZZZ Recalculo";
 const ANTES = { comision: 0.15, factor: 70 };
 const AHORA = { comision: 0.2, factor: 80 };

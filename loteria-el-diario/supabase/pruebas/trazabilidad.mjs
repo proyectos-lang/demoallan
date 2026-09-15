@@ -124,11 +124,15 @@ async function main() {
   }
 
   // --- Se genera actividad, la que de verdad importa auditar ------------------
+  // Con `p_usuario_id`: es lo que la aplicación manda siempre, y sin él la
+  // venta se registra sin autor — correctamente, porque no hay ninguno que
+  // guardar. La prueba lo omitía y se acusaba a sí misma.
   const { data: tanda } = await sb.rpc("fn_registrar_tanda", {
     p_sorteo_id: sorteos[0].id,
     p_vendedor_id: vendedor,
     p_tickets: [[{ numero: 7, monto: 100 }]],
     p_forzar: true,
+    p_usuario_id: admin.id,
   });
   const { data: tk } = await sb
     .from("ticket")
