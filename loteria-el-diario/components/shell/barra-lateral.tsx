@@ -13,6 +13,7 @@ import {
   MapPin,
   Receipt,
   ScanText,
+  History,
   SlidersHorizontal,
   Smartphone,
   Table,
@@ -92,6 +93,15 @@ const SECCIONES: { titulo: string; items: Item[] }[] = [
     titulo: "CONFIGURACIÓN",
     items: [
       { href: "/vendedores", etiqueta: "Vendedores y límites", Icono: SlidersHorizontal, color: "var(--color-nav-i-vendedores)" },
+      {
+        href: "/trazabilidad",
+        etiqueta: "Trazabilidad",
+        Icono: History,
+        color: "var(--color-nav-i-trazabilidad)",
+        // El auditor también: mirar quién cambió qué es exactamente su
+        // trabajo, y esta pantalla no deja tocar nada.
+        roles: ["administrador", "auditor"],
+      },
     ],
   },
 ];

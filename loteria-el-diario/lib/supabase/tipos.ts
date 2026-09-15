@@ -535,6 +535,45 @@ export type Database = {
         };
         Returns: string;
       };
+      /* --- Trazabilidad (0083) --- */
+      fn_trazabilidad: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_accion?: string | null;
+          p_entidad?: string | null;
+          p_usuario_id?: string | null;
+          p_limite?: number;
+        };
+        Returns: {
+          r_id: number;
+          r_ocurrido_en: string;
+          r_entidad: string;
+          r_entidad_id: string | null;
+          r_accion: string;
+          r_campo: string | null;
+          r_valor_anterior: string | null;
+          r_valor_nuevo: string | null;
+          r_usuario_id: string | null;
+          /** Nulo en los apuntes anteriores a la 0083: auth.uid() era nulo. */
+          r_usuario: string | null;
+          r_rol: string | null;
+          r_vendedor: string | null;
+          r_codigo: string | null;
+          r_fecha: string | null;
+          r_hora: HoraSorteo | null;
+        }[];
+      };
+      fn_trazabilidad_filtros: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          /** 'accion', 'entidad' o 'usuario'. */
+          r_tipo: string;
+          r_valor: string;
+          r_rotulo: string;
+          r_cuantos: number;
+        }[];
+      };
       /* --- Aplicar hacia atrás una comisión o un factor (0082) --- */
       fn_impacto_recalculo: {
         Args: {

@@ -79,6 +79,9 @@
   --color-nav-i-geo: #34d399;
   --color-nav-i-simulador: #8b95f6;
   --color-nav-i-vendedores: #fb923c;
+  /* Trazabilidad: gris azulado, sin estridencia. Es una pantalla de consulta
+     —no se toca nada desde ahí— y compite en la barra con ocho colores. */
+  --color-nav-i-trazabilidad: #94a3b8;
   --color-nav-i-liquidacion: #f0abfc;
   --color-nav-i-informe: #fcd34d;
   --color-nav-i-analisis: #5eead4;

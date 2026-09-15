@@ -49,6 +49,15 @@ function esPublica(ruta: string): boolean {
 const SOLO_ADMINISTRADOR = ["/liquidacion"];
 
 /*
+ * Pantallas que ven administrador y auditor, pero no el digitador.
+ *
+ * La trazabilidad enseña quién cambió qué: es el trabajo del auditor y no se
+ * toca nada desde ahí. Al digitador no le corresponde — su papel es teclear
+ * hojas, y ver el historial de decisiones ajenas no le ayuda a hacerlo.
+ */
+const ADMIN_Y_AUDITOR = ["/trazabilidad"];
+
+/*
  * Las pantallas del portal del vendedor.
  *
  * En UN sitio y no en dos: la lista se usa para decir qué ve el vendedor y qué
@@ -81,6 +90,14 @@ function permitida(ruta: string, rol: string): boolean {
   }
 
   if (rol !== "administrador" && SOLO_ADMINISTRADOR.some((r) => ruta.startsWith(r))) {
+    return false;
+  }
+
+  if (
+    rol !== "administrador" &&
+    rol !== "auditor" &&
+    ADMIN_Y_AUDITOR.some((r) => ruta.startsWith(r))
+  ) {
     return false;
   }
 
