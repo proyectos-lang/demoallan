@@ -532,6 +532,8 @@ export type Database = {
           p_comision: number;
           p_factor_pago: number;
           p_tope_por_numero: number;
+          /** Quién lo cambia, para la auditoría (0086). */
+          p_usuario_id?: string | null;
         };
         Returns: string;
       };

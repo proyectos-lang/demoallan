@@ -36,6 +36,10 @@ export async function guardarParametros(cambios: Cambio[]): Promise<Resultado> {
     return { ok: false, mensaje: "No hay cambios sin guardar." };
   }
 
+  // Quién lo cambia, para la auditoría: la base no puede saberlo por su cuenta
+  // desde que la aplicación habla como `service_role`.
+  const sesion = await sesionActual();
+
   const supabase = await crearClienteServidor();
 
   const { data: vendedores } = await supabase
@@ -68,6 +72,9 @@ export async function guardarParametros(cambios: Cambio[]): Promise<Resultado> {
       p_comision: c.comision / 100,
       p_factor_pago: c.factor_pago,
       p_tope_por_numero: c.tope_por_numero,
+      // Quién lo cambió: `auth.uid()` es nulo desde la 0024, así que sin esto
+      // la auditoría no guarda autor.
+      p_usuario_id: sesion?.id ?? null,
     });
 
     if (error) {

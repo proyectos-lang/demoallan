@@ -31,6 +31,20 @@
 -- y se sabrá que es de antes.
 -- ===========================================================================
 
+/*
+ * Se SUELTA la firma vieja antes de crear la nueva.
+ *
+ * `create or replace` no reemplaza una función cuando cambia su lista de
+ * parámetros: crea OTRA. Sin este `drop` quedan las dos —la de seis argumentos
+ * y la de siete— y toda llamada con seis se vuelve ambigua, porque encaja en
+ * las dos. Postgres no elige la equivocada: rechaza, y como casi todo audita,
+ * el sistema deja de registrar ventas.
+ *
+ * Es el mismo tropiezo que la 0067 con `fn_anular_ticket`. Se arregló en la
+ * 0085 y se corrige aquí para que una instalación desde cero no lo repita.
+ */
+drop function if exists public.fn_auditar(text, uuid, text, text, text, text);
+
 create or replace function public.fn_auditar(
   p_entidad        text,
   p_entidad_id     uuid,
