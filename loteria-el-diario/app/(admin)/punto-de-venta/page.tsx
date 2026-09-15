@@ -311,21 +311,35 @@ export default async function PuntoDeVentaPage({
    * consultas agregadas detrás, y pedirlas para pintar la rejilla de captura
    * sería trabajo tirado en cada carga de la pantalla.
    */
-  const matriz: FilaMatriz[] = porTotales
-    ? ((await supabase.rpc("fn_matriz_totales", { p_sorteo_id: sorteo.id })).data ?? []).map(
-        (f) => ({
-          vendedorId: f.r_vendedor_id,
-          codigo: f.r_codigo,
-          vendedor: f.r_vendedor,
-          factor: Number(f.r_factor),
-          comision: Number(f.r_comision),
-          venta: f.r_venta === null ? null : Number(f.r_venta),
-          premiado: f.r_premiado === null ? null : Number(f.r_premiado),
-          ventaPropia: Number(f.r_venta_propia),
-          tickets: f.r_tickets,
-        }),
-      )
-    : [];
+  const matrizCruda = porTotales
+    ? await supabase.rpc("fn_matriz_totales", { p_sorteo_id: sorteo.id })
+    : { data: null, error: null };
+
+  /*
+   * El error NO se descarta con `?? []`.
+   *
+   * Descartándolo la matriz recibía cero filas y la pantalla decía «ningún
+   * vendedor coincide con el filtro» —culpando a un filtro que nadie había
+   * puesto— cuando lo que pasaba era que faltaba la migración. Un fallo que se
+   * disfraza de dato vacío cuesta mucho más de encontrar que uno que se dice.
+   */
+  const errorMatriz = matrizCruda.error
+    ? matrizCruda.error.code === "PGRST202"
+      ? "La captura en matriz todavía no está habilitada en la base de datos. Falta aplicar la migración 0087."
+      : `No se pudo cargar el padrón: ${matrizCruda.error.message}`
+    : "";
+
+  const matriz: FilaMatriz[] = (matrizCruda.data ?? []).map((f) => ({
+    vendedorId: f.r_vendedor_id,
+    codigo: f.r_codigo,
+    vendedor: f.r_vendedor,
+    factor: Number(f.r_factor),
+    comision: Number(f.r_comision),
+    venta: f.r_venta === null ? null : Number(f.r_venta),
+    premiado: f.r_premiado === null ? null : Number(f.r_premiado),
+    ventaPropia: Number(f.r_venta_propia),
+    tickets: f.r_tickets,
+  }));
 
   const datos: DatosPos = {
     sorteo,
@@ -359,7 +373,11 @@ export default async function PuntoDeVentaPage({
       )}
 
       {porTotales ? (
-        <PanelTotales sorteo={sorteo} sorteos={sorteos} fecha={dia} filas={matriz} />
+        errorMatriz ? (
+          <TarjetaNota>{errorMatriz}</TarjetaNota>
+        ) : (
+          <PanelTotales sorteo={sorteo} sorteos={sorteos} fecha={dia} filas={matriz} />
+        )
       ) : (
         <PuntoDeVenta datos={datos} />
       )}

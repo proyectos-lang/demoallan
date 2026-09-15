@@ -355,9 +355,16 @@ export function MatrizTotales({
           </table>
         </div>
 
+        {/*
+          Se distingue «el filtro no deja pasar a nadie» de «no hay padrón».
+          El mensaje único culpaba al filtro incluso cuando no había ninguno
+          puesto, y mandaba a buscar el problema donde no estaba.
+        */}
         {visibles.length === 0 && (
           <p className="text-meta text-secundario px-4 py-5 m-0">
-            Ningún vendedor coincide con el filtro.
+            {filas.length === 0
+              ? "No hay ningún vendedor activo con parámetros vigentes."
+              : "Ningún vendedor coincide con el filtro. Quite la búsqueda o la casilla de arriba."}
           </p>
         )}
 
