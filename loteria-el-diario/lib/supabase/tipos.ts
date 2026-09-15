@@ -537,6 +537,40 @@ export type Database = {
         };
         Returns: string;
       };
+      /* --- Captura por totales en matriz (0087) --- */
+      fn_matriz_totales: {
+        Args: { p_sorteo_id: string };
+        Returns: {
+          r_vendedor_id: string;
+          r_codigo: string;
+          r_vendedor: string;
+          r_factor: number;
+          r_comision: number;
+          /** Lo ya capturado por totales, o nulo si no hay captura. */
+          r_venta: number | null;
+          /** Lo APOSTADO, que es lo que se teclea. Nulo sin captura. */
+          r_premiado: number | null;
+          r_captura_id: string | null;
+          /** Lo que vendió por su teléfono en ese sorteo. */
+          r_venta_propia: number;
+          r_tickets: number;
+        }[];
+      };
+      fn_capturar_totales_masivo: {
+        Args: {
+          p_sorteo_id: string;
+          /** `[{ vendedor_id, venta, premiado }]`. `premiado` es lo apostado. */
+          p_filas: { vendedor_id: string; venta: number; premiado: number }[];
+          p_usuario_id?: string | null;
+        };
+        Returns: {
+          r_creadas: number;
+          r_corregidas: number;
+          r_sin_cambio: number;
+          r_venta: number;
+          r_premios: number;
+        }[];
+      };
       /* --- Reversar una liquidación (0084) --- */
       fn_reversar_corte: {
         Args: { p_corte_id: string; p_motivo?: string | null; p_usuario_id?: string | null };

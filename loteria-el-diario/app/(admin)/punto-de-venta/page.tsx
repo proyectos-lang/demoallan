@@ -1,11 +1,12 @@
-import { CapturaTotales, type CapturaExistente } from "@/components/pos/captura-totales";
+import { PanelTotales } from "@/components/pos/panel-totales";
+import type { FilaMatriz } from "@/app/(admin)/punto-de-venta/acciones";
 import { ModoCaptura } from "@/components/pos/modo-captura";
 import { TotalesDelDia, type CapturaDelDia } from "@/components/pos/totales-del-dia";
 import { VistaDetalle } from "@/app/(admin)/informe/vista-detalle";
 import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras, rotulo } from "@/lib/format";
+import { fechaHonduras } from "@/lib/format";
 import type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -288,31 +289,43 @@ export default async function PuntoDeVentaPage({
   }
 
   /*
-   * Las capturas por totales vivas de este sorteo.
+   * CUÁNTAS capturas vivas tiene este sorteo, sólo para el contador de la
+   * pestaña.
    *
-   * Se piden siempre que el modo esté disponible, no sólo cuando está activo:
-   * son a lo sumo treinta filas y así el contador de la pestaña puede avisar
-   * de que hay capturas sin que haya que entrar a mirarlas.
+   * Se cuenta en la base en vez de traer las filas: lo único que se necesita
+   * es el número, y quien entra al modo por totales recibe la matriz entera
+   * —con sus cifras— por otra vía.
    */
-  const { data: capturasCrudas } = puedeForzar
+  const { count: cuantasCapturas } = puedeForzar
     ? await supabase
         .from("venta_total")
-        .select("id, vendedor_id, venta, premios, comision_congelada")
+        .select("*", { count: "exact", head: true })
         .eq("sorteo_id", sorteo.id)
         .is("anulado_en", null)
-    : { data: null };
+    : { count: 0 };
 
-  const capturas: CapturaExistente[] = (capturasCrudas ?? []).map((c) => {
-    const v = vendedores.find((x) => x.id === c.vendedor_id);
-    return {
-      id: c.id,
-      vendedorId: c.vendedor_id,
-      vendedor: v ? `${v.codigo} · ${rotulo(v)}` : "—",
-      venta: Number(c.venta),
-      premios: Number(c.premios),
-      comision: Number(c.venta) * Number(c.comision_congelada),
-    };
-  });
+  /*
+   * La matriz: el padrón entero con lo que ya tenga cada uno.
+   *
+   * Sólo cuando se está en el modo por totales — son 102 filas con dos
+   * consultas agregadas detrás, y pedirlas para pintar la rejilla de captura
+   * sería trabajo tirado en cada carga de la pantalla.
+   */
+  const matriz: FilaMatriz[] = porTotales
+    ? ((await supabase.rpc("fn_matriz_totales", { p_sorteo_id: sorteo.id })).data ?? []).map(
+        (f) => ({
+          vendedorId: f.r_vendedor_id,
+          codigo: f.r_codigo,
+          vendedor: f.r_vendedor,
+          factor: Number(f.r_factor),
+          comision: Number(f.r_comision),
+          venta: f.r_venta === null ? null : Number(f.r_venta),
+          premiado: f.r_premiado === null ? null : Number(f.r_premiado),
+          ventaPropia: Number(f.r_venta_propia),
+          tickets: f.r_tickets,
+        }),
+      )
+    : [];
 
   const datos: DatosPos = {
     sorteo,
@@ -339,20 +352,14 @@ export default async function PuntoDeVentaPage({
           <ModoCaptura
             modo={porTotales ? "totales" : "detalle"}
             sorteoId={sorteo.id}
-            capturas={capturas.length}
+            capturas={cuantasCapturas ?? 0}
             fecha={dia}
           />
         </div>
       )}
 
       {porTotales ? (
-        <CapturaTotales
-          sorteo={sorteo}
-          sorteos={sorteos}
-          fecha={dia}
-          vendedores={vendedores}
-          capturas={capturas}
-        />
+        <PanelTotales sorteo={sorteo} sorteos={sorteos} fecha={dia} filas={matriz} />
       ) : (
         <PuntoDeVenta datos={datos} />
       )}

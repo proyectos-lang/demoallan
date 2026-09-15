@@ -458,3 +458,141 @@ export async function editarVentaPorTotales(
     } ${Math.abs(saldo).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
   };
 }
+
+/* ========================================================================
+ * CAPTURA MASIVA: el padrón entero de un sorteo, de una vez.
+ *
+ * La hoja de papel de la que se copia tiene forma de tabla, y la pantalla
+ * ahora también. Con 102 vendedores, capturar de uno en uno son 102 vueltas.
+ * ====================================================================== */
+
+export type FilaMatriz = {
+  vendedorId: string;
+  codigo: string;
+  vendedor: string;
+  factor: number;
+  comision: number;
+  /** Lo ya capturado por totales, o nulo si no hay captura. */
+  venta: number | null;
+  /** Lo APOSTADO, que es lo que se teclea. */
+  premiado: number | null;
+  /** Lo que vendió por su teléfono: capturarle además sumaría dos veces. */
+  ventaPropia: number;
+  tickets: number;
+};
+
+/** El padrón entero de un sorteo, con lo que ya tenga cada uno. */
+export async function matrizTotales(
+  sorteoId: string,
+): Promise<{ ok: true; filas: FilaMatriz[] } | { ok: false; mensaje: string }> {
+  const sesion = await sesionVigente();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede capturar por totales." };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc("fn_matriz_totales", { p_sorteo_id: sorteoId });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "La captura en matriz todavía no está habilitada en la base de datos. Falta aplicar la migración 0087.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  return {
+    ok: true,
+    filas: (data ?? []).map((f) => ({
+      vendedorId: f.r_vendedor_id,
+      codigo: f.r_codigo,
+      vendedor: f.r_vendedor,
+      factor: Number(f.r_factor),
+      comision: Number(f.r_comision),
+      venta: f.r_venta === null ? null : Number(f.r_venta),
+      premiado: f.r_premiado === null ? null : Number(f.r_premiado),
+      ventaPropia: Number(f.r_venta_propia),
+      tickets: f.r_tickets,
+    })),
+  };
+}
+
+/**
+ * Guarda la matriz entera.
+ *
+ * Sólo toca las capturas por totales: lo que el vendedor registró por su
+ * teléfono no se toca jamás desde aquí. Y es todo o nada — con 102 filas,
+ * guardar la mitad y fallar sería peor que no guardar nada, porque nadie
+ * sabría por dónde iba.
+ */
+export async function guardarMatrizTotales(
+  sorteoId: string,
+  filas: { vendedorId: string; venta: number; premiado: number }[],
+): Promise<
+  | { ok: true; creadas: number; corregidas: number; sinCambio: number; mensaje: string }
+  | { ok: false; mensaje: string }
+> {
+  const sesion = await sesionVigente();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede capturar por totales." };
+  }
+
+  // Las filas en blanco no viajan: son «no tengo su hoja», y mandarlas sólo
+  // haría al servidor recorrer cien filas para no hacer nada con ellas.
+  const conCifra = filas.filter((f) => f.venta > 0 || f.premiado > 0);
+  if (conCifra.length === 0) {
+    return { ok: false, mensaje: "No hay ninguna cifra que guardar." };
+  }
+
+  for (const f of conCifra) {
+    if (!(f.venta >= 0) || !(f.premiado >= 0)) {
+      return { ok: false, mensaje: "Ni la venta ni el premiado pueden ser negativos." };
+    }
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc("fn_capturar_totales_masivo", {
+    p_sorteo_id: sorteoId,
+    p_filas: conCifra.map((f) => ({
+      vendedor_id: f.vendedorId,
+      venta: f.venta,
+      premiado: f.premiado,
+    })),
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "La captura en matriz todavía no está habilitada en la base de datos. Falta aplicar la migración 0087.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const r = data?.[0];
+  if (!r) return { ok: false, mensaje: "El guardado no devolvió resultado." };
+
+  revalidatePath("/punto-de-venta");
+  revalidatePath("/liquidacion");
+  revalidatePath("/informe");
+  revalidatePath("/tablero");
+
+  const partes: string[] = [];
+  if (r.r_creadas > 0) partes.push(`${r.r_creadas} ${r.r_creadas === 1 ? "registrada" : "registradas"}`);
+  if (r.r_corregidas > 0) partes.push(`${r.r_corregidas} ${r.r_corregidas === 1 ? "corregida" : "corregidas"}`);
+  if (r.r_sin_cambio > 0) partes.push(`${r.r_sin_cambio} sin cambio`);
+
+  return {
+    ok: true,
+    creadas: r.r_creadas,
+    corregidas: r.r_corregidas,
+    sinCambio: r.r_sin_cambio,
+    mensaje: `Guardado: ${partes.join(", ")}. Venta ${Number(r.r_venta).toLocaleString("en-US")}.`,
+  };
+}
