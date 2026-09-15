@@ -53,7 +53,8 @@ export default async function ControlPage(props: PageProps<"/control">) {
       : [];
   const filtroVendedores = elegidos.length ? elegidos : null;
 
-  const [{ data: porVendedor }, { data: serie }, { data: actividad }] = await Promise.all([
+  const [{ data: porVendedor }, { data: serie }, { data: actividad }, { data: totalizado }] =
+    await Promise.all([
     supabase.rpc("fn_control_vendedores", {
       p_desde: desde,
       p_hasta: hasta,
@@ -71,7 +72,16 @@ export default async function ControlPage(props: PageProps<"/control">) {
       p_hasta: hasta,
       p_vendedores: filtroVendedores,
     }),
+    supabase.rpc("fn_control_capturado", {
+      p_desde: desde,
+      p_hasta: hasta,
+      p_vendedores: filtroVendedores,
+      p_hora: (hora || null) as never,
+    }),
   ]);
+
+  // Cuánto de la venta no pasó por el portal. Se enseña sólo si lo hay.
+  const capturado = Number(totalizado ?? 0);
 
   const filas = (porVendedor ?? []).map((v) => ({
     id: v.r_vendedor_id,
@@ -153,7 +163,14 @@ export default async function ControlPage(props: PageProps<"/control">) {
           <>
             <div className="grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
               {[
-                { e: "VENTA", v: fmtK(total.venta), p: `${total.tickets} tickets` },
+                {
+                  e: "VENTA",
+                  v: fmtK(total.venta),
+                  // El conteo es de tickets, y la venta por totales no tiene: si sólo
+                  // se dijera «N tickets» junto a una cifra que los incluye, el lector
+                  // dividiría una cosa entre otra y le saldría un promedio falso.
+                  p: capturado > 0 ? `${total.tickets} tickets · ${fmt(capturado)} por totales` : `${total.tickets} tickets`,
+                },
                 {
                   e: "COMISIONES",
                   v: fmtK(total.comision),
@@ -312,7 +329,9 @@ export default async function ControlPage(props: PageProps<"/control">) {
               <Tarjeta className="flex-1 min-w-0 md:min-w-[420px]">
                 <h2 className="text-h2 font-semibold tracking-sutil m-0">Actividad por hora</h2>
                 <p className="text-meta text-secundario mt-[5px] mb-3">
-                  Hora de Honduras, acumulada de todo el rango.
+                  Hora de Honduras, acumulada de todo el rango. Cuenta la venta hecha en el
+                  portal: la capturada por totales no dice a qué hora se vendió, sólo cuándo se
+                  digitó, y mezclarlas movería la curva a la hora de oficina.
                 </p>
                 <div className="flex items-end gap-[4px] h-[130px]">
                   {porHora.map((m, i) => (

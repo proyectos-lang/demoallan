@@ -1004,6 +1004,16 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string; p_vendedores?: string[] | null };
         Returns: { r_hora: number; r_monto: number }[];
       };
+      /** Qué parte de la venta del rango se registró por totales. */
+      fn_control_capturado: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+          p_vendedores?: string[] | null;
+          p_hora?: HoraSorteo | null;
+        };
+        Returns: number;
+      };
       /** La bitácora, por rango. Única vista que baja a la línea individual. */
       fn_bitacora_rango: {
         Args: {
