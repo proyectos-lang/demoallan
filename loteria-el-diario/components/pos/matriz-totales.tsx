@@ -34,9 +34,13 @@ type Celda = { venta: string; premiado: string };
  * corregir un dedazo es teclear encima en vez de ir a otra pantalla.
  *
  * NUNCA SE TOCA LA VENTA DEL VENDEDOR. Los tickets con números que él registró
- * son otra fuente y conviven con la captura. La columna «suyo» está para
- * avisar: a quien ya vendió por su teléfono, capturarle además sumaría dos
- * veces.
+ * son otra fuente y conviven con la captura: el guardado sólo mira
+ * `venta_total`.
+ *
+ * Que un vendedor haya vendido por su teléfono sigue sabiéndose —lo usa la
+ * casilla de «ocultar a los que ya vendieron»— pero ya no ocupa una columna:
+ * quien teclea cien filas mira las dos cifras que escribe, no una tercera que
+ * no puede cambiar.
  */
 export function MatrizTotales({
   sorteo,
@@ -264,14 +268,14 @@ export function MatrizTotales({
           <table className="w-full border-collapse text-tabla">
             <thead className="sticky top-0 z-10 bg-tinte">
               <tr>
-                {["VENDEDOR", "VENTA TOTAL", "VALOR PREMIADO", "SUYO", "PREMIO PAGADO"].map(
+                {["VENDEDOR", "VENTA TOTAL", "VALOR PREMIADO", "PREMIO PAGADO"].map(
                   (h, i) => (
                     <th
                       key={h}
                       className={cn(
                         "text-th font-semibold tracking-th text-secundario border-b border-riel py-[9px]",
                         i === 0 ? "text-left pl-4 pr-3" : "text-right px-3",
-                        i === 4 && "pr-4",
+                        i === 3 && "pr-4",
                       )}
                     >
                       {h}
@@ -331,19 +335,6 @@ export function MatrizTotales({
                           tecleado ? "border-acento-suave" : "border-borde-campo",
                         )}
                       />
-                    </td>
-                    {/*
-                      Lo que vendió por su teléfono. No se puede tocar desde
-                      aquí —es su venta, con números y folio— y se muestra para
-                      avisar: capturarle además sumaría su día dos veces.
-                    */}
-                    <td
-                      className={cn(
-                        "border-b border-fondo py-[5px] px-3 text-right tabular-nums",
-                        f.tickets > 0 ? "text-ambar-texto" : "text-mudo",
-                      )}
-                    >
-                      {f.tickets > 0 ? fmt(f.ventaPropia, false) : "—"}
                     </td>
                     <td className="border-b border-fondo py-[5px] px-3 pr-4 text-right tabular-nums text-secundario">
                       {p > 0 ? fmt(p * f.factor, false) : "—"}
