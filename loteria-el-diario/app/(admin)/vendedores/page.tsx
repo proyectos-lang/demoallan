@@ -1,6 +1,7 @@
 import { TablaVendedores, type FilaVendedor } from "@/components/vendedores/tabla-vendedores";
 import { Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
+import { fechaHonduras } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 // TODO(Fase 1): el límite global pasa a ser por franja horaria, leído de
@@ -85,6 +86,7 @@ export default async function VendedoresPage({ searchParams }: PageProps<"/vende
         ciudades={ciudades}
         limiteGlobal={LIMITE_GLOBAL_REFERENCIA}
         verBajas={verBajas}
+        hoy={fechaHonduras()}
       />
     </Pagina>
   );

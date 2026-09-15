@@ -363,3 +363,144 @@ export async function editarVendedor(v: EdicionVendedor): Promise<Resultado> {
   revalidatePath("/vendedores");
   return { ok: true, mensaje: `Datos de ${v.nombre.trim()} actualizados y registrados en auditoría.` };
 }
+
+/* ========================================================================
+ * APLICAR HACIA ATRÁS UNA COMISIÓN O UN FACTOR.
+ *
+ * Cada venta congela la comisión que regía al registrarse, y eso es lo
+ * correcto por omisión: si cambiar el porcentaje reescribiera el pasado, un
+ * corte ya firmado dejaría de cuadrar con lo que se le entregó al vendedor.
+ *
+ * Pero cuando el cambio se acordó por la mañana y se tecleó por la tarde, lo
+ * correcto es lo contrario. Para eso están estas dos: una dice qué pasaría, la
+ * otra lo hace.
+ * ====================================================================== */
+
+export type ImpactoRecalculo = {
+  sorteos: number;
+  /** De ésos, cuántos ya se le pagaron en un corte. */
+  pagados: number;
+  venta: number;
+  comisionAntes: number;
+  comisionAhora: number;
+  premiosAntes: number;
+  premiosAhora: number;
+  /** El primer sorteo que entra de verdad, que puede ser posterior a la fecha. */
+  desdeReal: string | null;
+};
+
+/** Qué cambiaría el recálculo, sin tocar nada. */
+export async function impactoRecalculo(
+  vendedorId: string,
+  desde: string,
+  comision: number,
+  factorPago: number,
+): Promise<{ ok: true; impacto: ImpactoRecalculo } | { ok: false; mensaje: string }> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede recalcular." };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc("fn_impacto_recalculo", {
+    p_vendedor_id: vendedorId,
+    p_desde: desde,
+    p_comision: comision / 100,
+    p_factor_pago: factorPago,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Recalcular todavía no está habilitado en la base de datos. Falta aplicar la migración 0082.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const f = data?.[0];
+  return {
+    ok: true,
+    impacto: {
+      sorteos: f?.r_sorteos ?? 0,
+      pagados: f?.r_pagados ?? 0,
+      venta: Number(f?.r_venta ?? 0),
+      comisionAntes: Number(f?.r_comision_antes ?? 0),
+      comisionAhora: Number(f?.r_comision_ahora ?? 0),
+      premiosAntes: Number(f?.r_premios_antes ?? 0),
+      premiosAhora: Number(f?.r_premios_ahora ?? 0),
+      desdeReal: f?.r_desde_real ?? null,
+    },
+  };
+}
+
+/**
+ * Reescribe la comisión y el factor de todo lo del vendedor desde una fecha.
+ *
+ * INCLUYE LOS SORTEOS YA PAGADOS, por decisión de administración. El corte
+ * guarda sus propias cifras y no se toca, así que después de esto la
+ * liquidación de un sorteo pagado puede decir algo distinto del papel con el
+ * que se entregó el dinero. Por eso se devuelve cuántos fueron: quien lo
+ * ejecuta tiene que saberlo.
+ */
+export async function recalcularParametros(
+  vendedorId: string,
+  desde: string,
+  comision: number,
+  factorPago: number,
+): Promise<
+  | { ok: true; lineas: number; capturas: number; sorteos: number; pagados: number; mensaje: string }
+  | { ok: false; mensaje: string }
+> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede recalcular." };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc("fn_recalcular_parametros", {
+    p_vendedor_id: vendedorId,
+    p_desde: desde,
+    p_comision: comision / 100,
+    p_factor_pago: factorPago,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje: "Recalcular todavía no está habilitado en la base de datos. Falta aplicar la migración 0082.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const f = data?.[0];
+  if (!f) return { ok: false, mensaje: "El recálculo no devolvió resultado." };
+
+  // Todo lo que lee comisiones o liquidaciones queda desactualizado.
+  revalidatePath("/vendedores");
+  revalidatePath("/liquidacion");
+  revalidatePath("/informe");
+  revalidatePath("/tablero");
+
+  const sorteos = f.r_sorteos ?? 0;
+  const pagados = f.r_pagados ?? 0;
+
+  return {
+    ok: true,
+    lineas: f.r_lineas ?? 0,
+    capturas: f.r_capturas ?? 0,
+    sorteos,
+    pagados,
+    mensaje:
+      `Recalculado: ${sorteos} ${sorteos === 1 ? "sorteo" : "sorteos"}.` +
+      (pagados > 0
+        ? ` ${pagados} ${pagados === 1 ? "ya estaba pagado" : "ya estaban pagados"} en un corte: esa liquidación ya no coincide con el papel que se le entregó.`
+        : ""),
+  };
+}

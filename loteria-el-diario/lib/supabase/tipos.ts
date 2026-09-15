@@ -535,6 +535,44 @@ export type Database = {
         };
         Returns: string;
       };
+      /* --- Aplicar hacia atrás una comisión o un factor (0082) --- */
+      fn_impacto_recalculo: {
+        Args: {
+          p_vendedor_id: string;
+          p_desde: string;
+          /** Fracción, como en la base. */
+          p_comision: number;
+          p_factor_pago: number;
+        };
+        Returns: {
+          r_sorteos: number;
+          /** De ésos, cuántos ya se pagaron en un corte. */
+          r_pagados: number;
+          r_venta: number;
+          r_comision_antes: number;
+          r_comision_ahora: number;
+          r_premios_antes: number;
+          r_premios_ahora: number;
+          r_desde_real: string | null;
+        }[];
+      };
+      fn_recalcular_parametros: {
+        Args: {
+          p_vendedor_id: string;
+          p_desde: string;
+          p_comision: number;
+          p_factor_pago: number;
+          p_usuario_id?: string | null;
+        };
+        Returns: {
+          r_lineas: number;
+          r_capturas: number;
+          r_sorteos: number;
+          r_pagados: number;
+          r_comision_antes: number;
+          r_comision_ahora: number;
+        }[];
+      };
       /** Consulta de conveniencia. NO es autoritativa: la que manda es la de fn_registrar_ticket. */
       fn_cupo_disponible: {
         Args: { p_sorteo_id: string; p_vendedor_id: string; p_numero: number };

@@ -14,6 +14,10 @@ import {
 import { fmt, iniciales } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { guardarParametros, type Cambio } from "@/app/(admin)/vendedores/acciones";
+import {
+  RecalcularParametros,
+  type Recalculable,
+} from "@/components/vendedores/recalcular-parametros";
 import { crearAcceso, restablecerAcceso } from "@/app/(admin)/vendedores/acceso";
 import {
   eliminarVendedor,
@@ -63,12 +67,21 @@ export function TablaVendedores({
   limiteGlobal,
   verBajas,
   ciudades = [],
+  hoy,
 }: {
   filas: FilaVendedor[];
   limiteGlobal: number;
   verBajas: boolean;
   /** Las ciudades ya registradas, para sugerirlas al crear y al editar. */
   ciudades?: string[];
+  /**
+   * Hoy en Honduras, como tope del selector de fecha del recálculo.
+   *
+   * Viene del servidor y no de `new Date()`: el reloj del navegador es el del
+   * usuario, y en un equipo mal puesto en hora dejaría elegir un día que aquí
+   * todavía no ha llegado.
+   */
+  hoy: string;
 }) {
   const router = useRouter();
   // La confirmación de baja va en modal y no en `confirm()`: eliminar es
@@ -237,23 +250,59 @@ export function TablaVendedores({
     setAviso({ texto: "", tipo: "neutro" });
   };
 
+  /*
+   * Los vendedores a los que hay que preguntar si se aplica hacia atrás.
+   *
+   * Es una COLA, no uno solo: se pueden editar varias filas y guardar de una
+   * vez, y cada vendedor merece su propia pregunta con su propia fecha.
+   */
+  const [porRecalcular, setPorRecalcular] = useState<Recalculable[]>([]);
+
   const descartar = () => {
     setBorrador({});
     setAviso({ texto: "", tipo: "neutro" });
   };
 
   const guardar = () => {
-    const cambios: Cambio[] = filas.filter(sucioFila).map((f) => ({
+    const sucias = filas.filter(sucioFila);
+    const cambios: Cambio[] = sucias.map((f) => ({
       vendedor_id: f.id,
       comision: parseFloat(valor(f, "comision") || "0"),
       factor_pago: parseFloat(valor(f, "factor_pago") || "0"),
       tope_por_numero: parseFloat(valor(f, "tope_por_numero") || "0"),
     }));
 
+    /*
+     * Quiénes cambiaron comisión o factor, para preguntar por ellos después.
+     *
+     * El tope no entra: no se congela en la venta —sólo limita cuánto se puede
+     * vender— así que cambiarlo no reescribe nada del pasado y preguntar sería
+     * ruido.
+     *
+     * Se calcula ANTES de guardar, porque al guardar el borrador se vacía y ya
+     * no habría con qué comparar.
+     */
+    const aPreguntar: Recalculable[] = sucias
+      .filter((f) => sucioCampo(f, "comision") || sucioCampo(f, "factor_pago"))
+      .map((f) => ({
+        id: f.id,
+        codigo: f.codigo,
+        nombre: f.alias?.trim() || f.nombre,
+        comision: parseFloat(valor(f, "comision") || "0"),
+        factorPago: parseFloat(valor(f, "factor_pago") || "0"),
+        comisionAntes: f.comision,
+        factorAntes: f.factor_pago,
+      }));
+
     iniciarGuardado(async () => {
       const r = await guardarParametros(cambios);
       setAviso({ texto: r.mensaje, tipo: r.ok ? "ok" : "error" });
-      if (r.ok) setBorrador({});
+      if (r.ok) {
+        setBorrador({});
+        // Uno por uno: cada vendedor puede tener su propia fecha de corte, y
+        // una sola pregunta para varios obligaría a aplicar la misma a todos.
+        setPorRecalcular(aPreguntar);
+      }
     });
   };
 
@@ -833,6 +882,19 @@ export function TablaVendedores({
           usuario y fecha.
         </div>
       </div>
+
+      {/*
+        La pregunta del recálculo, uno por uno.
+
+        Se pinta el primero de la cola; al cerrarlo sale el siguiente. Así cada
+        vendedor lleva su propia fecha, que es lo que hace falta cuando se
+        editan varias filas de una vez y cada trato se acordó un día distinto.
+      */}
+      <RecalcularParametros
+        vendedor={porRecalcular[0] ?? null}
+        hoy={hoy}
+        onCerrar={() => setPorRecalcular((cola) => cola.slice(1))}
+      />
     </>
   );
 }
