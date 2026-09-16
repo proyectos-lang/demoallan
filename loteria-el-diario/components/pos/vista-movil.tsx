@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check } from "lucide-react";
 
 import {
@@ -9,6 +10,7 @@ import {
   TicketEnCurso,
 } from "@/components/pos/piezas";
 import { HojaMonto } from "@/components/pos/hoja-monto";
+import { CeldaNumero, SelectorVista, TiraGrupos, type VistaCelda } from "@/components/pos/simbolos";
 import { cn } from "@/lib/cn";
 import { countdownHasta, fmt, hora12, pad2, rotulo } from "@/lib/format";
 import { CUPO_BAJO, POR_LINEA, POR_RANGO, type Pos } from "@/lib/pos/use-pos";
@@ -212,8 +214,37 @@ function Rejilla({ pos }: { pos: Pos }) {
   /** Cuántas filas de cinco caben en una decena: dos. */
   const FILAS = POR_RANGO / POR_LINEA;
 
+  /*
+   * Qué se pinta en la celda. No es venta, es cómo se mira: cambiarlo no toca
+   * lo que haya marcado ni lo que lleve en el ticket.
+   */
+  const [vista, setVista] = useState<VistaCelda>("numero");
+
   return (
     <div className="mt-3">
+      {/*
+        CÓMO SE LEE LA REJILLA. En el teléfono el mando va en su propia línea y
+        a lo ancho: al lado de los grupos se quedaría en tipografía de 9px o
+        empujaría la rejilla hacia abajo, que es lo único que esta pantalla no
+        se puede permitir.
+      */}
+      <SelectorVista valor={vista} alCambiar={setVista} className="w-full mb-2 [&>button]:flex-1" />
+
+      {/*
+        LOS GRUPOS, EN UN RIEL HORIZONTAL.
+        
+        Ocho botones envueltos ocuparían tres líneas en un teléfono y bajarían
+        la rejilla casi cien píxeles. En riel ocupan una sola, y desplazarse de
+        lado para buscar «Fiesta» cuesta mucho menos que perder de vista el 96.
+      */}
+      <div className="-mx-4 px-4 mb-2 overflow-x-auto">
+        <TiraGrupos
+          disponible={pos.disponible}
+          alElegir={pos.pedirMonto}
+          className="flex-nowrap w-max"
+        />
+      </div>
+
       {/*
         EL INTERRUPTOR VA ARRIBA DE LA REJILLA, no abajo: es lo que decide qué
         hace el siguiente toque, y decidirlo después de haber tocado no serviría
@@ -328,7 +359,7 @@ function Rejilla({ pos }: { pos: Pos }) {
                             : "bg-superficie text-tinta border-borde-pos",
                     )}
                   >
-                    {pad2(n)}
+                    <CeldaNumero n={n} vista={vista} compacta />
                   </button>
                 );
               })}

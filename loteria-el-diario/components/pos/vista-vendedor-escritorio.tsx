@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 
 import {
@@ -11,6 +11,13 @@ import {
   Recibo,
   TicketEnCurso,
 } from "@/components/pos/piezas";
+import {
+  CeldaNumero,
+  SelectorVista,
+  TiraGrupos,
+  tituloCelda,
+  type VistaCelda,
+} from "@/components/pos/simbolos";
 import { cn } from "@/lib/cn";
 import { countdownHasta, fmt, hora12, pad2 } from "@/lib/format";
 import {
@@ -199,8 +206,22 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
   const decenas = Array.from({ length: 100 / POR_RANGO }, (_, i) => i);
   const FILAS = POR_RANGO / POR_LINEA;
 
+  /*
+   * Qué se pinta en cada celda. Vive aquí y no en el hook porque no es venta:
+   * es cómo se mira la rejilla. Nada de lo que se registra depende de esto, y
+   * el vendedor puede cambiarlo a media venta sin perder lo que lleva marcado.
+   */
+  const [vista, setVista] = useState<VistaCelda>("numero");
+
   return (
     <div>
+      {/* Cómo se lee la rejilla, y los grupos. Van juntos y arriba porque los
+          dos deciden qué va a hacer el siguiente clic. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <TiraGrupos disponible={pos.disponible} alElegir={pos.pedirMonto} />
+        <SelectorVista valor={vista} alCambiar={setVista} />
+      </div>
+
       {/* El interruptor va ARRIBA: decide qué hace el siguiente clic, y
           decidirlo después de haber hecho clic no serviría de nada. */}
       <button
@@ -309,7 +330,7 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
                     key={n}
                     onClick={() => pos.pedirMonto([n])}
                     disabled={dp <= 0}
-                    title={`${pad2(n)} · disponible ${fmt(dp)}`}
+                    title={tituloCelda(n, fmt(dp))}
                     className={cn(
                       "h-[34px] rounded-celda text-tabla font-semibold border-[1.5px] p-0",
                       dp <= 0
@@ -323,7 +344,7 @@ function RejillaVendedor({ pos }: { pos: Pos }) {
                             : "bg-superficie text-tinta border-borde-pos cursor-pointer hover:border-acento",
                     )}
                   >
-                    {pad2(n)}
+                    <CeldaNumero n={n} vista={vista} />
                   </button>
                 );
               })}
