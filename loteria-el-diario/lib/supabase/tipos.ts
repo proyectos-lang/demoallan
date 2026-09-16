@@ -949,6 +949,12 @@ export type Database = {
           r_lineas: number;
           r_premio: number;
           r_anulado: boolean;
+          /**
+           * `07:100  42:250`. Desde la 0094: es lo que permite corregir la
+           * venta sin pedir las líneas en un segundo viaje. Puede venir nulo
+           * en un ticket anulado que se quedó sin líneas.
+           */
+          r_jugada: string | null;
         }[];
       };
       /**

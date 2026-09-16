@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AnularMiVenta } from "@/components/vendedor/anular-mi-venta";
+import { CorregirMiVenta } from "@/components/vendedor/corregir-mi-venta";
 import { ReimprimirTicket } from "@/components/vendedor/reimprimir-ticket";
 import { fechaHonduras, fechaLarga, fmt, hora12, horaHonduras12, pad2 } from "@/lib/format";
 import { sesionActual } from "@/lib/sesion";
@@ -167,12 +168,28 @@ export default async function MiDiaPage() {
                         espera deja de leerlos.
                       */}
                       {t.r_estado === "abierto" && !t.r_anulado && (
-                        <AnularMiVenta
-                          ticketId={t.r_ticket_id}
-                          folio={t.r_folio}
-                          sorteo={hora12(t.r_hora)}
-                          total={fmt(Number(t.r_total))}
-                        />
+                        <>
+                          {/*
+                            Corregir va ANTES de anular, y no por orden
+                            alfabético: es la acción que casi siempre se
+                            quiere. Un monto mal tecleado se arregla
+                            cambiándolo, no borrando la venta entera y
+                            volviendo a teclear las otras once líneas. Poner
+                            primero la salida destructiva invita a usarla.
+                          */}
+                          <CorregirMiVenta
+                            ticketId={t.r_ticket_id}
+                            folio={t.r_folio}
+                            sorteo={hora12(t.r_hora)}
+                            jugada={t.r_jugada ?? ""}
+                          />
+                          <AnularMiVenta
+                            ticketId={t.r_ticket_id}
+                            folio={t.r_folio}
+                            sorteo={hora12(t.r_hora)}
+                            total={fmt(Number(t.r_total))}
+                          />
+                        </>
                       )}
                     </span>
                   </td>
