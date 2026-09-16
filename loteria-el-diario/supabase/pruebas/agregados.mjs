@@ -7,10 +7,23 @@
  *
  *   1. Que la venta de un sorteo SIN liquidar nunca se cuele en premios ni en
  *      utilidad — serían proyección, no resultado (§5).
- *   2. Que un vendedor autenticado agregue sólo lo suyo, porque las funciones
- *      corren como el invocador y RLS filtra.
+ *   2. Que el desglose por vendedor reparta esa misma venta sin perder ni
+ *      duplicar a nadie.
  *
- *     PW=<clave-admin> node supabase/pruebas/agregados.mjs
+ * POR QUE YA NO SE AUTENTICA
+ * --------------------------
+ * Esta prueba nacio cuando el sistema usaba Supabase Auth: entraba con
+ * `signInWithPassword` y comprobaba que RLS le ensenara a cada vendedor solo
+ * lo suyo. La 0024 cambio eso por usuarios propios, y desde entonces la
+ * aplicacion habla con la base como `service_role`. El login de Auth paso a
+ * fallar en silencio, RLS devolvia cero filas y la prueba comparaba ceros
+ * contra las cuentas hechas a mano: fallaba entera sin senalar ningun defecto
+ * real. Ahora consulta como lo hace la aplicacion.
+ *
+ * La autorizacion por rol vive hoy en las Server Actions, y quien la comprueba
+ * es `autorizacion.mjs`.
+ *
+ *     node supabase/pruebas/agregados.mjs
  */
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -25,14 +38,9 @@ const env = Object.fromEntries(
 const U = env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY;
 const sb = createClient(U, SERVICE, { db: { schema: "public" }, auth: { persistSession: false } });
-const admin = createClient(U, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-  db: { schema: "public" },
-  auth: { persistSession: false },
-});
-const vend = createClient(U, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-  db: { schema: "public" },
-  auth: { persistSession: false },
-});
+// La aplicacion consulta como `service_role`; la prueba hace lo mismo para
+// medir lo que de verdad se pinta en pantalla.
+const admin = sb;
 
 const FECHAS = ["2095-01-15", "2095-02-15", "2095-03-15"];
 const DESDE = "2095-01-01";
@@ -59,7 +67,6 @@ const limpiar = async () => {
   }
 };
 
-let usuarioVendedor;
 
 try {
   await limpiar();
@@ -68,6 +75,10 @@ try {
     .from("vendedor")
     .select("id, codigo, nombre, parametro_vendedor!inner(comision, factor_pago, vigente_hasta)")
     .is("parametro_vendedor.vigente_hasta", null)
+    // Vivos: `fn_registrar_ticket` rechaza al vendedor de baja, así que uno
+    // inactivo botaría el montaje antes de comprobar nada.
+    .eq("activo", true)
+    .is("eliminado_en", null)
     .order("codigo");
   const par = (v) => (Array.isArray(v.parametro_vendedor) ? v.parametro_vendedor[0] : v.parametro_vendedor);
   const [v1, v2] = vs;
@@ -83,7 +94,9 @@ try {
   for (const [i, fecha] of FECHAS.entries()) {
     await sb.rpc("fn_programar_dia", { p_fecha: fecha });
     const { data: ss } = await sb.from("sorteo").select("id, hora").eq("fecha", fecha);
-    const id = ss.find((s) => s.hora === "20:00").id;
+    // El de la noche, sin fijar su hora: la 0059 lo movió de las 20:00 a las
+    // 21:00 y una prueba que la escriba se cae sola en la siguiente mudanza.
+    const id = [...ss].sort((x, y) => (x.hora < y.hora ? 1 : -1))[0].id;
     await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: id, p_limite_por_numero: 90000 });
 
     // Montos distintos por mes para que la serie mensual no sea plana.
@@ -135,7 +148,6 @@ try {
   }
 
   console.log("\n2. Totales del período");
-  await admin.auth.signInWithPassword({ email: "admin@eldiario.hn", password: process.env.PW });
   const { data: tot, error: eTot } = await admin.rpc("fn_resumen_periodo", {
     p_desde: DESDE, p_hasta: HASTA,
   });
@@ -179,8 +191,8 @@ try {
   console.log("\n5. Un día");
   const { data: dia } = await admin.rpc("fn_resumen_dia", { p_fecha: FECHAS[2] });
   check("los tres sorteos del día", dia.length === 3, `${dia.length}`);
-  const noche = dia.find((d) => d.hora === "20:00");
-  check("el de las 20:00 sigue abierto", noche.estado === "abierto", noche.estado);
+  const noche = [...dia].sort((x, y) => (x.hora < y.hora ? 1 : -1))[0];
+  check("el de la noche sigue abierto", noche.estado === "abierto", noche.estado);
   check("sin liquidar no hay premios", Number(noche.premios) === 0, `${noche.premios}`);
   check("sin liquidar no hay número ganador", noche.numero_ganador === null, `${noche.numero_ganador}`);
   check("los sorteos sin ventas salen en cero, no ausentes", dia.filter((d) => Number(d.venta) === 0).length === 2);
@@ -188,38 +200,52 @@ try {
   const { data: desglose } = await admin.rpc("fn_desglose_dia", { p_fecha: FECHAS[2] });
   check("desglose: una fila por vendedor con ventas", desglose.length === 2, `${desglose.length}`);
 
-  console.log("\n6. RLS: un vendedor agrega sólo lo suyo");
-  const alta = await fetch(`${U}/auth/v1/admin/users`, {
-    method: "POST",
-    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "agregados@eldiario.hn", password: "PruebaAgregados123", email_confirm: true }),
-  });
-  const u = await alta.json();
-  usuarioVendedor = u.id;
-  await sb.from("usuario_perfil").insert({ id: u.id, rol: "vendedor", vendedor_id: v1.id, nombre: v1.nombre });
+  console.log("\n6. El desglose reparte la misma venta");
 
-  await vend.auth.signInWithPassword({ email: "agregados@eldiario.hn", password: "PruebaAgregados123" });
-  const { data: totV, error: eV } = await vend.rpc("fn_resumen_periodo", { p_desde: DESDE, p_hasta: HASTA });
+  // Antes aqui se creaba un usuario en Supabase Auth y se comprobaba que RLS
+  // le ensenara solo su venta. Eso dejo de aplicar en la 0024: hoy la
+  // aplicacion entra como `service_role` y el rol se comprueba en las Server
+  // Actions, no en la base; quien lo vigila es `autorizacion.mjs`.
+  //
+  // Lo que si conviene comprobar aqui es que el desglose reparta exactamente
+  // la venta del resumen, sin perder ni duplicar a nadie: es la cuenta que se
+  // cruza a mano en el tablero.
+  const { data: resUlt } = await admin.rpc("fn_resumen_dia", { p_fecha: FECHAS[2] });
+  const ventaResumen = (resUlt ?? []).reduce((a, r) => a + Number(r.venta ?? 0), 0);
+  const ventaDesglose = (desglose ?? []).reduce((a, r) => a + Number(r.venta ?? 0), 0);
 
-  check("el vendedor puede consultar sus agregados", !eV, eV?.message);
-  if (!eV) {
-    check(
-      "sólo ve su propia venta, no la de todos",
-      cerca(totV[0].venta, esperado.porVendedor[v1.id].venta),
-      `${totV[0].venta} vs propio ${esperado.porVendedor[v1.id].venta} (total del negocio ${esperado.venta})`,
-    );
-    check("y desde luego menos que el total", Number(totV[0].venta) < esperado.venta);
+  check(
+    "el desglose suma lo mismo que el resumen del dia",
+    cerca(ventaDesglose, ventaResumen),
+    `${ventaDesglose} vs ${ventaResumen}`,
+  );
+  check(
+    "y esa venta es la del sorteo sin liquidar del ultimo mes",
+    cerca(ventaResumen, esperado.ventaPendiente),
+    `${ventaResumen} vs ${esperado.ventaPendiente}`,
+  );
+
+  const suyo = (desglose ?? [])
+    .filter((d) => d.vendedor_id === v1.id)
+    .reduce((a, d) => a + Number(d.venta ?? 0), 0);
+  check(
+    "a cada vendedor se le atribuye su propia venta",
+    suyo > 0 && suyo < ventaResumen,
+    `${suyo} de ${ventaResumen}`,
+  );
+
+  const vistas = new Set();
+  let duplicados = 0;
+  for (const d of desglose ?? []) {
+    const k = `${d.vendedor_id}|${d.hora}`;
+    if (vistas.has(k)) duplicados++;
+    vistas.add(k);
   }
+  check("nadie sale dos veces en el mismo sorteo", duplicados === 0, `${duplicados}`);
+
 } finally {
   console.log("\n7. Limpieza");
   await limpiar();
-  if (usuarioVendedor) {
-    await sb.from("usuario_perfil").delete().eq("id", usuarioVendedor);
-    await fetch(`${U}/auth/v1/admin/users/${usuarioVendedor}`, {
-      method: "DELETE",
-      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
-    });
-  }
   await sb.from("auditoria").delete().gt("id", 0);
 }
 
