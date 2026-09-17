@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
@@ -51,6 +52,22 @@ export type DatosPos = {
   disponibleCasa: number[];
   /** Por vendedor y número: lo que ese vendedor ya vendió. */
   vendidoPropio: Record<string, number[]>;
+  /**
+   * La hora del SERVIDOR al pintar la página, en ISO.
+   *
+   * EL RELOJ NO PUEDE SER EL DEL APARATO. Un vendedor reportó que vendía y el
+   * cupo no bajaba; resultó que el sorteo de la tarde había cerrado y la
+   * pantalla había saltado sola al de la noche, donde el cupo arranca de cero.
+   * Al revisarlo apareció el fondo del asunto: los relojes no coinciden. La
+   * máquina desde la que se miró iba una hora adelantada respecto a Honduras.
+   *
+   * `Date.now()` sirve para restar instantes —una cuenta atrás es correcta
+   * aunque la zona esté mal— pero NO para decirle la hora a nadie: un teléfono
+   * con la hora corrida enseñaría «2:30 PM» mientras en Honduras son las 3:30
+   * y el sorteo ya cerró. Por eso el reloj que se pinta se ancla a esto, que
+   * viene del servidor, y sólo avanza con el paso del tiempo local.
+   */
+  horaServidor?: string;
   /**
    * Venta a un sorteo de otra fecha.
    *
@@ -154,6 +171,20 @@ export const POR_RANGO = 10;
  * copias de la aritmética de cupo que mantener a la par.
  */
 export function usePos(datos: DatosPos) {
+  /*
+   * Para volver a leer el cupo del servidor cuando la venta entra.
+   *
+   * `datos` llega del componente de servidor y NO se actualiza solo: sin esto,
+   * el disponible que se pinta es el que se calculó al abrir la pantalla. La
+   * venta en curso se descontaba de `carrito` y `tanda`, pero al confirmar
+   * esas dos listas se vacían y el número volvía a su valor original. El
+   * vendedor veía 200, vendía 5, y seguía viendo 200.
+   *
+   * La Server Action ya hace `revalidatePath`, que invalida la caché del
+   * servidor; pero eso por sí solo no vuelve a pintar nada en el navegador.
+   * Hace falta pedirlo desde aquí.
+   */
+  const router = useRouter();
   const [vendedorId, setVendedorId] = useState(datos.vendedores[0]?.id ?? "");
   const [modo, setModo] = useState<Modo>("teclado");
   /**
@@ -345,6 +376,46 @@ export function usePos(datos: DatosPos) {
   }, []);
 
   const montado = ahora > 0;
+
+  /*
+   * EL DESFASE ENTRE ESTE APARATO Y EL SERVIDOR, en milisegundos.
+   *
+   * Se mide una sola vez, al montar: cuánto se aparta el reloj local de la
+   * hora que el servidor dijo al pintar la página. Sumándolo a `Date.now()`
+   * sale la hora de verdad aunque el teléfono la tenga mal puesta.
+   *
+   * Se calcula con `useRef` y no con estado porque no tiene que repintar nada
+   * al fijarse; lo que repinta es `ahora`, que corre cada segundo.
+   *
+   * Si el servidor no mandó la hora —pantallas viejas que aún no pasan el
+   * dato— el desfase es 0 y todo se comporta como antes.
+   */
+  const desfase = useRef<number | null>(null);
+  if (desfase.current === null && datos.horaServidor) {
+    const t = Date.parse(datos.horaServidor);
+    if (Number.isFinite(t)) desfase.current = t - Date.now();
+  }
+
+  /**
+   * El instante de AHORA según el servidor, no según el aparato.
+   *
+   * Es lo que se le enseña al vendedor. Para restar contra `hora_cierre` da
+   * igual cuál se use —las dos son instantes absolutos y la diferencia es la
+   * misma— pero para PINTAR la hora sí importa: es la única forma de que el
+   * reloj de la pantalla y el reloj con el que cierra el sistema digan lo
+   * mismo.
+   */
+  const ahoraServidor = montado ? ahora + (desfase.current ?? 0) : 0;
+
+  /**
+   * Cuánto se aparta este aparato de la hora real, en minutos.
+   *
+   * Se enseña sólo cuando pasa de un minuto: por debajo de eso es ruido de
+   * red y avisar sería alarmar por nada. Cuando de verdad hay desfase, el
+   * vendedor tiene que saberlo, porque su reloj le está mintiendo.
+   */
+  const desfaseMinutos = Math.round((desfase.current ?? 0) / 60000);
+
   const vendedor = datos.vendedores.find((v) => v.id === vendedorId) ?? datos.vendedores[0];
 
   /**
@@ -405,7 +476,8 @@ export function usePos(datos: DatosPos) {
    */
   const cerrada =
     montado &&
-    (datos.sorteo.estado !== "abierto" || ahora >= Date.parse(datos.sorteo.hora_cierre));
+    (datos.sorteo.estado !== "abierto" ||
+      ahoraServidor >= Date.parse(datos.sorteo.hora_cierre));
 
   const bloqueada = cerrada && !datos.puedeForzar;
 
@@ -712,6 +784,19 @@ export function usePos(datos: DatosPos) {
           setTanda([]);
           setCarrito([]);
           limpiarEntrada();
+          /*
+           * Y se vuelve a leer el cupo, que acaba de cambiar.
+           *
+           * Es lo que mantiene honesto el número de la rejilla. Sin esto, al
+           * vaciar `tanda` y `carrito` —que era lo único que descontaba esta
+           * venta— el disponible saltaba de vuelta a lo que decía al abrir la
+           * pantalla, como si no se hubiera vendido nada.
+           *
+           * Va DESPUÉS de vaciar las dos listas y no antes: si llegara la
+           * respuesta del servidor mientras todavía están llenas, la venta se
+           * descontaría dos veces y el número se quedaría corto.
+           */
+          router.refresh();
         } catch (e) {
           // Sin esto, un fallo de red dejaría el botón bloqueado para siempre
           // y la única salida sería recargar la página.
@@ -758,6 +843,10 @@ export function usePos(datos: DatosPos) {
     recibo,
     errorVenta,
     ahora,
+    /** El instante de ahora segun el SERVIDOR: es el que se pinta. */
+    ahoraServidor,
+    /** Cuanto se aparta el reloj de este aparato, en minutos. */
+    desfaseMinutos,
     montado,
     montoAbierto,
     enviando: enviando || registrando,

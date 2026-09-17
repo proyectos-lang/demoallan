@@ -150,6 +150,38 @@ export function horaHonduras12(fecha: Date | string): string {
   return hora12(horaHonduras(fecha));
 }
 
+/**
+ * `h:mm:ss AM` en hora de Honduras. Para el reloj en vivo del punto de venta.
+ *
+ * POR QUÉ CON SEGUNDOS Y POR QUÉ AQUÍ
+ * -----------------------------------
+ * El vendedor cierra ventas contra un reloj: los últimos minutos antes de que
+ * el sorteo cierre son los de más cola. Sin segundos, un reloj que dice «2:59»
+ * puede llevar ahí cincuenta y nueve segundos o uno, y esa diferencia es una
+ * venta que entra o que se cae.
+ *
+ * Se formatea SIEMPRE en `America/Tegucigalpa`, sin importar dónde corra el
+ * navegador. Es lo que evita el caso que motivó esto: un teléfono o una
+ * computadora con la zona horaria mal puesta enseñaba una hora y el sistema
+ * cerraba a otra, y el vendedor no tenía forma de saber cuál era la buena.
+ */
+export function horaHondurasSegundos(fecha: Date | string | number): string {
+  // Acepta tambien un instante en milisegundos: es lo que maneja el reloj del
+  // punto de venta, que suma el desfase del aparato a `Date.now()`.
+  const d = typeof fecha === "object" ? fecha : new Date(fecha);
+  return new Intl.DateTimeFormat("es-HN", {
+    timeZone: ZONA,
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  })
+    .format(d)
+    // `es-HN` escribe «a. m.»; el resto del sistema dice «AM» desde la 0059.
+    .replace(/\s*a\.\s*m\.?/i, " AM")
+    .replace(/\s*p\.\s*m\.?/i, " PM");
+}
+
 /** Hoy en Honduras, como Date a medianoche local, para aritmética de días. */
 export function hoyHonduras(): Date {
   const [a, m, d] = fechaHonduras().split("-").map(Number);

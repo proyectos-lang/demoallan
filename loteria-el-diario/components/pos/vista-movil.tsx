@@ -12,7 +12,14 @@ import {
 import { HojaMonto } from "@/components/pos/hoja-monto";
 import { CeldaNumero, SelectorVista, TiraGrupos, type VistaCelda } from "@/components/pos/simbolos";
 import { cn } from "@/lib/cn";
-import { countdownHasta, fmt, hora12, pad2, rotulo } from "@/lib/format";
+import {
+  countdownHasta,
+  fmt,
+  hora12,
+  horaHondurasSegundos,
+  pad2,
+  rotulo,
+} from "@/lib/format";
 import { CUPO_BAJO, POR_LINEA, POR_RANGO, type Pos } from "@/lib/pos/use-pos";
 
 /**
@@ -83,10 +90,30 @@ export function VistaMovil({ pos }: { pos: Pos }) {
             </span>
           </span>
         </div>
-        <div className="text-label text-secundario mt-[6px]">
-          {rotulo(vendedor)} · {vendedor.codigo} · factor {vendedor.factor_pago.toFixed(2)} ·
-          comisión {(vendedor.comision * 100).toFixed(2)}%
+        {/*
+          EL RELOJ DE HONDURAS, en la misma linea que la identidad.
+
+          En el telefono no hay alto que gastar en otro bloque, pero la hora
+          tiene que verse: el vendedor decide contra ella si le da tiempo a una
+          venta mas. Sale del SERVIDOR, no del aparato, asi que un telefono con
+          la hora mal puesta sigue leyendo aqui la buena.
+        */}
+        <div className="text-label text-secundario mt-[6px] flex items-baseline gap-2 flex-wrap">
+          <span className="font-semibold text-cuerpo tabular-nums">
+            {pos.ahoraServidor === 0 ? "—" : horaHondurasSegundos(pos.ahoraServidor)}
+          </span>
+          <span>
+            {rotulo(vendedor)} · {vendedor.codigo} · factor {vendedor.factor_pago.toFixed(2)} ·
+            comisión {(vendedor.comision * 100).toFixed(2)}%
+          </span>
         </div>
+        {Math.abs(pos.desfaseMinutos) >= 1 && (
+          <div className="text-label text-negativo mt-[4px] leading-[1.35]">
+            El reloj de este teléfono va {Math.abs(pos.desfaseMinutos)}{" "}
+            {Math.abs(pos.desfaseMinutos) === 1 ? "minuto" : "minutos"}{" "}
+            {pos.desfaseMinutos > 0 ? "atrasado" : "adelantado"}. Guíese por la hora de arriba.
+          </div>
+        )}
       </div>
 
       {pos.recibo ? (

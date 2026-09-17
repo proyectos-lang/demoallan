@@ -4,7 +4,7 @@ import { Printer } from "lucide-react";
 
 import { TicketImpreso } from "@/components/pos/ticket-impreso";
 import { cn } from "@/lib/cn";
-import { fmt, hora12, pad2 } from "@/lib/format";
+import { fmt, hora12, horaHondurasSegundos, pad2 } from "@/lib/format";
 import type { EstadoSorteoPos, Pos, SorteoPos } from "@/lib/pos/use-pos";
 
 /**
@@ -15,6 +15,61 @@ import type { EstadoSorteoPos, Pos, SorteoPos } from "@/lib/pos/use-pos";
  * criterio —el color del semáforo de cupo, el texto del recibo— no haya que
  * hacerlo dos veces y quede a medias una.
  */
+
+/**
+ * El reloj de Honduras, en vivo.
+ *
+ * QUÉ PROBLEMA RESUELVE
+ * ---------------------
+ * Un vendedor reportó que vendía y el cupo del número no bajaba. No era el
+ * cupo: el sorteo de la tarde había cerrado a las 2:59 y la pantalla había
+ * saltado sola al de la noche, donde el cupo arranca de cero. Él creía estar
+ * vendiendo la tarde.
+ *
+ * Al revisarlo salió lo de fondo: los relojes no coinciden. La máquina desde
+ * la que se miró iba una hora adelantada respecto a Honduras, así que la hora
+ * que leía una persona y la hora con la que el sistema cierra los sorteos eran
+ * dos horas distintas, y nada en pantalla lo decía.
+ *
+ * DE DÓNDE SALE LA HORA
+ * ---------------------
+ * Del SERVIDOR, no del aparato. `pos.ahoraServidor` es la hora que el servidor
+ * dijo al pintar la página más el tiempo transcurrido desde entonces, y se
+ * formatea siempre en `America/Tegucigalpa`. Un teléfono con la zona horaria
+ * mal puesta sigue viendo aquí la hora buena.
+ *
+ * CUANDO EL APARATO VA MAL, SE DICE
+ * ---------------------------------
+ * Si el reloj local se aparta más de un minuto, se avisa debajo. No se
+ * «corrige» el aparato ni se esconde el problema: el vendedor tiene que saber
+ * que su reloj le está mintiendo, porque lo mira todo el día para decidir si
+ * le da tiempo a una venta más.
+ */
+export function RelojHonduras({ pos, className }: { pos: Pos; className?: string }) {
+  const desfasado = Math.abs(pos.desfaseMinutos) >= 1;
+
+  return (
+    <div className={className}>
+      <span className="block text-eyebrow font-semibold tracking-eyebrow text-secundario">
+        HORA DE HONDURAS
+      </span>
+      <span
+        className="block text-h2 font-semibold tracking-sutil mt-[2px] tabular-nums"
+        // Se anuncia sola: un lector de pantalla no puede leer cada segundo.
+        aria-live="off"
+      >
+        {pos.ahoraServidor === 0 ? "—" : horaHondurasSegundos(pos.ahoraServidor)}
+      </span>
+      {desfasado && (
+        <span className="block text-label text-negativo mt-[2px] max-w-[220px] leading-[1.35]">
+          El reloj de este aparato va {Math.abs(pos.desfaseMinutos)}{" "}
+          {Math.abs(pos.desfaseMinutos) === 1 ? "minuto" : "minutos"}{" "}
+          {pos.desfaseMinutos > 0 ? "atrasado" : "adelantado"}. Guíese por esta hora.
+        </span>
+      )}
+    </div>
+  );
+}
 
 const ETIQUETA_ESTADO: Record<EstadoSorteoPos, string> = {
   programado: "SIN ABRIR",

@@ -347,6 +347,13 @@ export default async function PuntoDeVentaPage({
     vendedores,
     disponibleCasa,
     vendidoPropio,
+    /*
+     * La hora del servidor, para que el reloj de la pantalla no dependa del
+     * reloj del aparato. Un telefono con la hora corrida enseñaria una hora y
+     * el sistema cerraria a otra; el vendedor no tendria forma de saber cual
+     * es la buena.
+     */
+    horaServidor: new Date().toISOString(),
     puedeForzar,
   };
 

@@ -7,6 +7,7 @@ import {
   BannerCupo,
   ListaTanda,
   PildoraEstado,
+  RelojHonduras,
   Recibo,
   SelectorSorteo,
   TicketEnCurso,
@@ -111,6 +112,9 @@ export function VistaEscritorio({ pos }: { pos: Pos }) {
                 : countdownHasta(pos.ahora, datos.sorteo.hora_cierre)}
           </span>
         </div>
+
+        {/* Junto a la cuenta atras: las dos contestan «¿me da tiempo?». */}
+        <RelojHonduras pos={pos} />
 
         <div className="ml-auto text-meta text-secundario leading-[1.5] text-right">
           factor {vendedor.factor_pago.toFixed(2)} · comisión{" "}

@@ -9,6 +9,7 @@ import {
   ListaTanda,
   PildoraEstado,
   Recibo,
+  RelojHonduras,
   TicketEnCurso,
 } from "@/components/pos/piezas";
 import {
@@ -86,6 +87,13 @@ export function VistaVendedorEscritorio({ pos }: { pos: Pos }) {
                 : countdownHasta(pos.ahora, datos.sorteo.hora_cierre)}
           </span>
         </div>
+
+        {/*
+          El reloj va JUNTO a la cuenta atras, no en otra esquina: las dos
+          responden a la misma pregunta —«¿me da tiempo?»— y separarlas obliga
+          a mirar a dos sitios con un cliente enfrente.
+        */}
+        <RelojHonduras pos={pos} />
 
         <div className="ml-auto text-meta text-secundario leading-[1.5] text-right">
           factor {vendedor.factor_pago.toFixed(2)} · comisión{" "}
