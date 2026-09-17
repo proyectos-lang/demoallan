@@ -9,6 +9,7 @@ import {
 import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
 import { ReversarCorte } from "@/components/liquidacion/reversar-corte";
 import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
+import { SaldoInicial } from "@/components/liquidacion/saldo-inicial";
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { Kpi } from "@/components/informe/kpi";
 import { TarjetaNota } from "@/components/ui/tarjeta";
@@ -208,6 +209,31 @@ export async function VistaHoja({
   // Una tarjeta en cero es ruido: la primera semana nunca arrastra nada.
   const hayArrastre = Math.round(abierta.arrastre * 100) !== 0;
 
+  /*
+   * El saldo con el que este vendedor entró al sistema, si trae uno.
+   *
+   * Hace falta AQUÍ y no sólo en la pestaña de saldos: quien está cuadrando
+   * con un vendedor concreto está en esta pantalla, y a un vendedor recién
+   * creado hay que poder cargarle lo que traía sin salir de ella. Es más: sin
+   * arrastre el bloque de abajo no se pinta, así que era justo el caso en el
+   * que no había ningún sitio donde hacerlo.
+   */
+  const { data: aperturaRaw } = await supabase
+    .from("saldo_inicial")
+    .select("id, monto, vigente_desde")
+    .eq("vendedor_id", vendedor.id)
+    .is("anulado_en", null)
+    .is("saldado_en", null)
+    .maybeSingle();
+
+  const apertura = aperturaRaw
+    ? {
+        id: aperturaRaw.id,
+        monto: Number(aperturaRaw.monto),
+        vigenteDesde: aperturaRaw.vigente_desde,
+      }
+    : null;
+
   return (
     <>
       <FiltrosLiquidacion vendedores={vendedores} vendedorId={vendedor.id} vista="hoja" />
@@ -270,6 +296,38 @@ export async function VistaHoja({
                     ? "text-negativo"
                     : undefined
               }
+            />
+          </div>
+
+          {/*
+            EL SALDO DE APERTURA, ENCIMA DE COBRAR.
+
+            Ese es el orden en que ocurren las dos cosas: primero se le carga
+            lo que traía de la libreta anterior, y después se le cobra. Al
+            revés obligaría a bajar, cargar y volver a subir.
+
+            Y va SUELTO, fuera del bloque del arrastre, porque ese bloque sólo
+            se pinta cuando hay arrastre —y un vendedor recién creado no tiene
+            ninguno—. Era justo el caso para el que se hizo esta función, y el
+            único sitio donde no aparecía.
+
+            Se muestra siempre, con o sin saldo cargado: con él sirve para
+            verlo o quitarlo, sin él para cargarlo.
+          */}
+          <div className="flex items-center justify-between gap-3 flex-wrap bg-superficie border border-borde rounded-card shadow-card px-[18px] py-3">
+            <span className="text-meta text-secundario">
+              {apertura
+                ? apertura.monto > 0
+                  ? `Entró al sistema debiendo ${fmt(apertura.monto)}, de la libreta anterior.`
+                  : `Entró al sistema con ${fmt(Math.abs(apertura.monto))} a su favor, de la libreta anterior.`
+                : "Si este vendedor ya venía de antes y traía cuenta abierta, cárguele aquí ese saldo."}
+            </span>
+            <SaldoInicial
+              vendedorId={vendedor.id}
+              vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
+              actual={apertura}
+              hoy={iso(hoyHonduras())}
+              variante="boton"
             />
           </div>
 
