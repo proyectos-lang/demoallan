@@ -1,3 +1,7 @@
+import {
+  FiltrosLiquidacion,
+  type OpcionVendedorLiq,
+} from "@/components/liquidacion/filtros-liquidacion";
 import { RielSemanas, type SemanaDelRiel } from "@/components/informe/riel-semanas";
 import { TablaSaldos, type FilaSaldoVendedor } from "@/components/liquidacion/tabla-saldos";
 import { TarjetaNota } from "@/components/ui/tarjeta";
@@ -67,6 +71,19 @@ export async function VistaSaldos({
     nota: s.pendientes === 0 ? "liquidada" : undefined,
   }));
 
+  const pedido = typeof params.vendedor === "string" ? params.vendedor : "";
+  const { data: padron } = await supabase.rpc("fn_vendedores_liquidables");
+  const vendedores: OpcionVendedorLiq[] = (padron ?? []).map((v) => ({
+    id: v.r_vendedor_id,
+    codigo: v.r_codigo,
+    nombre: v.r_nombre,
+    activo: v.r_activo,
+    eliminado: v.r_eliminado,
+    pendientes: Number(v.r_pendientes),
+    alias: v.r_alias,
+  }));
+  const elegido = vendedores.find((v) => v.id === pedido) ?? null;
+
   const { data, error } = await supabase.rpc("fn_saldos_por_vendedor", {
     p_desde: abierta.inicio,
     p_hasta: abierta.fin,
@@ -105,16 +122,24 @@ export async function VistaSaldos({
     apertura: porVendedor.get(f.r_vendedor_id) ?? null,
   }));
 
+  // Con un vendedor elegido, la tabla enseña sólo su fila. `fn_saldos_por_
+  // vendedor` devuelve el padrón entero para poder ofrecerlo en el combobox;
+  // recortar aquí es más barato que un segundo viaje a la base.
+  const filasVisibles = elegido ? filas.filter((f) => f.id === elegido.id) : filas;
+
   return (
     <div className="flex gap-4 items-start flex-wrap lg:flex-nowrap">
       <RielSemanas
         semanas={delRiel}
         activa={abierta.inicio}
         titulo="SEMANAS"
-        plantilla="/liquidacion?vista=saldos&semana={semana}"
+        plantilla={`/liquidacion?vista=saldos&semana={semana}${pedido ? `&vendedor=${pedido}` : ""}`}
       />
 
       <div className="flex-1 min-w-0 flex flex-col gap-4">
+        {/* El combobox, arriba de la tabla: filtra sin salir de la semana. */}
+        <FiltrosLiquidacion vendedores={vendedores} vendedorId={pedido} vista="saldos" />
+
         <h2 className="text-h2 font-semibold tracking-sutil m-0">
           Semana #{abierta.semana}{" "}
           <span className="text-secundario font-medium">
@@ -126,7 +151,7 @@ export async function VistaSaldos({
           <TarjetaNota>No se pudieron cargar los saldos: {error.message}</TarjetaNota>
         ) : (
           <TablaSaldos
-            filas={filas}
+            filas={filasVisibles}
             semana={abierta.semana}
             desde={abierta.inicio}
             hasta={abierta.fin}

@@ -1,3 +1,7 @@
+import {
+  FiltrosLiquidacion,
+  type OpcionVendedorLiq,
+} from "@/components/liquidacion/filtros-liquidacion";
 import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
@@ -24,8 +28,28 @@ import { crearClienteServidor } from "@/lib/supabase/server";
  * hace un mes, aunque la cifra sea idéntica. La antigüedad es lo que decide a
  * quién se llama primero.
  */
-export async function VistaCobranza() {
+export async function VistaCobranza({
+  params,
+}: {
+  params: Record<string, string | string[] | undefined>;
+}) {
   const supabase = await crearClienteServidor();
+
+  const pedido = typeof params.vendedor === "string" ? params.vendedor : "";
+
+  // El mismo padrón y el mismo combobox que las otras pestañas: filtrar aquí
+  // es la misma pregunta —«enséñame sólo a éste»— y merece el mismo gesto.
+  const { data: crudos } = await supabase.rpc("fn_vendedores_liquidables");
+  const vendedores: OpcionVendedorLiq[] = (crudos ?? []).map((v) => ({
+    id: v.r_vendedor_id,
+    codigo: v.r_codigo,
+    nombre: v.r_nombre,
+    activo: v.r_activo,
+    eliminado: v.r_eliminado,
+    pendientes: Number(v.r_pendientes),
+    alias: v.r_alias,
+  }));
+  const elegido = vendedores.find((v) => v.id === pedido) ?? null;
 
   const { data, error } = await supabase.rpc("fn_cobranza", {});
 
@@ -39,11 +63,27 @@ export async function VistaCobranza() {
     );
   }
 
-  const filas = data ?? [];
+  const todas = data ?? [];
+  const filas = elegido ? todas.filter((f) => f.r_vendedor_id === elegido.id) : todas;
   const hoy = iso(hoyHonduras());
 
+  // El combobox va SIEMPRE, aunque no haya filas: es desde donde se quita el
+  // filtro para volver a ver a todos.
+  const filtro = (
+    <FiltrosLiquidacion vendedores={vendedores} vendedorId={pedido} vista="cobranza" />
+  );
+
   if (filas.length === 0) {
-    return <TarjetaNota>Nadie debe nada de sorteos sin cerrar. Todo al día.</TarjetaNota>;
+    return (
+      <div className="flex flex-col gap-4">
+        {filtro}
+        <TarjetaNota>
+          {elegido
+            ? `${elegido.codigo} · ${elegido.alias ?? elegido.nombre} no debe nada de sorteos sin cerrar.`
+            : "Nadie debe nada de sorteos sin cerrar. Todo al día."}
+        </TarjetaNota>
+      </div>
+    );
   }
 
   const total = filas.reduce(
@@ -67,6 +107,7 @@ export async function VistaCobranza() {
 
   return (
     <div className="flex flex-col gap-4">
+      {filtro}
       <Tarjeta padding="18px 20px">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

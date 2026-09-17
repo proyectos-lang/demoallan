@@ -53,7 +53,7 @@ export default async function LiquidacionPage({ searchParams }: PageProps<"/liqu
         {vista === "hoja" && <VistaHoja params={params} />}
         {vista === "resumen" && <VistaResumen params={params} />}
         {vista === "saldos" && <VistaSaldos params={params} />}
-        {vista === "cobranza" && <VistaCobranza />}
+        {vista === "cobranza" && <VistaCobranza params={params} />}
       </div>
     </Pagina>
   );

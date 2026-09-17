@@ -61,7 +61,22 @@ try {
     });
     const porId = new Map((saldos ?? []).map((s) => [s.r_vendedor_id, s]));
 
+    // Los vendedores con un saldo de apertura vivo: su cuenta la cruzan las
+    // funciones por vías distintas y la vigila `hoja-con-saldo-inicial.mjs`.
+    // Aquí se saltan, porque esta prueba compara la hoja de UNA semana concreta
+    // contra el saldo, y un saldo de apertura puede vivir en una semana donde
+    // el vendedor no tiene fila propia en la hoja —entonces `fila` es undefined
+    // y la comparación fallaría por algo que no es un descuadre real—.
+    const { data: aperturas } = await sb
+      .from("saldo_inicial")
+      .select("vendedor_id")
+      .is("anulado_en", null)
+      .is("saldado_en", null);
+    const conApertura = new Set((aperturas ?? []).map((a) => a.vendedor_id));
+
     for (const v of vendedores ?? []) {
+      if (conApertura.has(v.id)) continue;
+
       const { data: suyas } = await sb.rpc("fn_liquidacion_por_semana", { p_vendedor_id: v.id });
       const fila = (suyas ?? []).find((x) => x.r_inicio === sem.r_inicio);
       const s = porId.get(v.id);

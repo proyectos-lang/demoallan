@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 
 import { Boton } from "@/components/ui/boton";
@@ -50,11 +50,22 @@ export function FiltrosLiquidacion({
   vista: string;
 }) {
   const router = useRouter();
+  const busqueda = useSearchParams();
   const [pendiente, iniciar] = useTransition();
 
+  /*
+   * Se parte de la URL actual y sólo se cambia el vendedor.
+   *
+   * Antes se construía desde cero con `vista`, y eso borraba la `semana` que
+   * el riel había elegido: en la pestaña de saldos, filtrar a una persona te
+   * devolvía a la semana por defecto. Conservar el resto de parámetros hace
+   * que filtrar sea filtrar, sin mover nada más.
+   */
   const ir = (id: string) => {
-    const p = new URLSearchParams({ vista });
+    const p = new URLSearchParams(busqueda.toString());
+    p.set("vista", vista);
     if (id) p.set("vendedor", id);
+    else p.delete("vendedor");
     iniciar(() => router.push(`/liquidacion?${p.toString()}`));
   };
 
