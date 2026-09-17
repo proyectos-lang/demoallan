@@ -279,10 +279,21 @@ try {
       p_hasta: FIN,
     });
     const fHoy = (dHoy ?? []).find((f) => f.r_vendedor_id === v2.id);
+    /*
+     * Cargado DENTRO de la semana que se mira, el saldo aparece —que es lo que
+     * el usuario reportó que no pasaba— pero desde la 0102 va en la columna
+     * «de la semana», no en «anterior»: «anterior» es sólo lo que se trae de
+     * semanas previas. Lo que importa es que SE VEA y que entre en el total.
+     */
     check(
       "SE VE EN LA MISMA SEMANA: es lo que el usuario reportó que no pasaba",
-      cerca(num(fHoy?.r_anterior), 3300),
-      `${num(fHoy?.r_anterior)} contra 3300`,
+      cerca(num(fHoy?.r_semana), 3300) || cerca(num(fHoy?.r_anterior), 3300),
+      `semana ${num(fHoy?.r_semana)} · anterior ${num(fHoy?.r_anterior)}`,
+    );
+    check(
+      "y entra en el saldo actual, que es lo que se cobra",
+      cerca(num(fHoy?.r_actual), 3300),
+      `${num(fHoy?.r_actual)} contra 3300`,
     );
 
     // Y se puede cobrar: si «saldar» mirara otra fecha que la pantalla, el

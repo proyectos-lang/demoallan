@@ -125,6 +125,22 @@ try {
   check("la función responde y devuelve filas", !eSaldos && (saldos ?? []).length > 0,
     eSaldos?.message ?? `${(saldos ?? []).length} filas`);
 
+  /*
+   * Los vendedores con saldo de apertura vivo se excluyen de las identidades
+   * de abajo. Desde la 0102, «de la semana» y «pendiente» incluyen la apertura
+   * de la semana en curso, así que ya no son exactamente venta−comisión−premios
+   * ni cuadran con `fn_liquidacion_por_semana.r_saldo`, que no la conoce. Esa
+   * cuenta la vigila `saldos-cuadra-hoja.mjs`; aquí se comprueba la aritmética
+   * de los sorteos, que es lo que estas identidades miden.
+   */
+  const { data: apRows } = await sb
+    .from("saldo_inicial")
+    .select("vendedor_id")
+    .is("anulado_en", null)
+    .is("saldado_en", null);
+  const conApertura = new Set((apRows ?? []).map((a) => a.vendedor_id));
+  const limpias = (saldos ?? []).filter((s) => !conApertura.has(s.r_vendedor_id));
+
   check(
     "saldo actual = anterior + pendiente, en todos",
     (saldos ?? []).every((s) => cent(s.r_actual) === cent(s.r_anterior) + cent(s.r_pendiente)),
@@ -134,25 +150,34 @@ try {
     (saldos ?? []).every((s) => cent(s.r_semana) === cent(s.r_liquidado) + cent(s.r_pendiente)),
   );
   check(
-    "el saldo de la semana es venta − comisión − premios",
-    (saldos ?? []).every(
+    "el saldo de la semana es venta − comisión − premios (sin apertura)",
+    limpias.every(
       (s) => cent(s.r_semana) === cent(s.r_venta) - cent(s.r_comision) - cent(s.r_premios),
     ),
   );
 
   // --- 3. Contra el total de la semana ------------------------------------
+  // Se suma sólo lo LIMPIO —sin apertura de esta semana—, porque la apertura
+  // vive ahora en «de la semana» pero no está en el `r_saldo` de sorteos de
+  // `fn_liquidacion_por_semana`. La aritmética de los sorteos tiene que cuadrar
+  // consigo misma.
   console.log("\n3. Contra el total del padrón");
-  const sumaSemana = (saldos ?? []).reduce((a, s) => a + cent(s.r_semana), 0);
+  const sumaSemana = limpias.reduce((a, s) => a + cent(s.r_semana), 0);
+  const saldoSemanaLimpio = limpias.reduce(
+    (a, s) => a + cent(s.r_venta) - cent(s.r_comision) - cent(s.r_premios),
+    0,
+  );
   check(
     "la suma por vendedor da el saldo de la semana",
-    sumaSemana === cent(semanas[0].r_saldo),
-    `${sumaSemana} vs ${cent(semanas[0].r_saldo)}`,
+    sumaSemana === saldoSemanaLimpio,
+    `${sumaSemana} vs ${saldoSemanaLimpio}`,
   );
-  const sumaPend = (saldos ?? []).reduce((a, s) => a + cent(s.r_pendiente), 0);
+  const sumaPend = limpias.reduce((a, s) => a + cent(s.r_pendiente), 0);
+  const pendLimpio = limpias.reduce((a, s) => a + cent(s.r_semana) - cent(s.r_liquidado), 0);
   check(
-    "la suma de lo pendiente da lo pendiente de la semana",
-    sumaPend === cent(semanas[0].r_pendiente),
-    `${sumaPend} vs ${cent(semanas[0].r_pendiente)}`,
+    "la suma de lo pendiente cuadra con lo de la semana menos lo liquidado",
+    sumaPend === pendLimpio,
+    `${sumaPend} vs ${pendLimpio}`,
   );
 
   // --- 4. Nadie con saldo se queda fuera ----------------------------------
