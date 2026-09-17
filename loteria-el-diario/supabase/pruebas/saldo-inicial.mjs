@@ -227,8 +227,91 @@ try {
   });
   check("un saldo de cero se rechaza: no es un saldo", Boolean(eCero), "");
 
+  // --- El caso que reportó el usuario --------------------------------------
+  console.log("\n5. Cargado HOY, se ve HOY");
+
+  /*
+   * El fallo que se escapó: «le doy a agregar saldo y no me aumenta».
+   *
+   * Quien carga un saldo lo hace hoy, y hoy cae DENTRO de la semana que tiene
+   * abierta en pantalla. La condición era `vigente_desde < p_desde`
+   * —estrictamente anterior al lunes—, copiada de los sorteos viejos, donde sí
+   * es la correcta. Para un saldo de apertura no: quedaba guardado pero
+   * invisible hasta el lunes siguiente.
+   *
+   * Se prueba con una apertura DENTRO de la semana que se mira, que es
+   * exactamente lo que hace el usuario.
+   */
+  const { data: v2 } = await sb
+    .from("vendedor")
+    .insert({
+      codigo: "V-988",
+      nombre: "PRUEBA SALDO DE HOY",
+      ciudad: "Choloma",
+      zona: "prueba",
+      color: "#4f46e5",
+      activo: true,
+    })
+    .select("id")
+    .single();
+
+  if (v2) {
+    await sb.from("parametro_vendedor").insert({
+      vendedor_id: v2.id,
+      comision: 0.15,
+      factor_pago: 70,
+      tope_por_numero: 300,
+    });
+
+    // El miércoles de la semana que se está mirando: ni antes del lunes, ni
+    // después del domingo. Es el caso real.
+    const DENTRO = "2019-03-06";
+    const { error: eHoy } = await sb.rpc("fn_cargar_saldo_inicial", {
+      p_vendedor_id: v2.id,
+      p_monto: 3300,
+      p_vigente_desde: DENTRO,
+      p_usuario_id: admin.id,
+    });
+    check("se carga con fecha dentro de la semana en curso", !eHoy, eHoy?.message ?? "");
+
+    const { data: dHoy } = await sb.rpc("fn_saldos_por_vendedor", {
+      p_desde: SEMANA,
+      p_hasta: FIN,
+    });
+    const fHoy = (dHoy ?? []).find((f) => f.r_vendedor_id === v2.id);
+    check(
+      "SE VE EN LA MISMA SEMANA: es lo que el usuario reportó que no pasaba",
+      cerca(num(fHoy?.r_anterior), 3300),
+      `${num(fHoy?.r_anterior)} contra 3300`,
+    );
+
+    // Y se puede cobrar: si «saldar» mirara otra fecha que la pantalla, el
+    // saldo se vería pero al cobrarlo diría que no hay nada.
+    const { error: eCobrar } = await sb.rpc("fn_saldar_arrastre", {
+      p_vendedor_id: v2.id,
+      p_desde: SEMANA,
+      p_entrega: 3300,
+      p_fecha_pago: null,
+      p_motivo: null,
+      p_usuario_id: admin.id,
+    });
+    check(
+      "y se puede cobrar: cobrar mira la misma fecha que la pantalla",
+      !eCobrar,
+      eCobrar?.message ?? "",
+    );
+
+    // Limpieza de este vendedor.
+    const { data: cs2 } = await sb.from("corte_vendedor").select("id").eq("vendedor_id", v2.id);
+    for (const c of cs2 ?? []) await sb.from("corte_detalle").delete().eq("corte_id", c.id);
+    await sb.from("corte_vendedor").delete().eq("vendedor_id", v2.id);
+    await sb.from("saldo_inicial").delete().eq("vendedor_id", v2.id);
+    await sb.from("parametro_vendedor").delete().eq("vendedor_id", v2.id);
+    await sb.from("vendedor").delete().eq("id", v2.id);
+  }
+
   // --- La fecha manda ------------------------------------------------------
-  console.log("\n5. Sólo cuenta desde su fecha");
+  console.log("\n6. No cuenta en semanas anteriores a su fecha");
 
   const { data: previa } = await sb.rpc("fn_saldos_por_vendedor", {
     // Una semana ANTERIOR a la apertura: ahí todavía no se le había cargado.
