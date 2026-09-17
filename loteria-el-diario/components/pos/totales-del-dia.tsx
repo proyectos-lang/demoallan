@@ -104,6 +104,7 @@ export function TotalesDelDia({
   };
 
   const vivas = capturas.filter((c) => !c.anulado);
+  const anuladas = capturas.length - vivas.length;
   const total = vivas.reduce(
     (a, c) => ({
       venta: a.venta + c.venta,
@@ -132,6 +133,8 @@ export function TotalesDelDia({
             </h2>
             <p className="text-micro text-secundario mt-[5px] mb-0">
               Venta sin detalle de números. No consume cupo.
+              {anuladas > 0 &&
+                ` · ${anuladas} ${anuladas === 1 ? "anulada" : "anuladas"}, que no suman.`}
             </p>
           </div>
           <div className="flex gap-7 flex-wrap">

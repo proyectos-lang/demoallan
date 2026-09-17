@@ -135,6 +135,15 @@ export default async function PuntoDeVentaPage({
       p_vendedor_id: null,
     });
 
+    /*
+     * El mismo botón «Ver anulados» que gobierna el detalle de arriba gobierna
+     * también las capturas de abajo. Sin esto, las capturas anuladas salían
+     * SIEMPRE —un día real tenía 21— mientras los tickets anulados sólo con el
+     * botón pulsado: dos tablas de la misma pantalla obedeciendo reglas
+     * distintas, que es justo lo que confunde a quien las lee juntas.
+     */
+    const conAnulados = params.anulados === "1";
+
     // Los mismos que lee el detalle de arriba, para filtrar las dos tablas con
     // una sola elección.
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -163,6 +172,8 @@ export default async function PuntoDeVentaPage({
 
     const capturasDia: CapturaDelDia[] = (totalesCrudos ?? [])
       .filter((c) => elegidos.length === 0 || elegidos.includes(c.r_vendedor_id))
+      // Las anuladas sólo cuando el botón lo pide, igual que los tickets.
+      .filter((c) => conAnulados || !c.r_anulado)
       .map((c) => ({
         id: c.r_id,
         hora: c.r_hora,
