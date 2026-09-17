@@ -11,6 +11,7 @@ import {
 } from "@/components/liquidacion/imprimible-saldos";
 import { PagarSaldos } from "@/components/liquidacion/pagar-saldos";
 import { SaldarArrastre } from "@/components/liquidacion/saldar-arrastre";
+import { SaldoInicial } from "@/components/liquidacion/saldo-inicial";
 import { cn } from "@/lib/cn";
 import { fmt } from "@/lib/format";
 
@@ -25,6 +26,8 @@ export type FilaSaldoVendedor = {
   liquidado: number;
   pendiente: number;
   actual: number;
+  /** El saldo con el que entró al sistema, si trae uno. Desde la 0095. */
+  apertura?: { id: string; monto: number; vigenteDesde: string } | null;
 };
 
 /**
@@ -201,7 +204,21 @@ export function TablaSaldos({
                   */}
                   <td className={cn(celda, f.anterior < 0 && "text-negativo")}>
                     {f.anterior === 0 ? (
-                      "—"
+                      /*
+                        Sin arrastre, lo único que cabe ofrecer es cargarle el
+                        saldo con el que entró. Es justo el caso del vendedor
+                        recién creado: no tiene sorteos viejos, así que aquí no
+                        habría nada — y es donde hace falta el botón.
+                      */
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-mudo">—</span>
+                        <SaldoInicial
+                          vendedorId={f.id}
+                          vendedor={f.nombre}
+                          actual={f.apertura}
+                          hoy={hoy}
+                        />
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-2">
                         {fmt(f.anterior, false)}
@@ -233,6 +250,17 @@ export function TablaSaldos({
                           desde={desde}
                           hoy={hoy}
                         />
+                        {/* Con arrastre, el enlace sólo aparece si trae saldo
+                            de apertura: es para poder verlo o quitarlo, no
+                            para cargar un segundo. */}
+                        {f.apertura && (
+                          <SaldoInicial
+                            vendedorId={f.id}
+                            vendedor={f.nombre}
+                            actual={f.apertura}
+                            hoy={hoy}
+                          />
+                        )}
                       </span>
                     )}
                   </td>

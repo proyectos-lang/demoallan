@@ -72,6 +72,25 @@ export async function VistaSaldos({
     p_hasta: abierta.fin,
   });
 
+  /*
+   * Los saldos de apertura vivos, para poder enseñar cuál trae cada uno y
+   * ofrecer quitarlo. Se leen de la tabla directamente y no uno por uno con
+   * `fn_saldo_inicial`: son ciento y pico vendedores y serían ciento y pico
+   * viajes para pintar una columna.
+   */
+  const { data: aperturas } = await supabase
+    .from("saldo_inicial")
+    .select("id, vendedor_id, monto, vigente_desde")
+    .is("anulado_en", null)
+    .is("saldado_en", null);
+
+  const porVendedor = new Map(
+    (aperturas ?? []).map((a) => [
+      a.vendedor_id,
+      { id: a.id, monto: Number(a.monto), vigenteDesde: a.vigente_desde },
+    ]),
+  );
+
   const filas: FilaSaldoVendedor[] = (data ?? []).map((f) => ({
     id: f.r_vendedor_id,
     codigo: f.r_codigo,
@@ -83,6 +102,7 @@ export async function VistaSaldos({
     liquidado: Number(f.r_liquidado),
     pendiente: Number(f.r_pendiente),
     actual: Number(f.r_actual),
+    apertura: porVendedor.get(f.r_vendedor_id) ?? null,
   }));
 
   return (

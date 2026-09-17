@@ -169,6 +169,31 @@ export type CorteVendedor = {
   usuario_id: string | null;
 };
 
+/**
+ * El saldo con el que un vendedor entra al sistema, traído de la libreta
+ * anterior. Desde la 0095.
+ *
+ * NO ES UNA VENTA. No aparece en ningún informe de venta; sólo suma al
+ * arrastre de la liquidación. Ésa es la razón de que viva en su propia tabla
+ * y no como una fila de `liquidacion` inventada.
+ */
+export type SaldoInicial = {
+  id: string;
+  vendedor_id: string;
+  /** Positivo: el vendedor debe. Negativo: la casa le debe. */
+  monto: number;
+  vigente_desde: string;
+  nota: string | null;
+  creado_en: string;
+  creado_por: string | null;
+  anulado_en: string | null;
+  anulado_por: string | null;
+  motivo_anulacion: string | null;
+  /** Mientras sea nulo, este saldo sigue sumando al arrastre. */
+  saldado_en: string | null;
+  saldado_corte_id: string | null;
+};
+
 /** El `unique` de `liquidacion_id` es lo que impide pagar dos veces un sorteo. */
 /**
  * Venta capturada por totales, sin detalle de números (0047).
@@ -322,6 +347,18 @@ export type Database = {
       linea: Tabla<Linea, "id" | "gana" | "premio">;
       liquidacion: Tabla<Liquidacion, "id" | "generada_en" | "usuario_id">;
       corte_vendedor: Tabla<CorteVendedor, "id" | "pagado_en" | "nota" | "usuario_id">;
+      saldo_inicial: Tabla<
+        SaldoInicial,
+        | "id"
+        | "nota"
+        | "creado_en"
+        | "creado_por"
+        | "anulado_en"
+        | "anulado_por"
+        | "motivo_anulacion"
+        | "saldado_en"
+        | "saldado_corte_id"
+      >;
       corte_detalle: Tabla<CorteDetalle, never>;
       venta_total: Tabla<
         VentaTotal,
@@ -1218,6 +1255,36 @@ export type Database = {
        * obligatorio. `p_fecha_pago` es el día en que se recibió el dinero, que
        * puede ser anterior al de la captura; no admite fechas futuras.
        */
+      /**
+       * El saldo con el que un vendedor entra al sistema, traído de la
+       * libreta anterior. Desde la 0095. No es una venta: no entra en ningún
+       * informe de venta, sólo en el arrastre de la liquidación.
+       */
+      fn_cargar_saldo_inicial: {
+        Args: {
+          p_vendedor_id: string;
+          /** Positivo: el vendedor debe. Negativo: la casa le debe. */
+          p_monto: number;
+          p_vigente_desde: string;
+          p_nota?: string | null;
+          p_usuario_id?: string | null;
+        };
+        Returns: { r_id: string; r_monto: number }[];
+      };
+      fn_anular_saldo_inicial: {
+        Args: { p_id: string; p_motivo?: string | null; p_usuario_id?: string | null };
+        Returns: undefined;
+      };
+      fn_saldo_inicial: {
+        Args: { p_vendedor_id: string };
+        Returns: {
+          r_id: string;
+          r_monto: number;
+          r_vigente_desde: string;
+          r_nota: string | null;
+          r_creado_en: string;
+        }[];
+      };
       fn_saldar_arrastre: {
         Args: {
           p_vendedor_id: string;

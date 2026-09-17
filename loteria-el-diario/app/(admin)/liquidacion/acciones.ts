@@ -496,3 +496,104 @@ export async function reversarCorte(
         : ""),
   };
 }
+
+/* -------------------------------------------------------------------------
+ * El saldo con el que un vendedor entra al sistema.
+ *
+ * QUÉ RESUELVE. Los vendedores que se dan de alta no son negocios nuevos:
+ * llevan años vendiendo y traen una cuenta abierta de la libreta anterior. El
+ * «saldo anterior» de la liquidación se calcula sumando sorteos viejos sin
+ * pagar, y uno recién creado no tiene ninguno, así que su arrastre es cero y
+ * no había forma de decir que debe 4.500.
+ *
+ * SÓLO ADMINISTRACIÓN, y se decide aquí. Es dinero que entra al sistema sin
+ * respaldo de ventas: lo carga quien responde por él. La base no puede
+ * comprobarlo —desde la 0024 la aplicación habla como `service_role`— así que
+ * la guarda vive en estas tres líneas.
+ * ---------------------------------------------------------------------- */
+
+export type ResultadoSaldoInicial =
+  | { ok: true; monto: number; mensaje: string }
+  | { ok: false; mensaje: string };
+
+export async function cargarSaldoInicial(
+  vendedorId: string,
+  monto: number,
+  vigenteDesde: string,
+  nota: string,
+): Promise<ResultadoSaldoInicial> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede cargar un saldo inicial." };
+  }
+
+  if (!Number.isFinite(monto) || monto === 0) {
+    return {
+      ok: false,
+      mensaje: "Escriba el saldo. Si el vendedor no arrastra nada, no hace falta cargarlo.",
+    };
+  }
+  if (!vigenteDesde) {
+    return { ok: false, mensaje: "Diga desde cuándo cuenta ese saldo." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { data, error } = await supabase.rpc("fn_cargar_saldo_inicial", {
+    p_vendedor_id: vendedorId,
+    p_monto: monto,
+    p_vigente_desde: vigenteDesde,
+    p_nota: nota.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        mensaje:
+          "El saldo inicial todavía no está habilitado en la base de datos. Falta aplicar la migración 0095.",
+      };
+    }
+    return { ok: false, mensaje: error.message };
+  }
+
+  const r = data?.[0];
+  if (!r) return { ok: false, mensaje: "No se pudo cargar el saldo." };
+
+  revalidatePath("/liquidacion");
+
+  const m = Number(r.r_monto);
+  return {
+    ok: true,
+    monto: m,
+    mensaje:
+      m > 0
+        ? `Saldo inicial cargado: el vendedor arrastra ${m.toFixed(2)}.`
+        : `Saldo inicial cargado: la casa le debe ${Math.abs(m).toFixed(2)}.`,
+  };
+}
+
+/** Quitar un saldo inicial mal cargado. No se borra: queda el rastro. */
+export async function anularSaldoInicial(
+  id: string,
+  motivo: string,
+): Promise<{ ok: boolean; mensaje: string }> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede quitar un saldo inicial." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { error } = await supabase.rpc("fn_anular_saldo_inicial", {
+    p_id: id,
+    p_motivo: motivo.trim() || null,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath("/liquidacion");
+  return { ok: true, mensaje: "Saldo inicial quitado." };
+}
