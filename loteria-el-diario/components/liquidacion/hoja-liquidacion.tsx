@@ -286,13 +286,24 @@ export function HojaLiquidacion({
                 hasta: rangoMarcado.hasta,
                 semana,
                 /*
-                 * Sin abonos ni arrastre: los dos hablan de la semana entera
-                 * —lo ya cobrado de ella, y lo que se trae de atrás— y en un
-                 * comprobante de tres sorteos no significan nada. Meterlos
-                 * haría que el total del papel no cuadrara con sus líneas.
+                 * El arrastre SÍ va, aunque el papel sólo lleve unos sorteos.
+                 *
+                 * Es lo que el vendedor pidió ver: el saldo anterior en el
+                 * comprobante de lo marcado, igual que en el de la semana. Y
+                 * cuadra: el pie del imprimible dibuja «pendiente de esta
+                 * semana» —la suma de estas líneas— y «saldo anterior» como
+                 * dos filas separadas, y las suma en «el vendedor entrega». La
+                 * cuenta que firma es la de verdad: lo de estos sorteos más lo
+                 * que ya traía.
+                 *
+                 * Los abonos SÍ se quedan fuera: hablan de pagos de la semana
+                 * entera —«ya me entregó 400 el martes»— y en un recibo de tres
+                 * sorteos sueltos no significan nada. El arrastre es distinto:
+                 * es una deuda que el vendedor trae puesta, valga el papel que
+                 * valga.
                  */
                 abonos: [],
-                arrastre: 0,
+                arrastre,
                 lineas: elegidas.map((f) => ({
                   fecha: f.fecha,
                   hora: f.hora,

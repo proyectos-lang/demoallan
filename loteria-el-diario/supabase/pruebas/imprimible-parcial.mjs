@@ -103,6 +103,30 @@ const html = documentoLiquidacion({
   arrastre: 0,
 });
 
+/*
+ * EL MISMO PAPEL, PERO CON SALDO ANTERIOR.
+ *
+ * Se pidió que el comprobante de lo marcado también lleve el arrastre en el
+ * pie —el saldo que el vendedor trae de antes—, igual que el de la semana
+ * entera. Antes iba en cero a propósito, y el vendedor no lo veía.
+ *
+ * Lo que hay que vigilar es que el pie CUADRE: el saldo anterior es una fila
+ * aparte, y el total a entregar tiene que ser lo pendiente de estos sorteos
+ * MÁS lo que traía. Si esa suma no sale, el papel miente sobre lo que se le
+ * pide al vendedor.
+ */
+const ARRASTRE = 16338;
+const htmlConSaldo = documentoLiquidacion({
+  vendedor: "PHILLIP",
+  comisionTasa: 0.15,
+  desde: esperado.desde,
+  hasta: esperado.hasta,
+  semana: 36,
+  lineas: marcadas,
+  abonos: [],
+  arrastre: ARRASTRE,
+});
+
 const archivo = join(taller, "parcial.html");
 writeFileSync(archivo, html, "utf8");
 
@@ -264,6 +288,41 @@ console.log("\n--- Y cabe en una hoja ---");
 console.log(`        ${m.alto}px de alto sobre 1015 útiles`);
 check("no desborda a lo ancho", m.ancho <= 744, `${m.ancho}px`);
 check("CABE EN UNA HOJA", m.alto <= 1015, `${m.alto}px`);
+
+// --- El pie con saldo anterior ------------------------------------------
+// Se leen las filas del resumen del HTML generado. No hace falta navegador:
+// lo que se comprueba es la aritmética del pie, no cómo se pinta.
+const filasPie = [
+  ...htmlConSaldo
+    .split('class="resumen"')[1]
+    .matchAll(/<td class="et">([^<]+)<\/td>\s*<td[^>]*>L\s*([0-9.,]+)/g),
+].map((x) => [x[1], Number(x[2].replace(/,/g, ""))]);
+const pie = Object.fromEntries(filasPie);
+
+const saldoSemana = marcadas.reduce((a, f) => a + f.saldo, 0);
+const pendiente = saldoSemana; // ninguna marcada está pagada en este montaje
+const entregaEsperada = Math.abs(pendiente + ARRASTRE);
+
+check(
+  "el papel de lo marcado ahora trae «Saldo anterior»",
+  "Saldo anterior" in pie,
+  "no aparece en el pie",
+);
+check(
+  "y es el arrastre que se le pasó",
+  Math.round((pie["Saldo anterior"] ?? 0) * 100) === Math.round(ARRASTRE * 100),
+  `${pie["Saldo anterior"]} contra ${ARRASTRE}`,
+);
+check(
+  "el total a entregar suma lo pendiente MÁS el saldo anterior",
+  Math.round((pie["El vendedor entrega"] ?? 0) * 100) === Math.round(entregaEsperada * 100),
+  `${pie["El vendedor entrega"]} contra ${entregaEsperada}`,
+);
+check(
+  "sin arrastre, ese mismo papel NO trae saldo anterior",
+  !html.includes("Saldo anterior"),
+  "el de arrastre 0 lo pinta igual",
+);
 
 ws.close();
 chrome.kill();
