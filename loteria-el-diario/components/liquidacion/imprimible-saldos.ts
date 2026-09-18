@@ -15,6 +15,12 @@ export type HojaSaldos = {
   hasta: string;
   filas: FilaSaldo[];
   orientacion: Orientacion;
+  /**
+   * Las sumas de las columnas de dinero, tal como se ven en pantalla. Se pasan
+   * ya calculadas —no se rehacen aquí— para que el papel diga exactamente lo
+   * mismo que el cuadro de arriba, sin un redondeo que las separe.
+   */
+  totales: { anterior: number; semana: number; actual: number };
 };
 
 /** `2,590.00`, con el menos de verdad (U+2212) para los negativos. */
@@ -39,10 +45,16 @@ function esc(s: string): string {
  *
  * QUÉ LLEVA Y QUÉ NO
  * ------------------
- * Cuatro columnas —número, vendedor, saldo anterior, saldo actual— y ningún
- * adorno alrededor: ni encabezado, ni totales, ni firmas. Es la lista con la
- * que se sale a cobrar, se trabaja encima de ella, y todo lo que no sea una
- * fila de vendedor es sitio que le quita.
+ * Cinco columnas —número, vendedor, saldo anterior, saldo de la semana y saldo
+ * actual— y una fila de totales al pie: las tres cifras de dinero sumadas, las
+ * mismas que enseña el cuadro de la pantalla. Nada más de adorno: ni encabezado
+ * de fecha, ni firmas. Es la lista con la que se sale a cobrar, se trabaja
+ * encima de ella, y todo lo que no sea una fila de vendedor le quita sitio.
+ *
+ * Los totales sí ganan su sitio: el usuario final cuadra la caja del día con
+ * ellos, y tenerlos en pantalla pero no en el papel obligaba a volver a sumar a
+ * mano. Se pasan ya calculados desde la tabla, para que las dos cifras —la de
+ * arriba y la del papel— no puedan discrepar por un redondeo.
  *
  * La semana y la fecha no se imprimen a propósito: quien manda imprimir acaba
  * de elegirlas en la pantalla, y quien recibe el papel ya sabe de qué semana
@@ -89,7 +101,18 @@ export function documentoSaldos(h: HojaSaldos): string {
       // y el hueco sirve para escribir encima.
       f.anterior === 0 ? "" : money(f.anterior)
     }</td>
+    <td class="n ${f.semana < 0 ? "rojo" : ""}">${f.semana === 0 ? "" : money(f.semana)}</td>
     <td class="n b ${f.actual < 0 ? "rojo" : ""}">L${money(f.actual)}</td>
+  </tr>`;
+
+  // La fila de totales del pie: las tres cifras sumadas, como en pantalla.
+  const t = h.totales;
+  const totales = `<tr class="tot">
+    <td class="i"></td>
+    <td>TOTALES</td>
+    <td class="n ${t.anterior < 0 ? "rojo" : ""}">${money(t.anterior)}</td>
+    <td class="n ${t.semana < 0 ? "rojo" : ""}">${money(t.semana)}</td>
+    <td class="n b ${t.actual < 0 ? "rojo" : ""}">L${money(t.actual)}</td>
   </tr>`;
 
   /*
@@ -106,21 +129,29 @@ export function documentoSaldos(h: HojaSaldos): string {
       ? [h.filas.slice(0, mitad), h.filas.slice(mitad)]
       : [h.filas];
 
-  const tabla = (grupo: FilaSaldo[], desplazamiento: number) => `
-    <table>
-      <thead><tr>
+  const encabezado = `<thead><tr>
         <th class="i">#</th>
         <th>Vendedor</th>
         <th class="n">Saldo anterior</th>
+        <th class="n">Saldo de la semana</th>
         <th class="n">Saldo actual</th>
-      </tr></thead>
+      </tr></thead>`;
+
+  const tabla = (grupo: FilaSaldo[], desplazamiento: number, conPie: boolean) => `
+    <table>
+      ${encabezado}
       <tbody>${grupo.map((f, i) => fila(f, desplazamiento + i)).join("")}</tbody>
+      ${conPie ? `<tfoot>${totales}</tfoot>` : ""}
     </table>`;
 
   const cuerpo =
     bloques.length === 2
-      ? `<div class="dos">${tabla(bloques[0], 0)}${tabla(bloques[1], mitad)}</div>`
-      : tabla(bloques[0], 0);
+      ? // En apaisado, las dos columnas de vendedores no llevan pie —una suma por
+        // mitad no dice nada—; los totales van en una tabla aparte, debajo y a
+        // todo el ancho, para que la suma sea la del padrón entero y una sola.
+        `<div class="dos">${tabla(bloques[0], 0, false)}${tabla(bloques[1], mitad, false)}</div>
+         <table class="pie">${encabezado}<tbody>${totales}</tbody></table>`
+      : tabla(bloques[0], 0, true);
 
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
@@ -167,9 +198,17 @@ export function documentoSaldos(h: HojaSaldos): string {
 
   th.i, td.i { width: 6%; text-align: center; color: #555; font-size: 8pt; }
   th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
-  th.n { width: 22%; }
+  th.n { width: 18%; }
   td.b { font-weight: bold; }
   .rojo { color: #c00; }
+
+  /* La fila de totales: sobre gris, en negrita, para que se lea como el
+     cierre de la lista y no como un vendedor más. */
+  tr.tot td {
+    background: #eee; font-weight: bold; border-top: 2px solid #555;
+  }
+  /* En apaisado, la tira de totales va separada de las dos tablas de arriba. */
+  table.pie { margin-top: 10px; }
 </style></head><body>
 
 ${cuerpo}

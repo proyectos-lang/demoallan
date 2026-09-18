@@ -1,6 +1,7 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Printer } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Boton } from "@/components/ui/boton";
@@ -110,6 +111,13 @@ export function TablaSaldos({
         liquidado: f.liquidado,
         actual: f.actual,
       })),
+      // Las mismas sumas del pie del cuadro, ya calculadas: el papel no las
+      // rehace para que no puedan discrepar por un redondeo.
+      totales: {
+        anterior: total.anterior,
+        semana: total.semana,
+        actual: total.actual,
+      },
     };
     i.srcdoc = documentoSaldos(hoja);
   };
@@ -190,8 +198,32 @@ export function TablaSaldos({
                   <td className="pl-4 pr-3 py-[8px] border-b border-fondo text-secundario">
                     {f.codigo}
                   </td>
+                  {/*
+                    El nombre es un enlace a la hoja de ese vendedor, en la
+                    misma semana. Es el atajo que pidió el usuario: desde los
+                    saldos —sobre todo un negativo— entrar directo a su hoja
+                    para revisarla, liquidar e imprimir sin dar vueltas. La
+                    flecha aparece sólo a quien hay que ir a cuadrar (saldo
+                    distinto de cero), que es cuando el atajo sirve.
+                  */}
                   <td className="px-3 py-[8px] border-b border-fondo font-medium">
-                    {f.nombre}
+                    <Link
+                      href={`/liquidacion?vista=hoja&vendedor=${f.id}&semana=${desde}`}
+                      className="group inline-flex items-center gap-1.5 text-cuerpo hover:text-acento"
+                      title={`Abrir la hoja de ${f.nombre}`}
+                    >
+                      {f.nombre}
+                      {f.actual !== 0 && (
+                        <ArrowRight
+                          size={13}
+                          strokeWidth={2}
+                          className={cn(
+                            "opacity-0 group-hover:opacity-100 transition-opacity",
+                            f.actual < 0 && "text-negativo",
+                          )}
+                        />
+                      )}
+                    </Link>
                     {!f.activo && <span className="text-th text-mudo ml-2">de baja</span>}
                   </td>
                   {/*

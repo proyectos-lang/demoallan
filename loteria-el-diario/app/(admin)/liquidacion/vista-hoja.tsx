@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+
 import {
   FiltrosLiquidacion,
   type OpcionVendedorLiq,
@@ -236,6 +239,23 @@ export async function VistaHoja({
 
   return (
     <>
+      {/*
+        Volver a los saldos, conservando la semana. Es el otro extremo del atajo
+        que se abrió desde la pestaña de saldos: el usuario entra a una hoja
+        desde ahí para revisarla, liquidar e imprimir, y con esto vuelve a la
+        lista de un toque para seguir con el próximo, sin dar vueltas por las
+        pestañas.
+      */}
+      <Link
+        href={`/liquidacion?vista=saldos${
+          texto("semana") ? `&semana=${texto("semana")}` : ""
+        }`}
+        className="inline-flex items-center gap-1.5 text-meta text-secundario hover:text-acento w-fit"
+      >
+        <ArrowLeft size={14} strokeWidth={2} />
+        Volver a saldos por vendedor
+      </Link>
+
       <FiltrosLiquidacion vendedores={vendedores} vendedorId={vendedor.id} vista="hoja" />
 
       <div className="flex gap-4 items-start flex-wrap lg:flex-nowrap">
