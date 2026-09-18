@@ -277,13 +277,14 @@ async function main() {
   check("y la venta se mantiene", Number(liqDespues.data.venta) === 100,
         String(liqDespues.data.venta));
 
-  // --- Lo ya pagado se rechaza, sin dejar nada a medias -----------------------
+  // --- Lo ya pagado se corrige, y sólo la diferencia queda pendiente ----------
   const { data: liqFila } = await sb
     .from("liquidacion")
-    .select("id")
+    .select("id, utilidad")
     .eq("sorteo_id", seLiquida.id)
     .eq("vendedor_id", vendedorId)
     .single();
+  const viejo = Number(liqFila.utilidad); // lo que el corte pagará por este sorteo
 
   const { error: eCorte } = await sb.rpc("fn_registrar_corte", {
     p_vendedor_id: vendedorId,
@@ -297,17 +298,41 @@ async function main() {
   if (eCorte) {
     console.log(`  (se omite lo del corte pagado: ${eCorte.message})`);
   } else {
-    const antes = await jugadaDe(tkLiq.id);
+    // El administrador tiene control total: aunque el sorteo ya se pagó, se
+    // corrige. El sorteo se desliga del corte y lo ya pagado se le reconoce con
+    // un abono, así que sólo la diferencia queda pendiente. Aquí `viejo` > 0.
     const { error: ePagado } = await sb.rpc("fn_editar_venta", {
       p_ticket_id: tkLiq.id,
       p_lineas: [{ numero: 33, monto: 500 }],
-      p_motivo: "no debería poder",
+      p_motivo: "corrección tras el pago",
       p_usuario_id: admin.id,
     });
-    check("un sorteo YA PAGADO rechaza la corrección", !!ePagado, ePagado ? "" : "no dio error");
-    check("y la corrección se deshizo entera (transacción)",
-          (await jugadaDe(tkLiq.id)) === antes,
-          `quedó ${await jugadaDe(tkLiq.id)}, era ${antes}`);
+    check("un sorteo YA PAGADO acepta la corrección del administrador",
+          !ePagado, ePagado?.message ?? "");
+    check("la corrección se aplicó (33:500)",
+          (await jugadaDe(tkLiq.id)) === "33:500",
+          `quedó ${await jugadaDe(tkLiq.id)}`);
+
+    const { data: det } = await sb
+      .from("corte_detalle")
+      .select("liquidacion_id")
+      .eq("liquidacion_id", liqFila.id);
+    check("el sorteo se desligó del corte", (det ?? []).length === 0);
+
+    const { data: abono } = await sb
+      .from("abono_vendedor")
+      .select("monto")
+      .eq("vendedor_id", vendedorId)
+      .is("corte_id", null)
+      .order("registrado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    check("se reconoció lo pagado con un abono por 'viejo'",
+          abono && Math.abs(Number(abono.monto) - viejo) < 0.01,
+          `abono ${abono?.monto}, viejo ${viejo}`);
+
+    await sb.from("abono_vendedor").delete()
+      .eq("vendedor_id", vendedorId).is("corte_id", null);
   }
 
   await limpiar();

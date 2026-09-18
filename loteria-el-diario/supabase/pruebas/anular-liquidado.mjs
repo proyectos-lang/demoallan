@@ -262,27 +262,58 @@ async function main() {
   if (eCorte) {
     console.log(`  (se omite lo del corte pagado: ${eCorte.message})`);
   } else {
+    // El administrador tiene control total: aunque el sorteo ya se pagó, se
+    // puede anular una venta. El sorteo se desliga del corte, la liquidación se
+    // rehace, y lo ya pagado se le reconoce con un abono, de modo que sólo la
+    // diferencia queda pendiente. Aquí `viejo` = 900 (la utilidad pagada) > 0.
+    const viejo = 900; // venta 1000 − comisión 100 − premios 0
     const { data: tk1 } = await sb.from("ticket").select("id").eq("folio", v1[0].r_folio).single();
     const { error: ePagado } = await sb.rpc("fn_anular_ticket", {
       p_ticket_id: tk1.id,
-      p_motivo: "no debería poder",
+      p_motivo: "corrección tras el pago",
       p_usuario_id: admin.id,
       p_forzar: true,
     });
-    check("un sorteo YA PAGADO rechaza la anulación", !!ePagado, ePagado ? "" : "no dio error");
+    check("un sorteo YA PAGADO acepta la corrección del administrador",
+          !ePagado, ePagado?.message ?? "");
 
-    // Y el rechazo tiene que haber deshecho TODO: si el ticket quedara anulado
-    // con la liquidación intacta, el descuadre sería peor que no dejar anular.
     const { data: tk1Estado } = await sb
       .from("ticket")
       .select("anulado_en")
       .eq("id", tk1.id)
       .single();
-    check("y la anulación se deshizo entera (transacción)",
-          tk1Estado.anulado_en === null, "el ticket quedó anulado pese al rechazo");
+    check("el ticket se anuló", tk1Estado.anulado_en !== null);
 
+    // El sorteo se desligó del corte: vuelve a estar pendiente por su valor nuevo.
+    const { data: det } = await sb
+      .from("corte_detalle")
+      .select("liquidacion_id")
+      .eq("liquidacion_id", liqFila.id);
+    check("el sorteo se desligó del corte", (det ?? []).length === 0);
+
+    // Lo pagado se reconoció con un abono vivo por 'viejo'.
+    const { data: abono } = await sb
+      .from("abono_vendedor")
+      .select("monto")
+      .eq("vendedor_id", vendedorId)
+      .is("corte_id", null)
+      .order("registrado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    check("se reconoció lo pagado con un abono por 'viejo'",
+          abono && Math.abs(Number(abono.monto) - viejo) < 0.01,
+          `abono ${abono?.monto}, viejo ${viejo}`);
+
+    // La liquidación se rehízo. Al anular el último ticket vivo del sorteo, la
+    // venta cae a 0 y la fila sobra: se borra. Cualquiera de las dos —bajó o
+    // desapareció— prueba que se recalculó; lo que no puede es seguir en 1000.
     const finalLiq = await liquidacion(sorteo.id, vendedorId);
-    check("la liquidación pagada no se tocó", finalLiq?.venta === 1000, JSON.stringify(finalLiq));
+    check("la liquidación se rehízo (ya no vale 1000)",
+          !finalLiq || Number(finalLiq.venta) < 1000, JSON.stringify(finalLiq));
+
+    // Limpieza del abono que dejó esta corrección.
+    await sb.from("abono_vendedor").delete()
+      .eq("vendedor_id", vendedorId).is("corte_id", null);
   }
 
   await limpiar();
