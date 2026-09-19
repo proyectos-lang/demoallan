@@ -1,3 +1,5 @@
+import { fechaLargaSinDia } from "@/lib/format";
+
 export type FilaSaldo = {
   codigo: string;
   nombre: string;
@@ -43,26 +45,34 @@ function esc(s: string): string {
 /**
  * La hoja de cobro: la tabla y nada más.
  *
- * QUÉ LLEVA Y QUÉ NO
- * ------------------
- * Cinco columnas —número, vendedor, saldo anterior, saldo de la semana y saldo
- * actual— y una fila de totales al pie: las tres cifras de dinero sumadas, las
- * mismas que enseña el cuadro de la pantalla. Nada más de adorno: ni encabezado
- * de fecha, ni firmas. Es la lista con la que se sale a cobrar, se trabaja
- * encima de ella, y todo lo que no sea una fila de vendedor le quita sitio.
+ * QUÉ LLEVA
+ * ---------
+ * Un título con la semana y su rango de fechas, cinco columnas —número,
+ * vendedor, saldo anterior, saldo de la semana y saldo actual— y una fila de
+ * totales al pie: las tres cifras de dinero sumadas, las mismas que enseña el
+ * cuadro de la pantalla. Sigue sin firmas: es la lista con la que se sale a
+ * cobrar y se trabaja encima de ella.
  *
- * Los totales sí ganan su sitio: el usuario final cuadra la caja del día con
- * ellos, y tenerlos en pantalla pero no en el papel obligaba a volver a sumar a
- * mano. Se pasan ya calculados desde la tabla, para que las dos cifras —la de
- * arriba y la del papel— no puedan discrepar por un redondeo.
+ * Los totales se cuadran la caja del día con ellos, y tenerlos en pantalla pero
+ * no en el papel obligaba a volver a sumar a mano. Se pasan ya calculados desde
+ * la tabla, para que las dos cifras —la de arriba y la del papel— no puedan
+ * discrepar por un redondeo.
  *
- * La semana y la fecha no se imprimen a propósito: quien manda imprimir acaba
- * de elegirlas en la pantalla, y quien recibe el papel ya sabe de qué semana
- * le hablan. Ponerlas gasta una franja de hoja para contestar algo que nadie
- * está preguntando.
+ * EL TÍTULO CON LA SEMANA Y LAS FECHAS
+ * ------------------------------------
+ * Antes no se imprimía —se daba por hecho que quien recibía el papel ya sabía
+ * de qué semana le hablaban—, pero el usuario final pidió que salga: cuando la
+ * hoja circula, el rango de fechas es justo lo que hay que poder leer sin
+ * preguntar. Va como encabezado, con el número de semana y su «de … a …».
  *
- * La versión con encabezado, totales, firmas y las seis columnas de antes
- * sigue entera en `imprimible-saldos-detallado`.
+ * SE IMPRIME EN OFICIO
+ * --------------------
+ * `@page size: legal` (8.5×14"), que es el papel que se usa para esta hoja. El
+ * diálogo de impresión lo preselecciona y las filas cuentan con el alto de
+ * oficio.
+ *
+ * La versión con firmas y las seis columnas de antes sigue entera en
+ * `imprimible-saldos-detallado`.
  *
  * SIN COLORES DE FONDO, PERO CON EL ROJO
  * --------------------------------------
@@ -153,11 +163,28 @@ export function documentoSaldos(h: HojaSaldos): string {
          <table class="pie">${encabezado}<tbody>${totales}</tbody></table>`
       : tabla(bloques[0], 0, true);
 
+  /*
+   * El título de la hoja: qué semana es y de qué fecha a qué fecha comprende.
+   * Lo pidió el usuario final —quien recibe el papel a veces no sabe de qué
+   * semana le hablan— y por eso ahora sí encabeza la hoja, con el número de
+   * semana y su rango en fechas largas, como en la pantalla.
+   */
+  const titulo =
+    (h.semana === null ? "Saldos por vendedor" : `Semana #${h.semana}`) +
+    ` · de ${fechaLargaSinDia(h.desde)} a ${fechaLargaSinDia(h.hasta)}`;
+  const cabecera = `<h1 class="titulo">${esc(titulo)}</h1>`;
+
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <title>Saldos por vendedor${h.semana === null ? "" : ` · semana ${h.semana}`}</title>
 <style>
-  @page { size: A4 ${h.orientacion === "vertical" ? "portrait" : "landscape"}; margin: 10mm; }
+  /*
+     Papel OFICIO (legal, 8.5x14"), no A4: es el que usa el usuario final para
+     esta hoja. Se declara con "size: legal" para que el diálogo de impresión lo
+     preseleccione y las filas cuenten con el alto de oficio, más largo que el
+     de A4.
+  */
+  @page { size: legal ${h.orientacion === "vertical" ? "portrait" : "landscape"}; margin: 10mm; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -202,6 +229,14 @@ export function documentoSaldos(h: HojaSaldos): string {
   td.b { font-weight: bold; }
   .rojo { color: #c00; }
 
+  /* El título de la hoja: la semana y su rango de fechas. Discreto pero claro,
+     y separado de la tabla para que no se confunda con una fila. */
+  h1.titulo {
+    margin: 0 0 8px;
+    font-size: 12pt;
+    font-weight: bold;
+  }
+
   /* La fila de totales: sobre gris, en negrita, para que se lea como el
      cierre de la lista y no como un vendedor más. */
   tr.tot td {
@@ -211,6 +246,7 @@ export function documentoSaldos(h: HojaSaldos): string {
   table.pie { margin-top: 10px; }
 </style></head><body>
 
+${cabecera}
 ${cuerpo}
 
 </body></html>`;
