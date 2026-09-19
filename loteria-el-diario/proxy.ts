@@ -46,7 +46,7 @@ function esPublica(ruta: string): boolean {
  * semanal es la primera que no es de consulta —ahí se cierra el pago con el
  * vendedor— y por eso estrena la lista.
  */
-const SOLO_ADMINISTRADOR = ["/liquidacion"];
+const SOLO_ADMINISTRADOR = ["/liquidacion", "/liquidacion-hoja"];
 
 /*
  * Pantallas que ven administrador y auditor, pero no el digitador.

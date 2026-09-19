@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, Printer } from "lucide-react";
+import { ArrowUpRight, Printer } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Boton } from "@/components/ui/boton";
+import { HojaModal } from "@/components/liquidacion/hoja-modal";
 import {
   documentoSaldos,
   type HojaSaldos,
@@ -199,31 +199,37 @@ export function TablaSaldos({
                     {f.codigo}
                   </td>
                   {/*
-                    El nombre es un enlace a la hoja de ese vendedor, en la
-                    misma semana. Es el atajo que pidió el usuario: desde los
-                    saldos —sobre todo un negativo— entrar directo a su hoja
-                    para revisarla, liquidar e imprimir sin dar vueltas. La
-                    flecha aparece sólo a quien hay que ir a cuadrar (saldo
-                    distinto de cero), que es cuando el atajo sirve.
+                    El nombre abre la hoja completa del vendedor en un modal
+                    grande —la misma semana— para cerrarle cuenta ahí mismo:
+                    pagar, saldar, imprimir. Es el atajo que pidió el usuario:
+                    desde los saldos, sobre todo un negativo, entrar a gestionar
+                    sin cambiar de pantalla; al cerrar el modal la tabla recoge
+                    lo que haya cambiado. La flechita aparece a quien hay que ir
+                    a cuadrar (saldo distinto de cero), que es cuando sirve.
                   */}
                   <td className="px-3 py-[8px] border-b border-fondo font-medium">
-                    <Link
-                      href={`/liquidacion?vista=hoja&vendedor=${f.id}&semana=${desde}`}
-                      className="group inline-flex items-center gap-1.5 text-cuerpo hover:text-acento"
-                      title={`Abrir la hoja de ${f.nombre}`}
+                    <HojaModal
+                      vendedorId={f.id}
+                      vendedor={`${f.codigo} · ${f.nombre}`}
+                      semana={desde}
                     >
-                      {f.nombre}
-                      {f.actual !== 0 && (
-                        <ArrowRight
-                          size={13}
-                          strokeWidth={2}
-                          className={cn(
-                            "opacity-0 group-hover:opacity-100 transition-opacity",
-                            f.actual < 0 && "text-negativo",
-                          )}
-                        />
-                      )}
-                    </Link>
+                      <span
+                        className="group inline-flex items-center gap-1.5 text-cuerpo hover:text-acento cursor-pointer"
+                        title={`Abrir la hoja de ${f.nombre}`}
+                      >
+                        {f.nombre}
+                        {f.actual !== 0 && (
+                          <ArrowUpRight
+                            size={13}
+                            strokeWidth={2}
+                            className={cn(
+                              "opacity-40 group-hover:opacity-100 transition-opacity",
+                              f.actual < 0 && "text-negativo",
+                            )}
+                          />
+                        )}
+                      </span>
+                    </HojaModal>
                     {!f.activo && <span className="text-th text-mudo ml-2">de baja</span>}
                   </td>
                   {/*

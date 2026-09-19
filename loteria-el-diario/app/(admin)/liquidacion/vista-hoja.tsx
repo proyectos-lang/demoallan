@@ -33,8 +33,15 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/;
  */
 export async function VistaHoja({
   params,
+  modal = false,
 }: {
   params: Record<string, string | string[] | undefined>;
+  /**
+   * Embebida dentro del modal de la pestaña de saldos. Cuando es así se ocultan
+   * el «volver a saldos» y el combobox de vendedor: dentro del modal se cierra
+   * con la ✕ y ya se está mirando a un vendedor concreto, así que sobran.
+   */
+  modal?: boolean;
 }) {
   const supabase = await crearClienteServidor();
 
@@ -240,23 +247,25 @@ export async function VistaHoja({
   return (
     <>
       {/*
-        Volver a los saldos, conservando la semana. Es el otro extremo del atajo
-        que se abrió desde la pestaña de saldos: el usuario entra a una hoja
-        desde ahí para revisarla, liquidar e imprimir, y con esto vuelve a la
-        lista de un toque para seguir con el próximo, sin dar vueltas por las
-        pestañas.
+        Fuera del modal: volver a los saldos conservando la semana, y el
+        combobox de vendedor. Dentro del modal no van —se cierra con la ✕ y ya
+        se está en un vendedor concreto—.
       */}
-      <Link
-        href={`/liquidacion?vista=saldos${
-          texto("semana") ? `&semana=${texto("semana")}` : ""
-        }`}
-        className="inline-flex items-center gap-1.5 text-meta text-secundario hover:text-acento w-fit"
-      >
-        <ArrowLeft size={14} strokeWidth={2} />
-        Volver a saldos por vendedor
-      </Link>
+      {!modal && (
+        <>
+          <Link
+            href={`/liquidacion?vista=saldos${
+              texto("semana") ? `&semana=${texto("semana")}` : ""
+            }`}
+            className="inline-flex items-center gap-1.5 text-meta text-secundario hover:text-acento w-fit"
+          >
+            <ArrowLeft size={14} strokeWidth={2} />
+            Volver a saldos por vendedor
+          </Link>
 
-      <FiltrosLiquidacion vendedores={vendedores} vendedorId={vendedor.id} vista="hoja" />
+          <FiltrosLiquidacion vendedores={vendedores} vendedorId={vendedor.id} vista="hoja" />
+        </>
+      )}
 
       <div className="flex gap-4 items-start flex-wrap lg:flex-nowrap">
         <RielSemanas
