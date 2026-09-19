@@ -215,13 +215,14 @@ async function Vender({
       disponibleCasa[c.numero] = Number(c.limite_casa) - Number(c.vendido);
     }
 
+    // Sólo lo suyo, filtrado en la base: así no se acerca al tope de 1000 filas
+    // de la API, que dejaba a algunos números sin su tally.
     const { data: propio } = await supabase.rpc("fn_vendido_por_vendedor", {
       p_sorteo_id: sorteo.id,
+      p_vendedor_id: vendedorId,
     });
     for (const l of propio ?? []) {
-      if (l.r_vendedor_id === vendedorId) {
-        vendidoPropio[vendedorId][l.r_numero] += Number(l.r_vendido);
-      }
+      vendidoPropio[vendedorId][l.r_numero] += Number(l.r_vendido);
     }
   } else {
     /*

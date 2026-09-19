@@ -288,15 +288,24 @@ export default async function PuntoDeVentaPage({
   // tope. Agregado en la base: son a lo sumo 30 x 100 filas. Antes se traían las
   // ~10.000 líneas del sorteo para sumarlas aquí, y con el histórico completo
   // la pantalla tardaba casi nueve segundos en abrir.
-  const { data: lineas } = await supabase.rpc("fn_vendido_por_vendedor", {
-    p_sorteo_id: sorteo.id,
-  });
-
+  //
+  // SE PAGINA con `.range()`: aquí se necesita a TODO el padrón, que puede pasar
+  // de 1000 filas, y la API corta ahí por defecto. Sin paginar, a algunos
+  // números no les llegaba su tally y su cupo no bajaba en pantalla. Se leen en
+  // lotes hasta agotar.
   const vendidoPropio: Record<string, number[]> = {};
   for (const v of vendedores) vendidoPropio[v.id] = new Array(100).fill(0);
-  for (const l of lineas ?? []) {
-    const porNumero = vendidoPropio[l.r_vendedor_id];
-    if (porNumero) porNumero[l.r_numero] += Number(l.r_vendido);
+
+  const LOTE = 1000;
+  for (let desde = 0; ; desde += LOTE) {
+    const { data: lineas } = await supabase
+      .rpc("fn_vendido_por_vendedor", { p_sorteo_id: sorteo.id })
+      .range(desde, desde + LOTE - 1);
+    for (const l of lineas ?? []) {
+      const porNumero = vendidoPropio[l.r_vendedor_id];
+      if (porNumero) porNumero[l.r_numero] += Number(l.r_vendido);
+    }
+    if (!lineas || lineas.length < LOTE) break;
   }
 
   /*

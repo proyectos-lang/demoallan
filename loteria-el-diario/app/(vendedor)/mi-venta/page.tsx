@@ -113,17 +113,18 @@ async function Vender({
     disponibleCasa[c.numero] = Number(c.limite_casa) - Number(c.vendido);
   }
 
-  // Sólo lo suyo: pedir el agregado de todo el sorteo sería traer el consumo de
-  // los otros veintinueve vendedores, que a él no le incumbe.
+  // Sólo lo suyo: se filtra en la BASE con `p_vendedor_id`. Traer el padrón
+  // entero y recortar aquí no sólo era consumo ajeno —eran hasta ~3000 filas, y
+  // la API corta a 1000, así que a algunos números no les llegaba su tally y su
+  // cupo no bajaba en pantalla—. Pidiendo sólo lo suyo son ~100 filas.
   const { data: propio } = await supabase.rpc("fn_vendido_por_vendedor", {
     p_sorteo_id: sorteo.id,
+    p_vendedor_id: vendedorId,
   });
 
   const vendidoPropio: Record<string, number[]> = { [vendedorId]: new Array(100).fill(0) };
   for (const l of propio ?? []) {
-    if (l.r_vendedor_id === vendedorId) {
-      vendidoPropio[vendedorId][l.r_numero] += Number(l.r_vendido);
-    }
+    vendidoPropio[vendedorId][l.r_numero] += Number(l.r_vendido);
   }
 
   const sorteoPos: SorteoPos = {

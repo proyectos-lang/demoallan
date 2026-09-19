@@ -1098,7 +1098,7 @@ export type Database = {
        * conveniencia para el POS; NO es autoritativo (§3).
        */
       fn_vendido_por_vendedor: {
-        Args: { p_sorteo_id: string };
+        Args: { p_sorteo_id: string; p_vendedor_id?: string };
         Returns: { r_vendedor_id: string; r_numero: number; r_vendido: number }[];
       };
       /** Utilidad del sorteo para cada uno de los 100 números posibles. */
