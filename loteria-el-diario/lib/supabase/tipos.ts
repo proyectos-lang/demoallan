@@ -209,6 +209,8 @@ export type VentaTotal = {
   premios: number;
   /** FRACCIÓN congelada al registrar: 0.15 = 15 %. */
   comision_congelada: number;
+  /** Factor de pago congelado al registrar. Nulo en capturas anteriores a la 0107. */
+  factor_congelado: number | null;
   nota: string | null;
   creado_en: string;
   creado_por: string | null;
@@ -362,7 +364,13 @@ export type Database = {
       corte_detalle: Tabla<CorteDetalle, never>;
       venta_total: Tabla<
         VentaTotal,
-        "id" | "comision_congelada" | "nota" | "creado_en" | "creado_por" | "anulado_en"
+        | "id"
+        | "comision_congelada"
+        | "factor_congelado"
+        | "nota"
+        | "creado_en"
+        | "creado_por"
+        | "anulado_en"
       >;
       lote_ocr: Tabla<
         LoteOcr,
