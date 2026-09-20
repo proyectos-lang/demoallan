@@ -191,6 +191,28 @@ export async function VistaHoja({
         .maybeSingle(),
     ]);
 
+  /*
+   * Qué liquidaciones de la semana tienen TICKETS con números vivos. Es lo que
+   * decide si una celda se puede editar a mano: las de venta por totales sí; las
+   * de tickets, no. Se cruza en dos pasos porque `fn_semana_completa` no trae el
+   * id del sorteo: primero la liquidación → su sorteo, y luego qué sorteos
+   * tienen tickets vivos del vendedor en el rango.
+   */
+  const liqIds = (completa ?? []).map((f) => f.r_liquidacion_id);
+  const [{ data: liqSorteo }, { data: ticketsRango }] = await Promise.all([
+    supabase.from("liquidacion").select("id, sorteo_id").in("id", liqIds),
+    supabase
+      .from("ticket")
+      .select("sorteo_id, sorteo:sorteo_id!inner(fecha)")
+      .eq("vendedor_id", vendedor.id)
+      .is("anulado_en", null)
+      .gte("sorteo.fecha", abierta.inicio)
+      .lte("sorteo.fecha", abierta.fin),
+  ]);
+
+  const sorteoDeLiq = new Map((liqSorteo ?? []).map((r) => [r.id, r.sorteo_id]));
+  const sorteosConLineas = new Set((ticketsRango ?? []).map((t) => t.sorteo_id));
+
   const filas: FilaLiquidacion[] = (completa ?? []).map((f) => ({
     liquidacionId: f.r_liquidacion_id,
     fecha: f.r_fecha,
@@ -203,6 +225,7 @@ export async function VistaHoja({
     premios: Number(f.r_premios),
     saldo: Number(f.r_saldo),
     pagadoEn: f.r_pagado_en,
+    tieneLineas: sorteosConLineas.has(sorteoDeLiq.get(f.r_liquidacion_id) ?? ""),
   }));
 
   const abonos = (abonosRaw ?? []).map((a) => ({

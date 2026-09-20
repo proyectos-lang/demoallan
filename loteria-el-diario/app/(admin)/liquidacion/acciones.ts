@@ -597,3 +597,59 @@ export async function anularSaldoInicial(
   revalidatePath("/liquidacion");
   return { ok: true, mensaje: "Saldo inicial quitado." };
 }
+
+export type ResultadoEdicionManual =
+  | { ok: true; venta: number; comision: number; premios: number; saldo: number }
+  | { ok: false; mensaje: string };
+
+/**
+ * Corregir a mano la venta y los premios de un sorteo, desde la hoja.
+ *
+ * El gerente lo pidió para poder arreglar una equivocación en el acto, sin
+ * salir de la pantalla. Lo que viaja son las dos cifras base —venta y premios—;
+ * la comisión y el saldo los recalcula la base. Y la base decide el resto: si
+ * ese sorteo tiene tickets con números, RECHAZA —esos se corrigen desde la
+ * venta, no aquí—, y la edición entra por la captura por totales, que es la
+ * fuente que el recálculo sabe propagar a toda la cuenta.
+ *
+ * Lo único que esta acción decide es lo que la base no puede bajo service_role:
+ * que quien lo pide sea administrador.
+ */
+export async function editarLiquidacionManual(
+  liquidacionId: string,
+  venta: number,
+  premios: number,
+): Promise<ResultadoEdicionManual> {
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, mensaje: "La sesión venció. Vuelva a entrar." };
+  if (sesion.rol !== "administrador") {
+    return { ok: false, mensaje: "Sólo un administrador puede editar la hoja a mano." };
+  }
+
+  if (!Number.isFinite(venta) || venta < 0) {
+    return { ok: false, mensaje: "La venta no puede ser negativa." };
+  }
+  if (!Number.isFinite(premios) || premios < 0) {
+    return { ok: false, mensaje: "El premio no puede ser negativo." };
+  }
+
+  const supabase = crearClienteServicio();
+  const { data, error } = await supabase.rpc("fn_editar_liquidacion_manual", {
+    p_liquidacion_id: liquidacionId,
+    p_venta: venta,
+    p_premios: premios,
+    p_usuario_id: sesion.id,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  const f = data?.[0];
+  revalidatePath("/liquidacion");
+  return {
+    ok: true,
+    venta: Number(f?.r_venta ?? 0),
+    comision: Number(f?.r_comision ?? 0),
+    premios: Number(f?.r_premios ?? 0),
+    saldo: Number(f?.r_saldo ?? 0),
+  };
+}

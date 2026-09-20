@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+
+import { CeldaEditable } from "@/components/liquidacion/celda-editable";
 import { cn } from "@/lib/cn";
 import { fechaLarga, fmt, hora12, jornada, pad2 } from "@/lib/format";
 
@@ -11,6 +16,13 @@ export type FilaLiquidacion = {
   premios: number;
   /** venta − comisión − premios. */
   saldo: number;
+  /**
+   * Si el sorteo tiene tickets con números vivos. Esos NO se editan a mano
+   * desde la hoja —su venta es la suma de tickets reales, atada al cupo y al
+   * premiado— y se corrigen desde la venta. Sólo los de venta por totales
+   * (`tieneLineas` falso) son editables aquí.
+   */
+  tieneLineas?: boolean;
   /**
    * Cuándo se liquidó ese sorteo, si ya se liquidó.
    *
@@ -29,6 +41,19 @@ export type Seleccion = {
   marcados: Set<string>;
   alternar: (id: string) => void;
   alternarDia: (delDia: FilaLiquidacion[]) => void;
+};
+
+/**
+ * Edición manual de venta/premios, sólo en la hoja del administrador. Cuando se
+ * pasa, las celdas de venta y premios de los sorteos POR TOTALES se editan en el
+ * sitio; `onEditar` manda las dos cifras a la base y devuelve la fila rehecha.
+ */
+export type Edicion = {
+  onEditar: (
+    liquidacionId: string,
+    venta: number,
+    premios: number,
+  ) => Promise<{ ok: boolean; venta: number; comision: number; premios: number; saldo: number; mensaje?: string }>;
 };
 
 /** Los sorteos agrupados por día, en el orden en que llegan. */
@@ -58,17 +83,66 @@ export function agruparPorDia(filas: FilaLiquidacion[]): [string, FilaLiquidacio
 export function TablaSorteos({
   filas,
   seleccion,
+  edicion,
 }: {
   filas: FilaLiquidacion[];
   seleccion?: Seleccion;
+  edicion?: Edicion;
 }) {
-  const porDia = agruparPorDia(filas);
   const marcada = (id: string) => (seleccion ? seleccion.marcados.has(id) : true);
+
+  /*
+   * Copia local editable: al guardar una celda, la base devuelve la fila
+   * rehecha —venta, comisión, premios, saldo— y se sobrescribe aquí para que la
+   * tabla la pinte al instante, sin esperar a que la página revalide. Si la
+   * página se recarga, `filas` vuelve a mandar.
+   */
+  const [locales, setLocales] = useState<Record<string, Partial<FilaLiquidacion>>>({});
+  const [guardando, setGuardando] = useState<Set<string>>(new Set());
+  const [errorEdicion, setErrorEdicion] = useState("");
+
+  const conLocal = (f: FilaLiquidacion): FilaLiquidacion => ({ ...f, ...locales[f.liquidacionId] });
+
+  const guardar = async (
+    id: string,
+    campo: "venta" | "premios",
+    fila: FilaLiquidacion,
+    nuevo: number,
+  ) => {
+    if (!edicion) return;
+    setErrorEdicion("");
+    setGuardando((s) => new Set(s).add(id));
+    const actual = conLocal(fila);
+    const venta = campo === "venta" ? nuevo : actual.venta;
+    const premios = campo === "premios" ? nuevo : actual.premios;
+    const r = await edicion.onEditar(id, venta, premios);
+    setGuardando((s) => {
+      const n = new Set(s);
+      n.delete(id);
+      return n;
+    });
+    if (!r.ok) {
+      setErrorEdicion(r.mensaje ?? "No se pudo guardar el cambio.");
+      return;
+    }
+    setLocales((prev) => ({
+      ...prev,
+      [id]: { venta: r.venta, comision: r.comision, premios: r.premios, saldo: r.saldo },
+    }));
+  };
+
+  const filasVista = filas.map(conLocal);
+  const porDia = agruparPorDia(filasVista);
 
   const encabezados = ["SORTEO", "GANADOR", "VENTA", "COMISIÓN", "PREMIOS", "SALDO"];
 
   return (
     <div className="overflow-x-auto">
+      {errorEdicion && (
+        <div className="m-3 rounded-banner bg-negativo-fondo text-negativo-texto px-[13px] py-[10px] text-tabla font-medium">
+          {errorEdicion}
+        </div>
+      )}
       <table
         className={cn(
           "w-full border-collapse text-tabla",
@@ -196,15 +270,44 @@ export function TablaSorteos({
                       {f.ganador === null ? "—" : pad2(f.ganador)}
                     </span>
                   </td>
-                  <td className="border-b border-fondo py-[6px] px-3 text-right">
-                    {fmt(f.venta, false)}
-                  </td>
-                  <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
-                    {fmt(f.comision, false)}
-                  </td>
-                  <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
-                    {fmt(f.premios, false)}
-                  </td>
+                  {(() => {
+                    // Editable sólo en la hoja del administrador (hay `edicion`)
+                    // y sólo en sorteos por totales: los que tienen tickets con
+                    // números se corrigen desde la venta, no aquí.
+                    const editable = Boolean(edicion) && !f.tieneLineas;
+                    const enCurso = guardando.has(f.liquidacionId);
+                    return (
+                      <>
+                        <td className="border-b border-fondo py-[6px] px-3 text-right">
+                          {editable ? (
+                            <CeldaEditable
+                              valor={f.venta}
+                              guardando={enCurso}
+                              titulo="Editar la venta de este sorteo"
+                              onGuardar={(n) => guardar(f.liquidacionId, "venta", f, n)}
+                            />
+                          ) : (
+                            fmt(f.venta, false)
+                          )}
+                        </td>
+                        <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
+                          {fmt(f.comision, false)}
+                        </td>
+                        <td className="border-b border-fondo py-[6px] px-3 text-right text-cuerpo">
+                          {editable ? (
+                            <CeldaEditable
+                              valor={f.premios}
+                              guardando={enCurso}
+                              titulo="Editar los premios de este sorteo"
+                              onGuardar={(n) => guardar(f.liquidacionId, "premios", f, n)}
+                            />
+                          ) : (
+                            fmt(f.premios, false)
+                          )}
+                        </td>
+                      </>
+                    );
+                  })()}
                   <td
                     className={cn(
                       "border-b border-fondo py-[6px] pl-3 pr-4 text-right font-semibold",

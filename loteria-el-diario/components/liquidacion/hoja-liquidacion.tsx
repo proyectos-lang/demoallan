@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 
-import { registrarCorte } from "@/app/(admin)/liquidacion/acciones";
+import { editarLiquidacionManual, registrarCorte } from "@/app/(admin)/liquidacion/acciones";
 import { BotonImprimir } from "@/components/liquidacion/boton-imprimir";
 import type { AbonoImpreso } from "@/components/liquidacion/imprimible";
 import {
@@ -190,7 +190,24 @@ export function HojaLiquidacion({
       )}
 
       <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
-        <TablaSorteos filas={filas} seleccion={{ marcados, alternar, alternarDia }} />
+        <TablaSorteos
+          filas={filas}
+          seleccion={{ marcados, alternar, alternarDia }}
+          /*
+            Edición manual: el gerente corrige venta/premios de un sorteo por
+            totales en el sitio. La base rechaza los que tienen tickets con
+            números y propaga el cambio a toda la cuenta por el recálculo. La
+            página revalida al guardar; la tabla ya pintó lo que devolvió la base.
+          */
+          edicion={{
+            onEditar: async (liquidacionId, venta, premios) => {
+              const r = await editarLiquidacionManual(liquidacionId, venta, premios);
+              return r.ok
+                ? { ok: true, venta: r.venta, comision: r.comision, premios: r.premios, saldo: r.saldo }
+                : { ok: false, venta: 0, comision: 0, premios: 0, saldo: 0, mensaje: r.mensaje };
+            },
+          }}
+        />
       </div>
 
       {/* --- El cierre --- */}

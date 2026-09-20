@@ -1101,6 +1101,21 @@ export type Database = {
         Args: { p_sorteo_id: string; p_vendedor_id?: string };
         Returns: { r_vendedor_id: string; r_numero: number; r_vendido: number }[];
       };
+      /** Corrige a mano venta/premios de un sorteo por totales desde la hoja. */
+      fn_editar_liquidacion_manual: {
+        Args: {
+          p_liquidacion_id: string;
+          p_venta: number;
+          p_premios: number;
+          p_usuario_id?: string;
+        };
+        Returns: {
+          r_venta: number;
+          r_comision: number;
+          r_premios: number;
+          r_saldo: number;
+        }[];
+      };
       /** Utilidad del sorteo para cada uno de los 100 números posibles. */
       fn_utilidad_por_numero: {
         Args: { p_sorteo_id: string };
