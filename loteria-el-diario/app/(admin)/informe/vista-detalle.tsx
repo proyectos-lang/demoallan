@@ -6,7 +6,16 @@ import {
 } from "@/components/informe/filtros-detalle";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, pad2 } from "@/lib/format";
+import {
+  esSorteo,
+  fechaLarga,
+  fmt,
+  hora12,
+  horaHonduras12,
+  hoyHonduras,
+  iso,
+  pad2,
+} from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -253,8 +262,15 @@ export async function VistaDetalle({
                     key={f.r_ticket_id}
                     className={cn(f.r_anulado && "opacity-55")}
                   >
+                    {/*
+                      La hora, EN HORA DE HONDURAS. Antes se cortaba la porción
+                      del ISO (`slice(11,19)`), que es UTC: un ticket de las
+                      10:20 a. m. de Honduras se veía a las 16:20, seis horas
+                      corrido. `horaHonduras12` convierte a America/Tegucigalpa,
+                      igual que la tirilla y el resto de las pantallas.
+                    */}
                     <td className="border-b border-fondo py-[10px] pl-4 pr-3 text-secundario whitespace-nowrap">
-                      {f.r_creado_en.slice(11, 19)}
+                      {horaHonduras12(f.r_creado_en)}
                     </td>
                     <td className="border-b border-fondo py-[10px] px-3 text-cuerpo whitespace-nowrap">
                       {f.r_folio}
