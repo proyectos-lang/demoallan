@@ -45,6 +45,7 @@ const limpiar = async () => {
   for (const s of sorteos ?? []) {
     const { data: lqs } = await sb.from("liquidacion").select("id").eq("sorteo_id", s.id);
     for (const lq of lqs ?? []) await sb.from("corte_detalle").delete().eq("liquidacion_id", lq.id);
+    await sb.from("ajuste_liquidacion").delete().eq("sorteo_id", s.id);
     await sb.from("venta_total").delete().eq("sorteo_id", s.id);
     await sb.from("liquidacion").delete().eq("sorteo_id", s.id);
     const { data: ts } = await sb.from("ticket").select("id").eq("sorteo_id", s.id);
@@ -173,9 +174,12 @@ try {
   const lTk2 = await liqDe(sTk, v.id);
   check("y no tocó su liquidación (sigue en 150)", cent(lTk2.venta) === cent(150), `da ${lTk2?.venta}`);
 
-  // --- Editar un sorteo YA PAGADO deja sólo la diferencia -----------------
-  console.log("\n5. Editar un sorteo ya pagado: queda la diferencia");
-  // Se paga el sorteo por totales (venta 1500, saldo positivo).
+  // --- Editar un sorteo YA PAGADO: la liquidación NO se toca; queda un ajuste -
+  //
+  // Modelo nuevo (0114-0118): una liquidación pagada es inmutable. Corregirla
+  // no la reescribe ni la desliga del corte; la diferencia queda como un ajuste
+  // pendiente (a favor o en contra). Así el corte firmado no se mueve.
+  console.log("\n5. Editar un sorteo ya pagado: la liquidación no se toca, queda un ajuste");
   await sb.rpc("fn_registrar_corte", {
     p_vendedor_id: v.id,
     p_liquidacion_ids: [l1.id],
@@ -190,26 +194,36 @@ try {
 
   const { error: e2 } = await sb.rpc("fn_editar_liquidacion_manual", {
     p_liquidacion_id: l1.id,
-    p_venta: 1700, // +200 de venta
+    p_venta: 1700, // +200 de venta respecto de lo pagado (1500)
     p_premios: 300,
     p_usuario_id: admin.id,
   });
   check("editar un sorteo ya pagado no da error", !e2, e2?.message ?? "");
 
   const l2 = await liqDe(sTot, v.id);
-  const nuevo = Number(l2.utilidad);
-  check("la venta quedó en 1700", cent(l2.venta) === cent(1700), `da ${l2?.venta}`);
+  // El nuevo saldo que TENDRÍA el sorteo, para calcular la diferencia esperada.
+  const nuevoUtil = 1700 - 1700 * comisionTasa - 300;
 
-  // Se desligó del corte.
+  check("la liquidación NO cambió (sigue con su valor pagado)", cent(l2.venta) === cent(1500), `da ${l2?.venta}`);
+
+  // NO se desligó: sigue en el corte.
   const { data: det } = await sb.from("corte_detalle").select("liquidacion_id").eq("liquidacion_id", l1.id);
-  check("el sorteo se desligó del corte", (det ?? []).length === 0);
+  check("la liquidación sigue en el corte (no se desligó)", (det ?? []).length === 1);
+
+  // Apareció un ajuste vivo = la diferencia (nuevo − viejo).
+  const ajuste = Number((await sb.rpc("fn_ajuste_pendiente", { p_vendedor_id: v.id })).data ?? 0);
+  check(
+    "apareció un ajuste = la diferencia (nuevo − viejo)",
+    cent(ajuste) === cent(nuevoUtil - viejo),
+    `ajuste ${ajuste}, esperaba ${nuevoUtil - viejo}`,
+  );
 
   const { data: deudaDespues } = await sb.rpc("fn_deuda_vendedor", { p_vendedor_id: v.id });
   const pendDespues = Number(deudaDespues?.[0]?.r_pendiente ?? 0);
   check(
-    "el pendiente creció exactamente en la diferencia (nuevo − viejo)",
-    Math.abs((pendDespues - pendAntes) - (nuevo - viejo)) < 0.01,
-    `Δpendiente ${pendDespues - pendAntes}, diferencia ${nuevo - viejo}`,
+    "el pendiente creció exactamente en la diferencia",
+    Math.abs((pendDespues - pendAntes) - (nuevoUtil - viejo)) < 0.01,
+    `Δpendiente ${pendDespues - pendAntes}, diferencia ${nuevoUtil - viejo}`,
   );
 } catch (e) {
   fallos++;

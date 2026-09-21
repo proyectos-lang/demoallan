@@ -1109,6 +1109,11 @@ export type Database = {
         Args: { p_sorteo_id: string; p_vendedor_id?: string };
         Returns: { r_vendedor_id: string; r_numero: number; r_vendido: number }[];
       };
+      /** Suma de los ajustes por corrección vivos de un vendedor (con signo). */
+      fn_ajuste_pendiente: {
+        Args: { p_vendedor_id: string };
+        Returns: number;
+      };
       /** Corrige a mano venta/premios de un sorteo por totales desde la hoja. */
       fn_editar_liquidacion_manual: {
         Args: {

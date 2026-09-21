@@ -60,6 +60,7 @@ async function limpiar() {
     for (const l of liqs ?? []) {
       await sb.from("corte_detalle").delete().eq("liquidacion_id", l.id);
     }
+    await sb.from("ajuste_liquidacion").delete().eq("sorteo_id", s.id);
     const { data: tks } = await sb.from("ticket").select("id").eq("sorteo_id", s.id);
     for (const t of tks ?? []) {
       await sb.from("auditoria").delete().eq("entidad_id", t.id);
@@ -262,19 +263,19 @@ async function main() {
   if (eCorte) {
     console.log(`  (se omite lo del corte pagado: ${eCorte.message})`);
   } else {
-    // El administrador tiene control total: aunque el sorteo ya se pagó, se
-    // puede anular una venta. El sorteo se desliga del corte, la liquidación se
-    // rehace, y lo ya pagado se le reconoce con un abono, de modo que sólo la
-    // diferencia queda pendiente. Aquí `viejo` = 900 (la utilidad pagada) > 0.
-    const viejo = 900; // venta 1000 − comisión 100 − premios 0
+    // Modelo nuevo (0114-0118): la liquidación pagada es inmutable. Anular una
+    // venta de un sorteo ya pagado NO cambia la liquidación ni la desliga del
+    // corte; la diferencia (la venta baja) queda como un ajuste NEGATIVO, a
+    // favor del vendedor.
     const { data: tk1 } = await sb.from("ticket").select("id").eq("folio", v1[0].r_folio).single();
+    const ajusteAntes = Number((await sb.rpc("fn_ajuste_pendiente", { p_vendedor_id: vendedorId })).data ?? 0);
     const { error: ePagado } = await sb.rpc("fn_anular_ticket", {
       p_ticket_id: tk1.id,
       p_motivo: "corrección tras el pago",
       p_usuario_id: admin.id,
       p_forzar: true,
     });
-    check("un sorteo YA PAGADO acepta la corrección del administrador",
+    check("un sorteo YA PAGADO acepta la anulación del administrador",
           !ePagado, ePagado?.message ?? "");
 
     const { data: tk1Estado } = await sb
@@ -284,36 +285,22 @@ async function main() {
       .single();
     check("el ticket se anuló", tk1Estado.anulado_en !== null);
 
-    // El sorteo se desligó del corte: vuelve a estar pendiente por su valor nuevo.
+    // La liquidación NO cambió y SIGUE en el corte (inmutable).
+    const finalLiq = await liquidacion(sorteo.id, vendedorId);
+    check("la liquidación NO cambió (sigue en 1000)", finalLiq && Number(finalLiq.venta) === 1000, JSON.stringify(finalLiq));
     const { data: det } = await sb
       .from("corte_detalle")
       .select("liquidacion_id")
       .eq("liquidacion_id", liqFila.id);
-    check("el sorteo se desligó del corte", (det ?? []).length === 0);
+    check("la liquidación NO se desligó (sigue en el corte)", (det ?? []).length === 1);
 
-    // Lo pagado se reconoció con un abono vivo por 'viejo'.
-    const { data: abono } = await sb
-      .from("abono_vendedor")
-      .select("monto")
-      .eq("vendedor_id", vendedorId)
-      .is("corte_id", null)
-      .order("registrado_en", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    check("se reconoció lo pagado con un abono por 'viejo'",
-          abono && Math.abs(Number(abono.monto) - viejo) < 0.01,
-          `abono ${abono?.monto}, viejo ${viejo}`);
+    // La diferencia quedó como ajuste NEGATIVO (la venta bajó → a favor).
+    const ajusteDespues = Number((await sb.rpc("fn_ajuste_pendiente", { p_vendedor_id: vendedorId })).data ?? 0);
+    check("apareció un ajuste a favor del vendedor (negativo)",
+          (ajusteDespues - ajusteAntes) < 0, `Δajuste ${ajusteDespues - ajusteAntes}`);
 
-    // La liquidación se rehízo. Al anular el último ticket vivo del sorteo, la
-    // venta cae a 0 y la fila sobra: se borra. Cualquiera de las dos —bajó o
-    // desapareció— prueba que se recalculó; lo que no puede es seguir en 1000.
-    const finalLiq = await liquidacion(sorteo.id, vendedorId);
-    check("la liquidación se rehízo (ya no vale 1000)",
-          !finalLiq || Number(finalLiq.venta) < 1000, JSON.stringify(finalLiq));
-
-    // Limpieza del abono que dejó esta corrección.
-    await sb.from("abono_vendedor").delete()
-      .eq("vendedor_id", vendedorId).is("corte_id", null);
+    // Limpieza del ajuste que dejó esta anulación.
+    await sb.from("ajuste_liquidacion").delete().eq("vendedor_id", vendedorId).is("saldado_corte_id", null);
   }
 
   await limpiar();

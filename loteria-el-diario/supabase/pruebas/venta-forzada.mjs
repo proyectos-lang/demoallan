@@ -42,6 +42,7 @@ const limpiar = async () => {
   for (const s of sorteos ?? []) {
     const { data: lqs } = await sb.from("liquidacion").select("id").eq("sorteo_id", s.id);
     for (const lq of lqs ?? []) await sb.from("corte_detalle").delete().eq("liquidacion_id", lq.id);
+    await sb.from("ajuste_liquidacion").delete().eq("sorteo_id", s.id);
     await sb.from("liquidacion").delete().eq("sorteo_id", s.id);
     const { data: ts } = await sb.from("ticket").select("id").eq("sorteo_id", s.id);
     for (const t of ts ?? []) await sb.from("linea").delete().eq("ticket_id", t.id);
@@ -155,17 +156,15 @@ try {
     ) < 0.01,
   );
 
-  // --- 4a. Caso común: el vendedor DEBÍA el sorteo (viejo > 0) --------------
+  // --- 4. Corregir un sorteo YA PAGADO no lo reabre: deja un ajuste ---------
   //
-  // El sorteo se paga en un corte y luego se corrige agregando venta. Como el
-  // vendedor debía ese sorteo, lo ya pagado se le reconoce con un ABONO —lo
-  // único que las pantallas de saldo restan del pendiente—, así que lo que
-  // queda pendiente es exactamente la DIFERENCIA.
-  console.log("\n4a. Sorteo que el vendedor debía: corregir deja la diferencia");
+  // Modelo nuevo (0114-0118): una liquidación pagada es inmutable. Al agregar
+  // venta a un sorteo ya pagado, la liquidación NO cambia y NO se desliga del
+  // corte; la diferencia queda como un ajuste pendiente (a favor o en contra).
+  console.log("\n4. Sorteo ya pagado: corregir deja un ajuste, sin reabrir");
   const sorteo11 = sorteos.find((s) => s.hora === "11:00").id;
   await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: sorteo11, p_limite_por_numero: 50000 });
-  // Sólo números perdedores respecto del ganador que se liquidará (5 ≠ GANADOR):
-  // así la utilidad del sorteo es positiva (el vendedor debe).
+  // Número perdedor (5 ≠ GANADOR): utilidad positiva (el vendedor debe).
   await sb.rpc("fn_registrar_ticket", {
     p_sorteo_id: sorteo11,
     p_vendedor_id: v.id,
@@ -176,12 +175,11 @@ try {
 
   const { data: lq11 } = await sb
     .from("liquidacion")
-    .select("id, utilidad")
+    .select("id, venta, utilidad")
     .eq("sorteo_id", sorteo11)
     .eq("vendedor_id", v.id)
     .maybeSingle();
-  const viejo11 = Number(lq11.utilidad);
-  check("la utilidad de ese sorteo es positiva (el vendedor debe)", viejo11 > 0, `da ${viejo11}`);
+  const venta11 = Number(lq11.venta);
 
   await sb.rpc("fn_registrar_corte", {
     p_vendedor_id: v.id,
@@ -192,8 +190,9 @@ try {
 
   const { data: deuda11Antes } = await sb.rpc("fn_deuda_vendedor", { p_vendedor_id: v.id });
   const pend11Antes = Number(deuda11Antes?.[0]?.r_pendiente ?? 0);
+  const ajuste11Antes = Number((await sb.rpc("fn_ajuste_pendiente", { p_vendedor_id: v.id })).data ?? 0);
 
-  // Se corrige: se agrega otra línea perdedora. Sube la venta, no los premios.
+  // Se corrige: se agrega otra línea perdedora (sube la venta 100).
   const { error: e11 } = await sb.rpc("fn_registrar_ticket", {
     p_sorteo_id: sorteo11,
     p_vendedor_id: v.id,
@@ -202,102 +201,30 @@ try {
   });
   check("un sorteo ya pagado ACEPTA la corrección del administrador", !e11, e11?.message ?? "");
 
+  // La liquidación NO cambió y SIGUE en el corte.
   const { data: lq11b } = await sb
     .from("liquidacion")
-    .select("id, utilidad")
+    .select("id, venta")
     .eq("sorteo_id", sorteo11)
     .eq("vendedor_id", v.id)
     .maybeSingle();
-  const nuevo11 = Number(lq11b.utilidad);
-
+  check("la liquidación NO cambió (sigue con su venta pagada)", Math.abs(Number(lq11b.venta) - venta11) < 0.01, `da ${lq11b.venta}`);
   const { data: det11 } = await sb
     .from("corte_detalle")
     .select("liquidacion_id")
-    .eq("liquidacion_id", lq11b.id);
-  check("el sorteo corregido se desligó del corte", (det11 ?? []).length === 0);
+    .eq("liquidacion_id", lq11.id);
+  check("la liquidación NO se desligó (sigue en el corte)", (det11 ?? []).length === 1);
 
-  const { data: abono } = await sb
-    .from("abono_vendedor")
-    .select("monto, corte_id, nota")
-    .eq("vendedor_id", v.id)
-    .is("corte_id", null)
-    .order("registrado_en", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  check(
-    "se reconoció lo pagado con un abono vivo por 'viejo'",
-    abono && Math.abs(Number(abono.monto) - viejo11) < 0.01,
-    `abono ${abono?.monto}, viejo ${viejo11}`,
-  );
-
+  // Apareció un ajuste, y el pendiente creció en él.
+  const ajuste11Despues = Number((await sb.rpc("fn_ajuste_pendiente", { p_vendedor_id: v.id })).data ?? 0);
   const { data: deuda11Despues } = await sb.rpc("fn_deuda_vendedor", { p_vendedor_id: v.id });
   const pend11Despues = Number(deuda11Despues?.[0]?.r_pendiente ?? 0);
+  const delta = ajuste11Despues - ajuste11Antes;
+  check("apareció un ajuste por la corrección (distinto de cero)", Math.abs(delta) > 0.01, `Δajuste ${delta}`);
   check(
-    "el pendiente creció exactamente en la diferencia (nuevo − viejo)",
-    Math.abs((pend11Despues - pend11Antes) - (nuevo11 - viejo11)) < 0.01,
-    `Δpendiente ${pend11Despues - pend11Antes}, diferencia ${nuevo11 - viejo11}`,
-  );
-
-  // --- 4b. Caso raro: el sorteo era a favor del vendedor (viejo < 0) --------
-  //
-  // Aquí la casa le había pagado a él. No hay abono negativo que lo reconozca,
-  // así que se desliga igual, se traza en el corte y el cierre de esa parte se
-  // hace a mano. Es el sorteo con el número ganador de arriba.
-  console.log("\n4b. Sorteo a favor del vendedor: se desliga y se traza");
-  const { data: lqGan } = await sb
-    .from("liquidacion")
-    .select("id, utilidad")
-    .eq("sorteo_id", sorteoId)
-    .eq("vendedor_id", v.id)
-    .maybeSingle();
-  const viejoGan = Number(lqGan.utilidad);
-  check("la utilidad de ese sorteo es negativa (la casa le pagó)", viejoGan < 0, `da ${viejoGan}`);
-
-  await sb.rpc("fn_registrar_corte", {
-    p_vendedor_id: v.id,
-    p_liquidacion_ids: [lqGan.id],
-    p_desde: FECHA,
-    p_hasta: FECHA,
-  });
-  const { data: corteGanAntes } = await sb
-    .from("corte_vendedor")
-    .select("id, saldo, entrega")
-    .eq("id", (await sb.from("corte_detalle").select("corte_id").eq("liquidacion_id", lqGan.id).maybeSingle()).data?.corte_id)
-    .maybeSingle();
-
-  const { error: eGan } = await sb.rpc("fn_registrar_ticket", {
-    p_sorteo_id: sorteoId,
-    p_vendedor_id: v.id,
-    p_lineas: [{ numero: 8, monto: 10 }],
-    p_forzar: true,
-  });
-  check("acepta la corrección aunque el sorteo era a favor del vendedor", !eGan, eGan?.message ?? "");
-
-  const { data: detGan } = await sb
-    .from("corte_detalle")
-    .select("liquidacion_id")
-    .eq("liquidacion_id", lqGan.id);
-  check("el sorteo a favor también se desligó del corte", (detGan ?? []).length === 0);
-
-  const { data: corteGanDespues } = await sb
-    .from("corte_vendedor")
-    .select("saldo, entrega, motivo_ajuste")
-    .eq("id", corteGanAntes.id)
-    .maybeSingle();
-  check(
-    "el corte bajó su saldo en lo que había pagado por el sorteo",
-    Math.abs(Number(corteGanDespues.saldo) - (Number(corteGanAntes.saldo) - viejoGan)) < 0.01,
-    `saldo ${corteGanDespues.saldo}, esperaba ${Number(corteGanAntes.saldo) - viejoGan}`,
-  );
-  check(
-    "la entrega del corte no se falseó",
-    Math.abs(Number(corteGanDespues.entrega) - Number(corteGanAntes.entrega ?? corteGanAntes.saldo)) < 0.01,
-    `entrega ${corteGanDespues.entrega}`,
-  );
-  check(
-    "queda trazado para reconocer a mano",
-    /a mano|reconocer/i.test(corteGanDespues.motivo_ajuste ?? ""),
-    corteGanDespues.motivo_ajuste ?? "sin motivo",
+    "el pendiente creció exactamente en el ajuste",
+    Math.abs((pend11Despues - pend11Antes) - delta) < 0.01,
+    `Δpendiente ${pend11Despues - pend11Antes}, Δajuste ${delta}`,
   );
 } finally {
   await limpiar();

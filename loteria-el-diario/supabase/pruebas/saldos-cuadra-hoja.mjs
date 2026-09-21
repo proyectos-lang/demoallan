@@ -70,8 +70,13 @@ const lunes = new Date(`${SEM_ACT}T12:00:00`);
 // Apertura en la semana ANTERIOR: el jueves de esa semana.
 const APERTURA_ANTES = iso(new Date(lunes.getTime() - 4 * 86400000));
 const SEM_ANT = iso(new Date(lunes.getTime() - 7 * 86400000));
-// Y una apertura DE la semana en curso, para el segundo caso.
-const APERTURA_ESTA = iso(new Date(lunes.getTime() + 2 * 86400000));
+// Y una apertura DE la semana en curso, para el segundo caso. Se toma el
+// miércoles de la semana, PERO sin pasarse de hoy: `fn_cargar_saldo_inicial`
+// rechaza una fecha futura, y si la prueba se corre a principio de semana el
+// miércoles todavía no ha llegado. Se usa el menor entre el miércoles y hoy.
+const hoyReal = new Date(`${iso(new Date())}T12:00:00`);
+const miercoles = new Date(lunes.getTime() + 2 * 86400000);
+const APERTURA_ESTA = iso(miercoles.getTime() <= hoyReal.getTime() ? miercoles : lunes);
 const MONTO = 30000;
 const COD = "V-975";
 
