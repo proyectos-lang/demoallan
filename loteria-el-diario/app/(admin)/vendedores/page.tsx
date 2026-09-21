@@ -1,7 +1,7 @@
 import { TablaVendedores, type FilaVendedor } from "@/components/vendedores/tabla-vendedores";
 import { Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras } from "@/lib/format";
+import { fechaHonduras, porAlias } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 // TODO(Fase 1): el límite global pasa a ser por franja horaria, leído de
@@ -74,6 +74,10 @@ export default async function VendedoresPage({ searchParams }: PageProps<"/vende
       tope_por_numero: Number(p.tope_por_numero),
     };
   });
+
+  // La tabla de vendedores se ordena por alias, alfabético (el `.order("codigo")`
+  // de la consulta sólo da un orden estable de partida).
+  filas.sort(porAlias);
 
   // Las ciudades ya en uso, para sugerirlas al crear y al editar. Se derivan
   // del propio padrón: no hay catálogo que mantener.

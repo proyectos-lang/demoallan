@@ -6,7 +6,7 @@ import { VistaDetalle } from "@/app/(admin)/informe/vista-detalle";
 import { PuntoDeVenta } from "@/components/pos/punto-de-venta";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras } from "@/lib/format";
+import { fechaHonduras, porAlias } from "@/lib/format";
 import type { DatosPos, SorteoPos, VendedorPos } from "@/lib/pos/use-pos";
 import { sesionActual } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -260,18 +260,20 @@ export default async function PuntoDeVentaPage({
     .is("parametro_vendedor.vigente_hasta", null)
     .order("codigo");
 
-  const vendedores: VendedorPos[] = (vendedoresCrudos ?? []).map((v) => {
-    const p = Array.isArray(v.parametro_vendedor) ? v.parametro_vendedor[0] : v.parametro_vendedor;
-    return {
-      id: v.id,
-      codigo: v.codigo,
-      nombre: v.nombre,
-      alias: v.alias,
-      comision: Number(p.comision),
-      factor_pago: Number(p.factor_pago),
-      tope_por_numero: Number(p.tope_por_numero),
-    };
-  });
+  const vendedores: VendedorPos[] = (vendedoresCrudos ?? [])
+    .map((v) => {
+      const p = Array.isArray(v.parametro_vendedor) ? v.parametro_vendedor[0] : v.parametro_vendedor;
+      return {
+        id: v.id,
+        codigo: v.codigo,
+        nombre: v.nombre,
+        alias: v.alias,
+        comision: Number(p.comision),
+        factor_pago: Number(p.factor_pago),
+        tope_por_numero: Number(p.tope_por_numero),
+      };
+    })
+    .sort(porAlias); // el selector de vendedor, por alias alfabético
 
   // Cupo de la casa: 100 filas por sorteo.
   const { data: cupos } = await supabase

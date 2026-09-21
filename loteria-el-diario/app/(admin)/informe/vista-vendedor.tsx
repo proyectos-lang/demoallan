@@ -2,7 +2,7 @@ import { RielVendedores, type VendedorDelRiel } from "@/components/informe/riel-
 import { Kpi } from "@/components/informe/kpi";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaLargaSinDia, fmt } from "@/lib/format";
+import { fechaLargaSinDia, fmt, porAlias } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 /**
@@ -25,13 +25,15 @@ export async function VistaVendedor({ vendedorPedido }: { vendedorPedido: string
     supabase.rpc("fn_semanas_operadas"),
   ]);
 
-  const vendedores: VendedorDelRiel[] = (padron ?? []).map((v) => ({
-    id: v.id,
-    codigo: v.codigo,
-    nombre: v.nombre,
-    alias: v.alias,
-    activo: v.activo,
-  }));
+  const vendedores: VendedorDelRiel[] = (padron ?? [])
+    .map((v) => ({
+      id: v.id,
+      codigo: v.codigo,
+      nombre: v.nombre,
+      alias: v.alias,
+      activo: v.activo,
+    }))
+    .sort(porAlias); // por alias, alfabético
 
   if (vendedores.length === 0) {
     return <TarjetaNota>No hay ningún vendedor en el padrón.</TarjetaNota>;

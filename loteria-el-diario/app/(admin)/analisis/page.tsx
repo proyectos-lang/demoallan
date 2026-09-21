@@ -8,7 +8,7 @@ import { TarjetaPeriodo } from "@/components/analisis/tarjeta-periodo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre, rotulo } from "@/lib/format";
+import { esSorteo, fechaLarga, fmt, hora12, hoyHonduras, iso, mesNombre, porAlias, rotulo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -141,6 +141,9 @@ export default async function AnalisisPage({ searchParams }: PageProps<"/analisi
     .from("vendedor")
     .select("id, codigo, nombre, alias")
     .order("codigo");
+
+  // El selector de vendedor, por alias alfabético.
+  (vendedores ?? []).sort(porAlias);
 
   const vendedor = (vendedores ?? []).find((v) => v.id === vendedorPedido);
   const vendedorId = vendedor?.id ?? "";

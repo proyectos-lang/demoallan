@@ -4,7 +4,7 @@ import type { Punto } from "@/components/geo/mapa";
 import { PanelGeo, type OpcionVendedor, type Zona } from "@/components/geo/panel-geo";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
-import { fechaHonduras, fechaLargaSinDia, horaHonduras12, iso, rotulo } from "@/lib/format";
+import { fechaHonduras, fechaLargaSinDia, horaHonduras12, iso, porAlias, rotulo } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export default async function GeoPage(props: PageProps<"/geo">) {
@@ -19,6 +19,9 @@ export default async function GeoPage(props: PageProps<"/geo">) {
     .select("id, nombre, alias, codigo, color, zona")
     .eq("activo", true)
     .order("codigo");
+
+  // El selector de vendedor, por alias alfabético.
+  (vendedores ?? []).sort(porAlias);
 
   // Un punto por TICKET, no por línea: todas las líneas de un ticket comparten
   // la misma coordenada y se dibujarían una encima de otra. El prototipo pinta

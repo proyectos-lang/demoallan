@@ -2,7 +2,7 @@ import { FiltrosReporte, type Preset } from "@/components/reportes/filtros";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fmt, hora12, hoyHonduras, iso, mesNombre, pad2 } from "@/lib/format";
+import { fmt, hora12, hoyHonduras, iso, mesNombre, pad2, porAlias } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 /** El prototipo enseña 80 filas y calcula los subtotales sobre todo el filtro. */
@@ -50,7 +50,7 @@ export default async function ReportesPage(props: PageProps<"/reportes">) {
     p_numero: valores.numero ? Number(valores.numero) : null,
   };
 
-  const [{ data: vendedores }, { data: totales }, { data: filas }] = await Promise.all([
+  const [{ data: vendedoresRaw }, { data: totales }, { data: filas }] = await Promise.all([
     supabase.from("vendedor").select("id, nombre, alias, codigo").eq("activo", true).order("codigo"),
     supabase.rpc("fn_reporte_totales", argumentos),
     supabase.rpc("fn_reporte_filas", {
@@ -59,6 +59,9 @@ export default async function ReportesPage(props: PageProps<"/reportes">) {
       p_desde_fila: 0,
     }),
   ]);
+
+  // El selector de vendedor, por alias alfabético.
+  const vendedores = [...(vendedoresRaw ?? [])].sort(porAlias);
 
   const t = totales?.[0];
   const registros = Number(t?.registros ?? 0);

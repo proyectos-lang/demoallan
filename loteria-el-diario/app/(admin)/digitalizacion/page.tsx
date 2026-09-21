@@ -6,7 +6,7 @@ import {
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { MODELO } from "@/lib/ia/gemini";
-import { hoyHonduras, iso, mesNombre } from "@/lib/format";
+import { hoyHonduras, iso, mesNombre, porAlias } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export default async function DigitalizacionPage() {
@@ -30,6 +30,9 @@ export default async function DigitalizacionPage() {
   ]);
 
   const g = gasto?.[0];
+
+  // El selector de vendedor, por alias alfabético.
+  (vendedores ?? []).sort(porAlias);
 
   const opcionesSorteo: OpcionSorteo[] = (sorteos ?? []).map((s) => {
     const [, m, d] = s.fecha.split("-").map(Number);

@@ -15,6 +15,7 @@ import {
   hoyHonduras,
   iso,
   pad2,
+  porAlias,
 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
@@ -121,9 +122,9 @@ export async function VistaDetalle({
     }
   }
 
-  const vendedores = [...porVendedor.values()].sort((a, b) =>
-    a.codigo.localeCompare(b.codigo),
-  );
+  // Por alias, alfabético. `nombre` aquí ya trae el rótulo (alias o nombre) que
+  // devuelve el RPC, así que `porAlias` ordena por lo que se ve en pantalla.
+  const vendedores = [...porVendedor.values()].sort(porAlias);
 
   // Se filtra en memoria y no con otra consulta: los datos del día ya están
   // aquí, y volver a pedirlos sería un viaje de más por un `where` que este

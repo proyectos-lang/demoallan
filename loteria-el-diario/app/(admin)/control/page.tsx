@@ -11,6 +11,7 @@ import {
   horaHonduras12,
   iso,
   pad2,
+  porAlias,
 } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
@@ -27,6 +28,9 @@ export default async function ControlPage(props: PageProps<"/control">) {
     .select("id, nombre, alias, codigo, zona, color")
     .eq("activo", true)
     .order("codigo");
+
+  // El selector/tabla de vendedores, por alias alfabético.
+  (vendedores ?? []).sort(porAlias);
 
   if (!vendedores?.length) {
     return (

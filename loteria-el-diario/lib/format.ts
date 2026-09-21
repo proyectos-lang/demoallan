@@ -309,3 +309,20 @@ export function iniciales(nombre: string): string {
 export function rotulo(v: { nombre: string; alias?: string | null }): string {
   return v.alias?.trim() || v.nombre;
 }
+
+/**
+ * Comparador para ordenar clientes por ALIAS, alfabéticamente.
+ *
+ * Ordena por el rótulo —el alias, o el nombre si no hay alias— ignorando
+ * mayúsculas y acentos (`localeCompare` en español). Es el mismo criterio que
+ * usa la base con `order by lower(fn_rotulo(...))`, para que una lista ordenada
+ * en el cliente salga igual que una ordenada en el servidor.
+ *
+ *     lista.sort(porAlias)
+ */
+export function porAlias(
+  a: { nombre: string; alias?: string | null },
+  b: { nombre: string; alias?: string | null },
+): number {
+  return rotulo(a).localeCompare(rotulo(b), "es", { sensitivity: "base" });
+}

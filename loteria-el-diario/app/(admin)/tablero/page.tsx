@@ -7,7 +7,7 @@ import { BarraVendedor, TarjetaKpi } from "@/components/tablero/piezas";
 import { EncabezadoPagina, Pagina } from "@/components/ui/pagina";
 import { Tarjeta, TarjetaNota } from "@/components/ui/tarjeta";
 import { cn } from "@/lib/cn";
-import { fechaHonduras, fechaLargaSinDia, fmt, fmtK, hora12, iso, mesNombre, pad2 } from "@/lib/format";
+import { fechaHonduras, fechaLargaSinDia, fmt, fmtK, hora12, iso, mesNombre, pad2, porAlias } from "@/lib/format";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 const ETIQUETA_ESTADO: Record<string, string> = {
@@ -338,8 +338,9 @@ async function ResumenGeneral({ desde, hasta }: { desde: string; hasta: string }
             Venta menos comisión menos premios pagados.
           </p>
           <div className="flex flex-col gap-[14px] mt-4">
+            {/* Por alias, alfabético. `nombre` ya es el rótulo del RPC. */}
             {[...vendedores]
-              .sort((a, b) => b.utilidad - a.utilidad)
+              .sort(porAlias)
               .map((v) => (
                 <BarraVendedor
                   key={v.vendedor_id}
