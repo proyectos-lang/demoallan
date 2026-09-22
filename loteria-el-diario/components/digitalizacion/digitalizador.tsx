@@ -255,9 +255,12 @@ export function Digitalizador({
       )}
 
       {filas.length > 0 && (
-        <div className="flex gap-[18px] flex-wrap items-start">
-          {/* --- Hoja original --- */}
-          <div className="flex-1 min-w-[320px] max-w-[400px] bg-superficie border border-borde rounded-card shadow-card px-[18px] py-4">
+        <div className="flex gap-[18px] flex-wrap lg:flex-nowrap items-start">
+          {/* --- Hoja original ---
+              En móvil va DESPUÉS de la revisión (`order-2`): lo primero es
+              cuadrar y registrar los números; la foto es respaldo, se mira si
+              hace falta. En escritorio recupera su sitio a la izquierda. */}
+          <div className="order-2 lg:order-1 w-full lg:flex-1 lg:min-w-[320px] lg:max-w-[400px] bg-superficie border border-borde rounded-card shadow-card px-[18px] py-4">
             <h2 className="text-card font-semibold m-0">Hoja original</h2>
             {vistaPrevia && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -296,7 +299,7 @@ export function Digitalizador({
           </div>
 
           {/* --- Revisión --- */}
-          <div className="flex-1 min-w-[520px] bg-superficie border border-borde rounded-card shadow-card px-[18px] py-4">
+          <div className="order-1 lg:order-2 w-full lg:flex-1 min-w-0 lg:min-w-[520px] bg-superficie border border-borde rounded-card shadow-card px-3 sm:px-[18px] py-4">
             <div className="flex justify-between items-baseline flex-wrap gap-2">
               <h2 className="text-h2 font-semibold tracking-sutil m-0">Renglones extraídos</h2>
               <button
@@ -317,7 +320,10 @@ export function Digitalizador({
               </div>
             )}
 
-            <div className="flex gap-[10px] text-eyebrow font-semibold tracking-eyebrow text-mudo mt-4 px-[10px]">
+            {/* La cabecera de columnas sólo desde `sm`: en móvil la fila es
+                condensada (número · monto · acción) y no se alinea a estas
+                columnas anchas. */}
+            <div className="hidden sm:flex gap-[10px] text-eyebrow font-semibold tracking-eyebrow text-mudo mt-4 px-[10px]">
               <span className="w-[70px]">FILA</span>
               <span className="w-[78px]">NÚMERO</span>
               <span className="w-[96px] text-right">MONTO (L)</span>
@@ -331,28 +337,55 @@ export function Digitalizador({
                   <div
                     key={i}
                     className={cn(
-                      "flex gap-[10px] items-center rounded-banner px-[10px] py-[9px] border",
+                      "rounded-banner border px-2 sm:px-[10px] py-2 sm:py-[9px]",
+                      // En móvil, la fila condensada; desde `sm`, la de columnas.
+                      "flex flex-wrap sm:flex-nowrap items-center gap-x-2 sm:gap-[10px] gap-y-1",
                       dudosa
                         ? "bg-negativo-fila border-negativo-borde"
                         : "bg-tinte border-riel",
                     )}
                   >
-                    <span className="w-[70px] text-label text-mudo">
-                      {f.grupo > 0 ? `fila ${f.grupo}` : "añadida"}
+                    {/* Etiqueta de fila: fina en móvil, columna fija en escritorio. */}
+                    <span className="w-auto sm:w-[70px] text-label text-mudo whitespace-nowrap">
+                      {f.grupo > 0 ? `#${f.grupo}` : "+"}
                     </span>
+                    {/* NÚMERO y MONTO, todo en una línea. Angostos en móvil para
+                        que quepan número, monto y la × sin desbordar. */}
                     <input
                       value={f.numero}
                       onChange={(e) => editar(i, "numero", e.target.value)}
                       inputMode="numeric"
-                      className="w-[78px] px-[10px] py-2.5 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold outline-none bg-superficie"
+                      aria-label="Número"
+                      placeholder="nº"
+                      className="w-[54px] sm:w-[78px] px-2 sm:px-[10px] py-2 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold text-center sm:text-left outline-none bg-superficie"
                     />
+                    <span className="text-mudo text-meta sm:hidden">×</span>
                     <input
                       value={f.monto}
                       onChange={(e) => editar(i, "monto", e.target.value)}
                       inputMode="numeric"
-                      className="w-[96px] px-[10px] py-2.5 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold text-right outline-none bg-superficie"
+                      aria-label="Monto"
+                      placeholder="L"
+                      className="flex-1 sm:flex-none min-w-0 w-auto sm:w-[96px] px-2 sm:px-[10px] py-2 sm:py-[6px] rounded-campo border border-borde-campo text-pos font-semibold text-right outline-none bg-superficie"
                     />
-                    <span className="flex-1 text-meta">
+                    <button
+                      onClick={() => setFilas((x) => x.filter((_, j) => j !== i))}
+                      className="border-0 bg-transparent text-negativo text-modal leading-none px-1 cursor-pointer order-last sm:order-none"
+                      aria-label="Descartar renglón"
+                    >
+                      ×
+                    </button>
+                    {/* El ESTADO: en escritorio ocupa su columna; en móvil pasa a
+                        una segunda línea SÓLO cuando hay algo que resolver
+                        (dudoso o corregido), para no gastar alto en «coinciden». */}
+                    <span
+                      className={cn(
+                        "text-meta w-full sm:w-auto sm:flex-1 order-last",
+                        // En móvil se oculta cuando las tres lecturas coinciden:
+                        // no aporta y alarga la lista.
+                        !f.corregida && !(dudosa && f.alternativas) && "hidden sm:block",
+                      )}
+                    >
                       {f.corregida ? (
                         <span className="text-positivo">corregido por el operador</span>
                       ) : dudosa && f.alternativas ? (
@@ -372,13 +405,6 @@ export function Digitalizador({
                         <span className="text-secundario">las tres lecturas coinciden</span>
                       )}
                     </span>
-                    <button
-                      onClick={() => setFilas((x) => x.filter((_, j) => j !== i))}
-                      className="border-0 bg-transparent text-negativo text-modal leading-none px-1 cursor-pointer"
-                      aria-label="Descartar renglón"
-                    >
-                      ×
-                    </button>
                   </div>
                 );
               })}
@@ -398,7 +424,7 @@ export function Digitalizador({
                   ? "Cuadre correcto: la suma coincide con el total declarado."
                   : "Descuadre: revise renglones omitidos o montos mal leídos."}
               </span>
-              <span className="flex gap-5 text-tabla">
+              <span className="flex gap-4 sm:gap-5 text-meta sm:text-tabla flex-wrap">
                 <span>
                   suma <strong className="font-semibold">{fmt(suma, false)}</strong>
                 </span>
