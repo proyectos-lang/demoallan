@@ -189,7 +189,8 @@ try {
   });
   comprobar("registra ticket", t1.status === 200, JSON.stringify(t1.cuerpo));
   const folio = t1.cuerpo?.[0]?.ticket_folio;
-  comprobar("folio con formato V901-YYYYMMDD-NNNN", /^V901-20990101-0001$/.test(folio ?? ""), folio);
+  // El folio lleva la franja del sorteo (0124): V###-YYYYMMDD-<1|2|3>-NNNN.
+  comprobar("folio con formato V901-YYYYMMDD-<franja>-NNNN", /^V901-20990101-[123]-0001$/.test(folio ?? ""), folio);
 
   const lineas1 = await rest(
     `linea?select=numero,monto,comision_congelada,factor_congelado&ticket_id=eq.${t1.cuerpo?.[0]?.ticket_id}&order=numero`,

@@ -70,7 +70,7 @@ try {
     .eq("fecha", FECHA)
     .order("hora");
 
-  const esperado = { "11:00": "10:59", "15:00": "14:59", "20:00": "19:59" };
+  const esperado = { "11:00": "10:59", "15:00": "14:59", "21:00": "20:59" };
   for (const s of sorteos ?? []) {
     check(
       `el sorteo de ${s.hora} cierra a las ${esperado[s.hora]}`,
@@ -81,7 +81,7 @@ try {
 
   // --- 2. La tanda entra entera ------------------------------------------
   console.log("\n2. Tanda de varios tickets");
-  const sorteoId = sorteos.find((s) => s.hora === "20:00").id;
+  const sorteoId = sorteos.find((s) => s.hora === "21:00").id;
   await sb.rpc("fn_abrir_sorteo", { p_sorteo_id: sorteoId, p_limite_por_numero: 50000 });
 
   const { data: vs } = await sb

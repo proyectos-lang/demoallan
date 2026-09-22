@@ -453,6 +453,9 @@ export type Database = {
           r_repetido: boolean;
           /** EAN-13 del ticket, para imprimirlo como código de barras. */
           r_codigo: string | null;
+          /** Fecha y hora del SORTEO real del ticket: es lo que imprime la tirilla. */
+          r_sorteo_fecha: string | null;
+          r_sorteo_hora: string | null;
         }[];
       };
 
@@ -479,6 +482,9 @@ export type Database = {
           r_repetido: boolean;
           /** EAN-13 del ticket, para imprimirlo como código de barras. */
           r_codigo: string | null;
+          /** Fecha y hora del SORTEO real del ticket: es lo que imprime la tirilla. */
+          r_sorteo_fecha: string | null;
+          r_sorteo_hora: string | null;
         }[];
       };
       fn_reservar_cuota: {

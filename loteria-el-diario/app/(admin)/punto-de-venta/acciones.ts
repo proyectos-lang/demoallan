@@ -16,6 +16,14 @@ export type TicketRegistrado = {
   lineas: LineaVenta[];
   /** EAN-13 del ticket. Se imprime como código de barras. */
   codigo?: string | null;
+  /**
+   * El SORTEO REAL del ticket —fecha y hora— tal como quedó guardado. La
+   * tirilla imprime ESTO, no el sorteo que la pantalla tenga cargado: así el
+   * papel nunca muestra un sorteo distinto al del ticket. Una venta a futuro
+   * lleva su sorteo futuro, que es el correcto.
+   */
+  sorteoFecha?: string | null;
+  sorteoHora?: string | null;
 };
 
 export type ResultadoVenta =
@@ -173,6 +181,8 @@ export async function registrarVenta(
       creadoEn: f.r_creado_en,
       lineas: conLineas[i] ?? [],
       codigo: f.r_codigo ?? null,
+      sorteoFecha: f.r_sorteo_fecha ?? null,
+      sorteoHora: f.r_sorteo_hora ?? null,
     })),
     total: filas.reduce((a, f) => a + Number(f.r_total), 0),
   };
@@ -266,6 +276,8 @@ export async function registrarVentaFutura(
       creadoEn: f.r_creado_en,
       lineas: conLineas[i] ?? [],
       codigo: f.r_codigo ?? null,
+      sorteoFecha: f.r_sorteo_fecha ?? null,
+      sorteoHora: f.r_sorteo_hora ?? null,
     })),
     total: filas.reduce((a, f) => a + Number(f.r_total), 0),
   };

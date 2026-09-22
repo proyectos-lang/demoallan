@@ -90,6 +90,10 @@ export async function reimprimirTicket(folio: string): Promise<ResultadoReimpres
       creadoEn: t.r_creado_en,
       lineas,
       codigo: t.r_codigo,
+      // El sorteo real del ticket, también en el propio ticket: la tirilla lo
+      // prefiere sobre el prop, y así una reimpresión nunca depende de otro dato.
+      sorteoFecha: t.r_fecha,
+      sorteoHora: t.r_hora,
     },
     sorteo: {
       // La tirilla sólo usa `fecha` y `hora`; el resto va relleno porque el

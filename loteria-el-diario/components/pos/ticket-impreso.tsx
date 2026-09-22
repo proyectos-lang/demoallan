@@ -102,13 +102,23 @@ export function TicketImpreso({
             </span>
           </div>
 
+          {/*
+            El SORTEO se toma del ticket, no de la pantalla.
+
+            La base devuelve el sorteo real donde quedó el ticket
+            (`sorteoHora`/`sorteoFecha`). Se imprime ESE, no el `sorteo` que la
+            pantalla tenga cargado: al reimprimir con la pantalla en otro
+            sorteo, el papel salía con una hora distinta a la del ticket —el
+            fallo de V-105—. El `sorteo` del prop es el respaldo para
+            reimpresiones que no traen el dato (histórico viejo).
+          */}
           <div className="ticket-fila ticket-fuerte">
             <span>SORTEO</span>
-            <span>{hora12(sorteo.hora)}</span>
+            <span>{hora12(t.sorteoHora ?? sorteo.hora)}</span>
           </div>
           <div className="ticket-fila">
             <span />
-            <span>{fechaLargaSinDia(sorteo.fecha)}</span>
+            <span>{fechaLargaSinDia(t.sorteoFecha ?? sorteo.fecha)}</span>
           </div>
 
           {/*
