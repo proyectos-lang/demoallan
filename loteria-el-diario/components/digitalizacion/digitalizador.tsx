@@ -40,6 +40,11 @@ export function Digitalizador({
   const [vendedor, setVendedor] = useState(vendedores[0]?.id ?? "");
   const [sorteo, setSorteo] = useState(sorteos[0]?.id ?? "");
   const [total, setTotal] = useState("");
+  // Subir sin teclear el total: se aprueba si las tres lecturas coinciden. Sólo
+  // admin/digitador (no el vendedor, que tiene el papel delante).
+  const [sinTotal, setSinTotal] = useState(false);
+  // Cuando el cuadre lo aprobó la triple coincidencia y no un total tecleado.
+  const [porLecturas, setPorLecturas] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
 
@@ -76,13 +81,17 @@ export function Digitalizador({
     setAvisos([]);
     setEncabezado(null);
     setDeclarado(null);
+    setPorLecturas(false);
     setCosto(0);
     setMensaje({ texto: "", tipo: "neutro" });
   };
 
+  // El total se pide salvo que se marque «subir sin total» (sólo admin/digitador).
+  const exigeTotal = propio || !sinTotal;
+
   const leer = () => {
     if (!archivo) return setMensaje({ texto: "Seleccione la fotografía de la hoja.", tipo: "error" });
-    if (!total) {
+    if (exigeTotal && !total) {
       return setMensaje({
         texto: "Escriba el total de la hoja antes de leerla: sin él no hay control de cuadre.",
         tipo: "error",
@@ -93,7 +102,8 @@ export function Digitalizador({
     datos.set("hoja", archivo);
     datos.set("vendedor", vendedor);
     datos.set("sorteo", sorteo);
-    datos.set("total", total);
+    // Sin total sólo si se pidió expresamente; si no, va el tecleado.
+    datos.set("total", exigeTotal ? total : "");
 
     iniciar(async () => {
       const r = await digitalizarHoja(datos);
@@ -104,8 +114,17 @@ export function Digitalizador({
       setAvisos(r.avisos);
       setEncabezado(r.encabezado);
       setDeclarado(r.totalDeclarado);
+      setPorLecturas(r.aprobadoPorLecturas);
       setCosto(r.costoUsd);
-      setMensaje({ texto: "", tipo: "neutro" });
+      setMensaje(
+        r.aprobadoPorLecturas
+          ? {
+              texto:
+                "Cuadre aprobado por las tres lecturas: coincidieron en todos los renglones, así que la suma es el total.",
+              tipo: "ok",
+            }
+          : { texto: "", tipo: "neutro" },
+      );
     });
   };
 
@@ -208,13 +227,35 @@ export function Digitalizador({
               Total de la hoja (L){propio && <span className="text-negativo"> ·  obligatorio</span>}
             </span>
             <input
-              value={total}
+              value={sinTotal && !propio ? "" : total}
               onChange={(e) => setTotal(e.target.value.replace(/\D/g, "").slice(0, 7))}
               inputMode="numeric"
-              placeholder={propio ? "el que sumó" : "contado"}
-              className={cn(CLASE_CONTROL, "w-[140px] text-right")}
+              disabled={sinTotal && !propio}
+              placeholder={sinTotal && !propio ? "lo dan las lecturas" : propio ? "el que sumó" : "contado"}
+              className={cn(CLASE_CONTROL, "w-[140px] text-right", sinTotal && !propio && "opacity-50")}
             />
           </label>
+
+          {/* Subir sin total: sólo admin/digitador. El cuadre lo aprueba la
+              triple coincidencia de las lecturas. El vendedor no lo ve: a él se
+              le exige el total siempre. */}
+          {!propio && (
+            <label className="flex items-center gap-2 pb-[9px] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sinTotal}
+                onChange={(e) => {
+                  setSinTotal(e.target.checked);
+                  reiniciarLote();
+                }}
+                className="w-4 h-4 accent-[var(--color-acento)]"
+              />
+              <span className="text-meta text-cuerpo">
+                Subir sin total{" "}
+                <span className="text-mudo">(aprueba si las 3 lecturas coinciden)</span>
+              </span>
+            </label>
+          )}
 
           <label className="block">
             <span className="block text-label text-secundario font-medium mb-[6px]">Hoja</span>
@@ -227,15 +268,15 @@ export function Digitalizador({
             />
           </label>
 
-          <Boton onClick={leer} disabled={trabajando || !archivo || (propio && !total)}>
+          <Boton onClick={leer} disabled={trabajando || !archivo || (exigeTotal && !total)}>
             {trabajando && !loteId ? "Leyendo…" : "Leer hoja"}
           </Boton>
         </div>
 
         <p className="text-meta text-secundario leading-[1.55] mt-3 mb-0 max-w-[80ch]">
-          Las hojas observadas no traen el total escrito, así que hay que teclearlo: es lo único
-          que permite detectar un renglón que la lectura omitió. Sin él la confirmación queda
-          bloqueada.
+          {sinTotal && !propio
+            ? "Sin total tecleado, la hoja se aprueba sólo si las tres lecturas coinciden en todos los renglones —ahí la suma es segura—. Si alguna difiere, tendrás que teclear el total o revisar los renglones marcados."
+            : "Las hojas observadas no traen el total escrito, así que hay que teclearlo: es lo único que permite detectar un renglón que la lectura omitió. Sin él la confirmación queda bloqueada."}
         </p>
       </div>
 
@@ -421,7 +462,9 @@ export function Digitalizador({
             >
               <span className="text-tabla font-medium max-w-[42ch]">
                 {cuadra
-                  ? "Cuadre correcto: la suma coincide con el total declarado."
+                  ? porLecturas
+                    ? "Cuadre aprobado por las tres lecturas: coincidieron en todos los renglones."
+                    : "Cuadre correcto: la suma coincide con el total declarado."
                   : "Descuadre: revise renglones omitidos o montos mal leídos."}
               </span>
               <span className="flex gap-4 sm:gap-5 text-meta sm:text-tabla flex-wrap">

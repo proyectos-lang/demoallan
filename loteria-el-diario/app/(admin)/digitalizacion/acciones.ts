@@ -75,6 +75,13 @@ export type ResultadoExtraccion =
       costoUsd: number;
       /** Ruta en Storage, para poder mostrar la hoja mientras se revisa. */
       imagenPath: string;
+      /**
+       * El cuadre lo aprobó la triple coincidencia, no un total tecleado: las
+       * tres lecturas leyeron los mismos renglones, así que la suma es la misma
+       * en las tres y sirve de total. Sólo ocurre sin total manual y con todos
+       * los renglones unánimes.
+       */
+      aprobadoPorLecturas: boolean;
     }
   | { ok: false; mensaje: string };
 
@@ -128,14 +135,50 @@ export async function digitalizarHoja(datos: FormData): Promise<ResultadoExtracc
     };
   }
 
-  // El total lo manda la hoja; si el modelo no lo leyó, el operador lo teclea.
-  // Sin total no hay control de cuadre, y sin cuadre no se puede confirmar.
-  const totalDeclarado = totalManual ? Number(totalManual) : extraccion.totalDeclarado;
+  /*
+   * EL TOTAL, Y EL CAMINO «SIN TOTAL».
+   *
+   * Lo normal: el total lo teclea el operador (o, rarísimo, lo trae la hoja).
+   * Sin total no hay con qué contrastar la suma, y sin ese contraste no se puede
+   * confirmar.
+   *
+   * PERO admin/digitador pueden subir SIN total. En ese caso el control de
+   * cuadre lo da la TRIPLE COINCIDENCIA: si las tres lecturas leyeron los mismos
+   * renglones —todos unánimes—, la suma es idéntica en las tres y sirve de
+   * total. El vendedor no tiene este camino: a él se le exige el total arriba,
+   * porque tiene el papel delante y es el único control anti-fraude.
+   *
+   * Si se sube sin total y ALGÚN renglón difiere entre lecturas, la suma no está
+   * garantizada: se deja para que el operador teclee el total o revise, sin
+   * aprobar solo.
+   */
+  const sumaLineas = extraccion.lineas.reduce(
+    (a, l) => a + (parseInt(l.monto || "0", 10) || 0),
+    0,
+  );
+  const todasUnanimes =
+    extraccion.lineas.length > 0 && extraccion.lineas.every((l) => l.confianza >= 1);
+
+  let totalDeclarado: number | null;
+  let aprobadoPorLecturas = false;
+
+  if (totalManual) {
+    totalDeclarado = Number(totalManual);
+  } else if (extraccion.totalDeclarado !== null) {
+    totalDeclarado = extraccion.totalDeclarado;
+  } else if (todasUnanimes) {
+    // Las tres lecturas coinciden en todo: la suma es el total.
+    totalDeclarado = sumaLineas;
+    aprobadoPorLecturas = true;
+  } else {
+    totalDeclarado = null;
+  }
+
   if (totalDeclarado === null) {
     return {
       ok: false,
       mensaje:
-        "No se pudo leer el total al pie de la hoja. Escríbalo a mano: sin él no hay control de cuadre.",
+        "Las tres lecturas no coinciden del todo, así que la suma no es segura. Escriba el total de la hoja para poder cuadrar, o revise los renglones marcados.",
     };
   }
 
@@ -183,6 +226,7 @@ export async function digitalizarHoja(datos: FormData): Promise<ResultadoExtracc
     avisos: extraccion.avisos,
     costoUsd: extraccion.costoUsd,
     imagenPath: ruta,
+    aprobadoPorLecturas,
   };
 }
 
