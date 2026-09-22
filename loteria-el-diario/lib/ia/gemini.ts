@@ -64,6 +64,8 @@ export type LineaExtraida = {
 
 export type Extraccion = {
   lineas: LineaExtraida[];
+  /** El formato detectado por mayoría: 'A', 'B' o '' si no se pudo. */
+  formato: string;
   /** Lo que trae la cabecera: quién, qué día y de qué sorteo se trata. */
   encabezado: { nombre: string; fecha: string; franja: string };
   /** El total al pie, si la hoja lo trae. Casi nunca. */
@@ -79,6 +81,12 @@ export type Extraccion = {
 const ESQUEMA = {
   type: Type.OBJECT,
   properties: {
+    formato: {
+      type: Type.STRING,
+      description:
+        "El formato detectado: 'A' (pares de filas manuscritas, número y monto a mano) " +
+        "o 'B' (planilla con números impresos 00–99, sólo montos a mano).",
+    },
     encabezado: {
       type: Type.OBJECT,
       properties: {
@@ -130,35 +138,87 @@ const ESQUEMA = {
         "que es lo habitual. NO lo calcules tú.",
     },
   },
-  required: ["encabezado", "grupos", "total_declarado"],
+  required: ["formato", "encabezado", "grupos", "total_declarado"],
 } as const;
 
 const INSTRUCCIONES = `Eres un asistente de digitalización para una casa de lotería en Honduras.
 
-La imagen es una hoja de cuaderno con apuestas escritas a mano. Las apuestas van
-en PARES DE FILAS que se leen por columna:
+La imagen es una hoja con apuestas. HAY DOS FORMATOS distintos. Primero mira la
+hoja y decide cuál es; luego léela según ese formato. Devuelve en \`formato\` la
+letra A o B.
+
+──────────────────────────────────────────────────────────────────────────
+FORMATO A — pares de filas manuscritas
+──────────────────────────────────────────────────────────────────────────
+TODO está escrito a mano. Las apuestas van en PARES DE FILAS que se leen por
+columna:
 
     70  75  90  94  79     ← fila de números jugados (dos dígitos, 00 a 99)
     200 100 250 150 50     ← fila de montos en lempiras, alineados debajo
 
-Cada columna es una apuesta: el 70 va con 200, el 75 con 100, y así.
+Cada columna es una apuesta: el 70 va con 200, el 75 con 100, y así. La hoja
+puede traer varios de estos pares, separados entre sí. Se reconoce porque el
+NÚMERO también está manuscrito, encima de su monto.
 
-La hoja puede traer varios de estos pares de filas, separados entre sí. Devuelve
-cada par como un grupo, en el orden en que aparecen de arriba abajo.
+Devuelve cada par como un grupo, con sus \`numeros\` y sus \`montos\` (misma
+cantidad de cada uno), en el orden de arriba abajo.
 
-Reglas:
+──────────────────────────────────────────────────────────────────────────
+FORMATO B — planilla con números IMPRESOS (00 a 99)
+──────────────────────────────────────────────────────────────────────────
+Es una plantilla con los números YA IMPRESOS, uno por fila, normalmente en dos
+columnas (por ejemplo 01–50 a la izquierda y 51–00 a la derecha). Sólo los
+MONTOS están escritos a mano, en una lista al lado de cada número, separados por
+puntos, guiones o espacios:
 
-- Dentro de un grupo debe haber EXACTAMENTE tantos montos como números. Si al
-  leerlo no te cuadra la cantidad, devuelve lo que ves de todas formas y baja la
-  confianza de ese grupo: no inventes ni elimines elementos para cuadrarlo.
-- Los dígitos manuscritos se tocan a menudo. «3102» a mitad de una fila casi
-  siempre son dos números, 31 y 02. Usa el espaciado y la alineación con la fila
-  de abajo para separarlos, y baja la confianza si dudas.
+    03   20·50·5·5·20      ← el número 03 (impreso) con cinco apuestas
+    08   50-150-5          ← el número 08 con tres apuestas
+    17   50                ← el número 17 con una apuesta
+    66                     ← el 66 sin nada: no se juega, se omite
+
+Reglas del formato B:
+
+- El NÚMERO sale de la fila impresa, NO de la escritura a mano. Nunca inventes
+  un número: usa el que está impreso en esa fila.
+- Cada monto de la lista de una fila es UNA APUESTA INDEPENDIENTE a ese número.
+  Pueden repetirse (\`50·50·50·5\` son cuatro apuestas al mismo número).
+- Devuelve un grupo POR FILA CON MONTOS: \`numeros\` lleva UN solo número (el
+  impreso) y \`montos\` lleva todos los de esa fila. Las filas impresas sin
+  ningún monto NO se devuelven.
+- Recorre las dos columnas: no te saltes la de la derecha (51 en adelante y el
+  00 al final).
+- LOS SEPARADORES entre montos son puntos, guiones o espacios, y a veces se
+  ven débiles. \`50·150·5\` son TRES apuestas (50, 150 y 5), no una. \`25·25·5·10\`
+  son cuatro. No unas dos montos en uno por no ver el separador, ni partas un
+  monto en dos: transcribe cada cifra separada tal como está agrupada, y si un
+  separador es ambiguo baja la confianza de esa fila.
+- Montos habituales: 5, 10, 15, 20, 25, 30, 40, 50, 100, 150, 175, 200. Un
+  monto suelto suele terminar en 0 o en 5. Si lees algo raro (por ejemplo 70
+  donde el trazo podría ser 10, o 6 donde podría ser 5), baja la confianza de la
+  fila en vez de forzar una lectura.
+- No sumes ni cuadres: si la fila «no da», devuélvela como la ves con confianza
+  baja. El operador la revisa; una fila omitida no se detecta.
+
+──────────────────────────────────────────────────────────────────────────
+REGLAS COMUNES A LOS DOS
+──────────────────────────────────────────────────────────────────────────
 - Transcribe lo que ves. No corrijas, no completes y no descartes nada. Un
   renglón dudoso marcado con confianza baja sirve; uno omitido no se detecta.
-- No calcules el total. Si la hoja no lo trae escrito, devuelve cadena vacía.
+- Los dígitos manuscritos se tocan a menudo. Usa el espaciado y la alineación
+  para separarlos, y baja la confianza de ese grupo si dudas.
+- Confusiones típicas de esta letra: 1 y 7, 0 y 6, 5 y 6, y el 5 con el 50
+  cuando el cero es pequeño. Si un trazo admite dos lecturas, elige la más
+  probable por contexto (montos redondos) pero BAJA la confianza de la fila:
+  vale más una fila marcada para revisar que un monto cambiado en silencio.
+- Baja la confianza de un grupo si no estás seguro de un monto o de cuántas
+  apuestas hay en esa fila.
+- No calcules el total. Si la hoja trae uno escrito al pie, devuélvelo en
+  \`total_declarado\` (sólo dígitos); si no, cadena vacía.
 - La cabecera suele llevar un nombre, una fecha y a veces la franja del sorteo
-  ('3PM', 'Viernes 3PM'). Devuélvelos tal cual estén escritos.`;
+  ('3PM', 'Viernes 3PM'). Devuélvelos tal cual estén escritos.
+- Si dudas entre A y B: en B los números van en secuencia impresa y ordenada
+  (01,02,03…); en A los números están manuscritos y en el orden que el vendedor
+  los jugó, sin seguir una secuencia.`;
 
 let cliente: GoogleGenAI | null = null;
 function obtenerCliente() {
@@ -175,6 +235,7 @@ const soloDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 type Celda = { numero: string; monto: string; grupo: number };
 type Pasada = {
   celdas: Celda[];
+  formato: string;
   encabezado: { nombre: string; fecha: string; franja: string };
   declarado: string;
   desalineados: number[];
@@ -207,6 +268,7 @@ async function leerUnaVez(imagenBase64: string, mimeType: string): Promise<Pasad
   });
 
   let crudo: {
+    formato?: string;
     encabezado?: { nombre?: string; fecha?: string; franja?: string };
     grupos?: { numeros?: string[]; montos?: string[] }[];
     total_declarado?: string;
@@ -224,8 +286,22 @@ async function leerUnaVez(imagenBase64: string, mimeType: string): Promise<Pasad
     const numeros = (g.numeros ?? []).map(soloDigitos).filter(Boolean);
     const montos = (g.montos ?? []).map(soloDigitos).filter(Boolean);
 
-    // En una hoja bien leída cada número tiene su monto debajo. Que no cuadre
-    // suele significar dígitos pegados que se partieron mal.
+    const dosDigitos = (n: string) => n.slice(0, 2).padStart(2, "0");
+
+    if (numeros.length === 1 && montos.length > 1) {
+      /*
+       * FORMATO B: un número (el impreso) con varias apuestas. Cada monto es una
+       * apuesta a ESE mismo número. No es un desalineado: es lo esperado.
+       */
+      for (const m of montos) {
+        celdas.push({ numero: dosDigitos(numeros[0]), monto: m.slice(0, 6), grupo: i + 1 });
+      }
+      return;
+    }
+
+    // FORMATO A (o B con una sola apuesta): se emparejan por columna. En una
+    // hoja bien leída cada número tiene su monto; que no cuadre suele ser
+    // dígitos pegados que se partieron mal.
     if (numeros.length !== montos.length) desalineados.push(i + 1);
 
     const n = Math.max(numeros.length, montos.length);
@@ -233,7 +309,7 @@ async function leerUnaVez(imagenBase64: string, mimeType: string): Promise<Pasad
       celdas.push({
         // Normalizar el formato no es corregir el valor: '7' → '07' es
         // presentación; cambiar un 7 por otra cosa sería falsear la lectura.
-        numero: (numeros[j] ?? "").slice(0, 2).padStart(2, "0"),
+        numero: dosDigitos(numeros[j] ?? ""),
         monto: (montos[j] ?? "").slice(0, 6),
         grupo: i + 1,
       });
@@ -243,6 +319,7 @@ async function leerUnaVez(imagenBase64: string, mimeType: string): Promise<Pasad
   const uso = respuesta.usageMetadata;
   return {
     celdas,
+    formato: String(crudo.formato ?? "").trim().toUpperCase().slice(0, 1),
     encabezado: {
       nombre: String(crudo.encabezado?.nombre ?? "").trim(),
       fecha: String(crudo.encabezado?.fecha ?? "").trim(),
@@ -340,11 +417,23 @@ export async function extraerHoja(
   // El total lo toma de la lectura que sí lo encontró, si alguna lo hizo.
   const declarado = pasadas.map((p) => p.declarado).find(Boolean) ?? "";
 
+  // El formato, por mayoría entre las lecturas. Si las lecturas no coinciden en
+  // el formato, la hoja es ambigua: se avisa, porque cada formato se lee
+  // distinto y confundirlos cambia los números.
+  const formato = porMayoria(pasadas.map((p) => p.formato).filter(Boolean)).valor ?? "";
+  if (new Set(pasadas.map((p) => p.formato).filter(Boolean)).size > 1) {
+    avisos.push(
+      "Las lecturas no coinciden en el formato de la hoja (pares manuscritos vs. planilla impresa). " +
+        "Revísela con cuidado: se están leyendo de forma distinta.",
+    );
+  }
+
   const tokensEntrada = pasadas.reduce((a, p) => a + p.tokensEntrada, 0);
   const tokensSalida = pasadas.reduce((a, p) => a + p.tokensSalida, 0);
 
   return {
     lineas,
+    formato,
     encabezado: referencia.encabezado,
     totalDeclarado: declarado ? Number(declarado) : null,
     confianzaGlobal: lineas.length
