@@ -66,12 +66,68 @@ export function TicketImpreso({
 }) {
   if (tickets.length === 0) return null;
 
+  /*
+   * GARANTÍA ESTRUCTURAL: no se imprime un ticket que no exista en la base.
+   *
+   * La regla del negocio es que ningún papel salga sin su registro exacto. Aquí
+   * es donde se hace cumplir, no por convención en cada botón sino en el único
+   * sitio por el que pasan TODAS las tirillas:
+   *
+   *   · sin FOLIO no hay ticket: el folio lo asigna la base al registrar, así
+   *     que un ticket sin folio es algo que la pantalla armó pero la base no
+   *     guardó. No se imprime.
+   *
+   *   · el TOTAL tiene que ser la suma de las líneas. Si no cuadra, el papel
+   *     diría un monto que no corresponde a lo registrado. No se imprime.
+   *
+   * Un ticket que no pasa el filtro se descarta del papel y se avisa, en vez de
+   * imprimir un comprobante que no cuadra con el sistema.
+   */
+  const cent = (n: number) => Math.round(n * 100);
+  const valido = (t: TicketRegistrado) =>
+    Boolean(t.folio?.trim()) &&
+    cent(t.total) === cent(t.lineas.reduce((a, l) => a + l.monto, 0));
+
+  const imprimibles = tickets.filter(valido);
+  const descartados = tickets.length - imprimibles.length;
+
+  if (imprimibles.length === 0) {
+    return (
+      <div
+        data-impresion={modo === "impresion" ? "" : undefined}
+        className={cn(modo === "impresion" ? "hoja-impresion" : "hoja-pantalla")}
+      >
+        <article className="ticket-impreso">
+          <div className="ticket-fila ticket-fuerte">
+            <span>SIN REGISTRO</span>
+          </div>
+          <p style={{ fontSize: 11, lineHeight: 1.4, margin: "8px 0" }}>
+            No se puede imprimir: este comprobante no coincide con ningún ticket
+            registrado en el sistema. Vuelva a registrar la venta.
+          </p>
+        </article>
+      </div>
+    );
+  }
+
   const hoja = (
     <div
       data-impresion={modo === "impresion" ? "" : undefined}
       className={cn(modo === "impresion" ? "hoja-impresion" : "hoja-pantalla")}
     >
-      {tickets.map((t) => (
+      {descartados > 0 && (
+        <article className="ticket-impreso">
+          <div className="ticket-fila ticket-fuerte">
+            <span>AVISO</span>
+          </div>
+          <p style={{ fontSize: 11, lineHeight: 1.4, margin: "8px 0" }}>
+            {descartados}{" "}
+            {descartados === 1 ? "comprobante no se imprimió" : "comprobantes no se imprimieron"}{" "}
+            porque no coinciden con el sistema.
+          </p>
+        </article>
+      )}
+      {imprimibles.map((t) => (
         <article
           key={t.folio}
           className={cn(
