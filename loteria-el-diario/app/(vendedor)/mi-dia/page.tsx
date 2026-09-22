@@ -49,14 +49,57 @@ export default async function MiDiaPage({ searchParams }: PageProps<"/mi-dia">) 
   const anterior = correrDia(dia, -1);
   const siguiente = correrDia(dia, 1);
 
+  // Página de tickets. Cuarenta por página; la primera es la 1.
+  const POR_PAGINA = 40;
+  const pagPedida = typeof params.pag === "string" ? parseInt(params.pag, 10) : 1;
+  const pagina = Number.isFinite(pagPedida) && pagPedida > 0 ? pagPedida : 1;
+
+  // Cuántos tickets tiene ese día en total, para saber cuántas páginas hay. Es
+  // un conteo barato, filtrado por el vendedor de la sesión.
+  const { count: totalTickets } = await supabase
+    .from("ticket")
+    .select("id, sorteo:sorteo_id!inner(fecha)", { count: "exact", head: true })
+    .eq("vendedor_id", vendedorId)
+    .eq("sorteo.fecha", dia);
+
+  const totales = totalTickets ?? 0;
+  const paginas = Math.max(1, Math.ceil(totales / POR_PAGINA));
+  const pagActual = Math.min(pagina, paginas);
+  const desde = (pagActual - 1) * POR_PAGINA;
+
   // Todo va filtrado por `vendedorId`, que sale de la SESIÓN y no de la
   // petición. Es la diferencia entre ver lo suyo y ver lo de todos.
-  const [{ data: resumenDia }, { data: tickets }] = await Promise.all([
+  const [{ data: resumenDia }, ticketsRes] = await Promise.all([
     supabase.rpc("fn_mi_dia", { p_vendedor_id: vendedorId, p_fecha: dia }),
-    supabase.rpc("fn_mis_tickets", { p_vendedor_id: vendedorId, p_fecha: dia, p_limite: 40 }),
+    supabase.rpc("fn_mis_tickets", {
+      p_vendedor_id: vendedorId,
+      p_fecha: dia,
+      p_limite: POR_PAGINA,
+      p_desde: desde,
+    }),
   ]);
 
+  /*
+   * Respaldo si la base aún no tiene la 0127 (p_desde). El despliegue de la
+   * app y el de la base son dos gestos distintos; si el código llega primero,
+   * PostgREST no encuentra la firma con `p_desde` (PGRST202) y la lista se
+   * caería. Se reintenta sin paginar —se ve la primera página— hasta que la
+   * migración esté.
+   */
+  let tickets = ticketsRes.data;
+  if (ticketsRes.error?.code === "PGRST202") {
+    const r = await supabase.rpc("fn_mis_tickets", {
+      p_vendedor_id: vendedorId,
+      p_fecha: dia,
+      p_limite: POR_PAGINA,
+    });
+    tickets = r.data;
+  }
+
   const filas = resumenDia ?? [];
+  // Enlace a otra página conservando el día que se mira.
+  const enlacePagina = (p: number) =>
+    `/mi-dia?${esHoy ? "" : `dia=${dia}&`}pag=${p}`;
   const venta = filas.reduce((a, f) => a + Number(f.r_venta), 0);
   const comision = filas.reduce((a, f) => a + Number(f.r_comision), 0);
   const premios = filas.reduce((a, f) => a + Number(f.r_premios), 0);
@@ -203,10 +246,15 @@ export default async function MiDiaPage({ searchParams }: PageProps<"/mi-dia">) 
       {/* Sus tickets del día, para poder responder «¿me registró usted esto?». */}
       {(tickets?.length ?? 0) > 0 && (
         <div className="bg-superficie border border-borde rounded-card shadow-card overflow-hidden">
-          <div className="px-[22px] py-4 border-b border-fondo">
+          <div className="px-[22px] py-4 border-b border-fondo flex items-baseline justify-between gap-3 flex-wrap">
             <h2 className="text-h2 font-semibold tracking-sutil m-0">
               {esHoy ? "Mis tickets de hoy" : "Mis tickets del día"}
             </h2>
+            {totales > POR_PAGINA && (
+              <span className="text-meta text-secundario">
+                {totales} tickets · página {pagActual} de {paginas}
+              </span>
+            )}
           </div>
           <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-[640px]">
@@ -287,6 +335,37 @@ export default async function MiDiaPage({ searchParams }: PageProps<"/mi-dia">) 
             </tbody>
           </table>
           </div>
+
+          {/* Pasar de página. Sólo aparece si hay más de una. */}
+          {paginas > 1 && (
+            <div className="px-[22px] py-3 border-t border-fondo flex items-center justify-between gap-3">
+              {pagActual > 1 ? (
+                <Link
+                  href={enlacePagina(pagActual - 1)}
+                  className="inline-flex items-center gap-1.5 text-meta text-acento font-medium"
+                >
+                  <ChevronLeft size={16} strokeWidth={2} />
+                  Anteriores
+                </Link>
+              ) : (
+                <span className="text-meta text-mudo opacity-40">Anteriores</span>
+              )}
+              <span className="text-meta text-secundario">
+                {pagActual} / {paginas}
+              </span>
+              {pagActual < paginas ? (
+                <Link
+                  href={enlacePagina(pagActual + 1)}
+                  className="inline-flex items-center gap-1.5 text-meta text-acento font-medium"
+                >
+                  Más antiguos
+                  <ChevronRight size={16} strokeWidth={2} />
+                </Link>
+              ) : (
+                <span className="text-meta text-mudo opacity-40">Más antiguos</span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
