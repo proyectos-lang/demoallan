@@ -250,10 +250,7 @@ export function Digitalizador({
                 }}
                 className="w-4 h-4 accent-[var(--color-acento)]"
               />
-              <span className="text-meta text-cuerpo">
-                Subir sin total{" "}
-                <span className="text-mudo">(aprueba si las 3 lecturas coinciden)</span>
-              </span>
+              <span className="text-meta text-cuerpo">Subir sin total</span>
             </label>
           )}
 
