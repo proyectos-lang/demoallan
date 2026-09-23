@@ -195,21 +195,19 @@ export const GRUPOS: Grupo[] = [
   /*
    * Los pares van PRIMEROS y no ordenados entre los demás, porque no son lo
    * mismo: los otros agrupan por lo que la figura representa y éste por cómo
-   * es el número. Quien busca «animales» lee la figura; quien pide «todos los
-   * pares» ya está pensando en cifras. Ponerlo al principio evita que se
-   * busque entre temas.
+   * es el número. Quien busca «animales» lee la figura; quien pide «los pares»
+   * ya está pensando en cifras. Ponerlo al principio evita que se busque entre
+   * temas.
    *
-   * EL CERO ES PAR, y por eso el 00 entra. La duda es razonable —hay quien
-   * cuenta del 1 al 99— pero aquí se decide por la cifra y no por costumbre:
-   * un grupo cuya regla no se puede enunciar en una frase es un grupo en el
-   * que el vendedor deja de confiar. La regla es «los que terminan en 0, 2, 4,
-   * 6 y 8», y el 00 termina en 0.
+   * «Pares» aquí son los DOBLES: las dos cifras iguales —00, 11, 22, … 99—,
+   * diez números. Es la regla que usa el vendedor, y se enuncia en una frase:
+   * «los que tienen la misma cifra dos veces». Incluye el 00.
    */
   {
     id: "pares",
     nombre: "Pares",
     emoji: "2️⃣",
-    numeros: Array.from({ length: 50 }, (_, i) => i * 2),
+    numeros: Array.from({ length: 10 }, (_, i) => i * 11),
   },
   {
     id: "animales",

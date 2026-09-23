@@ -199,28 +199,35 @@ if (animales) {
 }
 
 /*
- * Los pares. Es el unico grupo cuya regla se puede comprobar entera, asi que
- * se comprueba entera: cincuenta numeros, todos pares, ninguno impar. Si
- * alguien toca esa linea, aqui se ve.
+ * Los pares. Son los DOBLES: las dos cifras iguales —00, 11, 22, … 99—, diez
+ * numeros. Es el unico grupo cuya regla se puede comprobar entera, asi que se
+ * comprueba entera. Si alguien toca esa linea, aqui se ve.
  */
 const pares = grupos.find((g) => g.id === "pares");
 if (pares) {
-  check("«pares» trae cincuenta numeros", pares.numeros.length === 50, `${pares.numeros.length}`);
+  check("«pares» trae diez numeros", pares.numeros.length === 10, `${pares.numeros.length}`);
   check(
-    "todos son pares",
-    pares.numeros.every((x) => x % 2 === 0),
-    pares.numeros.filter((x) => x % 2 !== 0).join(", "),
+    "todos son dobles (las dos cifras iguales)",
+    pares.numeros.every((x) => {
+      const [a, b] = String(x).padStart(2, "0");
+      return a === b;
+    }),
+    pares.numeros.join(", "),
   );
   check(
-    "no se cuela ningun impar conocido",
-    ![1, 7, 13, 99].some((x) => pares.numeros.includes(x)),
+    "son exactamente 00,11,…,99",
+    [0, 11, 22, 33, 44, 55, 66, 77, 88, 99].every((x) => pares.numeros.includes(x)),
+    pares.numeros.join(", "),
+  );
+  check(
+    "no se cuela ningun no-doble",
+    ![2, 10, 50, 98].some((x) => pares.numeros.includes(x)),
     "",
   );
-  // El cero es par y el 00 entra: la regla es la cifra, no la costumbre de
-  // contar desde el uno. Se fija aqui para que el dia que alguien lo cambie
-  // sea una decision y no un descuido.
-  check("el 00 esta dentro, porque el cero es par", pares.numeros.includes(0), "");
-  check("y el 98 tambien, que es el ultimo", pares.numeros.includes(98), "");
+  // El 00 entra (es el doble del cero) y el 99 es el ultimo. Se fija aqui para
+  // que el dia que alguien lo cambie sea una decision y no un descuido.
+  check("el 00 esta dentro", pares.numeros.includes(0), "");
+  check("y el 99 tambien, que es el ultimo", pares.numeros.includes(99), "");
 } else {
   check("existe el grupo de pares", false, "no esta definido");
 }

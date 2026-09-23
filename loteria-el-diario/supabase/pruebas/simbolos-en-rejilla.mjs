@@ -378,17 +378,19 @@ try {
     check("se pudo probar el grupo de pares", false, dePares.error);
   } else {
     const p = dePares.marcadas ?? [];
-    const impares = p.filter((x) => Number(x) % 2 !== 0);
+    // «Pares» son los DOBLES: las dos cifras iguales (00,11,…,99).
+    const noDobles = p.filter((x) => x[0] !== x[1]);
     check("al pulsar «Pares» se marcan numeros", p.length > 0, `${p.length}`);
-    check("ninguno es impar", impares.length === 0, `impares: ${impares.join(",")}`);
+    check("son diez", p.length === 10, `${p.length}`);
+    check("todos son dobles (dos cifras iguales)", noDobles.length === 0, `no-dobles: ${noDobles.join(",")}`);
     check(
-      "estan el 00 y el 98, los extremos",
-      p.includes("00") && p.includes("98"),
-      `00:${p.includes("00")} 98:${p.includes("98")}`,
+      "estan el 00 y el 99, los extremos",
+      p.includes("00") && p.includes("99"),
+      `00:${p.includes("00")} 99:${p.includes("99")}`,
     );
     check(
-      "y no esta el 99, que es impar",
-      !p.includes("99"),
+      "y no esta el 98, que no es doble",
+      !p.includes("98"),
       "",
     );
   }
