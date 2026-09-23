@@ -113,15 +113,22 @@ export function MatrizTotales({
     el?.select();
   };
 
+  /*
+   * El teclado mueve el FOCO entre celdas, no el cursor dentro del número: las
+   * cuatro flechas navegan la tabla como una hoja de cálculo, para poder pasar
+   * a la celda de al lado y escribir directo. (Corregir un dígito a media cifra
+   * se hace reescribiendo la celda, que es lo que el usuario pidió.)
+   *
+   *   ↑            misma columna, fila de arriba
+   *   ↓ / Enter    misma columna, fila de abajo
+   *   →            venta → premio; y desde premio, a la venta de la fila de abajo
+   *   ←            premio → venta; y desde venta, al premio de la fila de arriba
+   */
   const alTeclear = (
     e: React.KeyboardEvent<HTMLInputElement>,
     indice: number,
     campo: keyof Celda,
   ) => {
-    const campoEl = e.currentTarget;
-    const alFinal = campoEl.selectionStart === campoEl.value.length;
-    const alPrincipio = campoEl.selectionStart === 0;
-
     if (e.key === "ArrowDown" || e.key === "Enter") {
       e.preventDefault();
       irA(indice + 1, campo);
@@ -132,16 +139,16 @@ export function MatrizTotales({
       irA(indice - 1, campo);
       return;
     }
-    // Horizontales: sólo saltan desde el extremo, para no estorbar al corregir
-    // una cifra a medio teclear.
-    if (e.key === "ArrowRight" && campo === "venta" && alFinal) {
+    if (e.key === "ArrowRight") {
       e.preventDefault();
-      irA(indice, "premiado");
+      if (campo === "venta") irA(indice, "premiado");
+      else irA(indice + 1, "venta"); // desde premio, salta a la fila siguiente
       return;
     }
-    if (e.key === "ArrowLeft" && campo === "premiado" && alPrincipio) {
+    if (e.key === "ArrowLeft") {
       e.preventDefault();
-      irA(indice, "venta");
+      if (campo === "premiado") irA(indice, "venta");
+      else irA(indice - 1, "premiado"); // desde venta, sube a la fila anterior
     }
   };
 
