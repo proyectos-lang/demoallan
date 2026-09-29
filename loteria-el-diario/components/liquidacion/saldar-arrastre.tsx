@@ -108,10 +108,10 @@ export function SaldarArrastre({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        title={`Saldar lo que ${vendedor} arrastra de semanas anteriores`}
-        className="text-label text-acento font-medium hover:underline"
+        title={`Cerrar de golpe TODO lo que ${vendedor} arrastra (perdona el resto si lo hay). Para un pago parcial use «abonar / pagar».`}
+        className="text-label text-mudo font-medium hover:underline hover:text-acento"
       >
-        saldar
+        saldar todo
       </button>
 
       <Modal

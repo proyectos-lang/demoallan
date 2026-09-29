@@ -129,12 +129,12 @@ export function PagarSaldos({
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          title={`Cobrar a ${vendedor}`}
-          aria-label={`Cobrar saldos anteriores a ${vendedor}`}
+          title={`Registrar un pago de ${vendedor} —total o parcial—, con su fecha`}
+          aria-label={`Registrar un pago total o parcial de ${vendedor}`}
           className="inline-flex items-center gap-[5px] text-label text-acento font-medium py-1 hover:underline"
         >
           <Wallet size={13} strokeWidth={2} absoluteStrokeWidth />
-          cobrar
+          abonar / pagar
         </button>
       ) : (
         <Boton onClick={() => setAbierto(true)} disabled={pendiente <= 0}>
@@ -146,8 +146,8 @@ export function PagarSaldos({
         abierto={abierto}
         onCerrar={() => setAbierto(false)}
         eyebrow="Saldos anteriores"
-        titulo="Cobrar lo pendiente"
-        subtitulo={vendedor}
+        titulo="Registrar un pago"
+        subtitulo={`${vendedor} · puede ser total o parcial; el resto queda pendiente`}
         error={error}
         pie={
           <>
