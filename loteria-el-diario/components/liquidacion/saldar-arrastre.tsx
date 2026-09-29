@@ -108,7 +108,7 @@ export function SaldarArrastre({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        title={`Cerrar de golpe TODO lo que ${vendedor} arrastra (perdona el resto si lo hay). Para un pago parcial use «abonar / pagar».`}
+        title={`Cerrar de golpe TODO lo que ${vendedor} arrastra (perdona el resto si lo hay). Para un pago parcial use «abonar parcial».`}
         className="text-label text-mudo font-medium hover:underline hover:text-acento"
       >
         saldar todo

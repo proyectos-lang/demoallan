@@ -134,7 +134,7 @@ export function PagarSaldos({
           className="inline-flex items-center gap-[5px] text-label text-acento font-medium py-1 hover:underline"
         >
           <Wallet size={13} strokeWidth={2} absoluteStrokeWidth />
-          abonar / pagar
+          abonar parcial
         </button>
       ) : (
         <Boton onClick={() => setAbierto(true)} disabled={pendiente <= 0}>
