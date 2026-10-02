@@ -53,6 +53,12 @@ export type HojaImpresa = {
    * ella. Arriba se lee como lo que es: el punto de partida.
    */
   arrastre: number;
+  /**
+   * Lo entregado a cuenta y todavía sin cerrar en un corte. Baja del total
+   * acumulado —es dinero ya recibido— pero no cierra ningún sorteo. Desde la
+   * 0130. Va como una línea propia en el resumen para que la resta cierre.
+   */
+  abonado: number;
 };
 
 /** `2,590.00`. Dos decimales, como la hoja que los vendedores ya conocen. */
@@ -148,7 +154,10 @@ export function documentoLiquidacion(h: HojaImpresa): string {
    * fila no se dibuja y el pendiente de la semana ES el cierre.
    */
   const conArrastre = Math.round(h.arrastre * 100) !== 0;
-  const acumulado = pendiente + h.arrastre;
+  // Lo abonado a cuenta baja del total: es dinero ya recibido. No cierra
+  // sorteos —el pendiente de la semana no se toca— pero sí lo que se le pide.
+  const conAbono = Math.round(h.abonado * 100) !== 0;
+  const acumulado = pendiente + h.arrastre - h.abonado;
   const totalEntrega = acumulado >= 0;
 
   // Una fila por sorteo, con la fecha escrita sólo en el primero del día: es
@@ -379,21 +388,35 @@ export function documentoLiquidacion(h: HojaImpresa): string {
       ? ""
       : `<tr><td class="et">Ya liquidado</td><td class="n">L ${money(liquidado)}</td></tr>`
   }
-  <tr${conArrastre ? "" : ' class="saldo"'}>
+  <tr${conArrastre || conAbono ? "" : ' class="saldo"'}>
     <td class="et">Pendiente de esta semana</td>
     <td class="n ${pendiente < 0 ? "rojo" : ""}">L ${money(pendiente)}</td>
   </tr>
   ${
-    !conArrastre
-      ? ""
-      : `<tr>
+    conArrastre
+      ? `<tr>
           <td class="et">Saldo anterior</td>
           <td class="n ${h.arrastre < 0 ? "rojo" : ""}">L ${money(h.arrastre)}</td>
-        </tr>
-        <tr class="saldo">
+        </tr>`
+      : ""
+  }
+  ${
+    // Lo abonado a cuenta, en negativo: resta del total. Verde no sobrevive a
+    // una fotocopia, así que se distingue con el signo menos, no con color.
+    conAbono
+      ? `<tr>
+          <td class="et">Ya abonó a cuenta</td>
+          <td class="n">L ${money(-h.abonado)}</td>
+        </tr>`
+      : ""
+  }
+  ${
+    conArrastre || conAbono
+      ? `<tr class="saldo">
           <td class="et">${totalEntrega ? "El vendedor entrega" : "La empresa le entrega"}</td>
           <td class="n ${acumulado < 0 ? "rojo" : ""}">L ${money(Math.abs(acumulado))}</td>
         </tr>`
+      : ""
   }
 </tbody></table>
 

@@ -1611,7 +1611,9 @@ export type Database = {
           r_semana: number;
           r_liquidado: number;
           r_pendiente: number;
-          /** `r_anterior` + `r_pendiente`. */
+          /** Lo entregado a cuenta y sin cerrar en un corte (0130). */
+          r_abonado: number;
+          /** `r_anterior` + `r_pendiente` − `r_abonado`. */
           r_actual: number;
         }[];
       };
@@ -1642,7 +1644,9 @@ export type Database = {
           r_por_pagar: number;
           /** Lo pendiente de las semanas ANTERIORES, en neto. */
           r_arrastre: number;
-          /** `r_arrastre` + `r_pendiente`: la cuenta completa a esa fecha. */
+          /** Abonos a cuenta vivos del vendedor (0130). Se restan sólo en la semana vigente. */
+          r_abonado: number;
+          /** `r_arrastre` + `r_pendiente` − `r_abonado` (abonado sólo en la semana vigente). */
           r_acumulado: number;
         }[];
       };

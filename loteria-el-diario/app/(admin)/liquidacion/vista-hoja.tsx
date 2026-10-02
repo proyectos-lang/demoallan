@@ -98,6 +98,7 @@ export async function VistaHoja({
     pagado: Number(s.r_pagado),
     pendiente: Number(s.r_pendiente),
     arrastre: Number(s.r_arrastre),
+    abonado: Number(s.r_abonado ?? 0),
     acumulado: Number(s.r_acumulado),
   }));
 
@@ -241,6 +242,15 @@ export async function VistaHoja({
   const entrega = abierta.pendiente >= 0;
   // Una tarjeta en cero es ruido: la primera semana nunca arrastra nada.
   const hayArrastre = Math.round(abierta.arrastre * 100) !== 0;
+  /*
+   * Lo abonado que la base descontó de ESTA semana, derivado de la identidad
+   * acumulado = pendiente + arrastre − abonado. La función sólo lo descuenta en
+   * la semana vigente, así que en una semana pasada esto da cero y la tarjeta
+   * no sale —no replicamos aquí la regla de «sólo la vigente»—. Si hay, el
+   * bloque de abajo se pinta aunque no haya arrastre.
+   */
+  const abonadoSemana = abierta.pendiente + abierta.arrastre - abierta.acumulado;
+  const hayAbono = Math.round(abonadoSemana * 100) !== 0;
 
   /*
    * El saldo con el que este vendedor entró al sistema, si trae uno.
@@ -416,29 +426,50 @@ export async function VistaHoja({
             se cierra en su propia semana. Aquí sólo se dice, para que quien
             cobra sepa la cuenta completa antes de llamar.
           */}
-          {hayArrastre && (
+          {(hayArrastre || hayAbono) && (
             <div className="flex items-stretch gap-3 flex-wrap">
               <div className="grid gap-3 flex-1 min-w-0 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-                <Kpi
-                  etiqueta="ARRASTRE DE SEMANAS ANTERIORES"
-                  valor={fmt(abierta.arrastre)}
-                  pie={
-                    abierta.arrastre >= 0
-                      ? "lo entrega el vendedor"
-                      : "lo entrega la casa"
-                  }
-                  color={abierta.arrastre < 0 ? "text-negativo" : undefined}
-                />
+                {hayArrastre && (
+                  <Kpi
+                    etiqueta="ARRASTRE DE SEMANAS ANTERIORES"
+                    valor={fmt(abierta.arrastre)}
+                    pie={
+                      abierta.arrastre >= 0
+                        ? "lo entrega el vendedor"
+                        : "lo entrega la casa"
+                    }
+                    color={abierta.arrastre < 0 ? "text-negativo" : undefined}
+                  />
+                )}
+                {/*
+                  Lo entregado a cuenta, en verde: baja del total acumulado pero
+                  no cierra ningún sorteo. Es lo que hacía falta para que un abono
+                  se VEA —antes el dinero entraba y ninguna cifra se movía—.
+                */}
+                {hayAbono && (
+                  <Kpi
+                    etiqueta="YA ABONÓ A CUENTA"
+                    valor={fmt(abonadoSemana)}
+                    pie="entregado sin cerrar sorteos"
+                    color="text-positivo"
+                  />
+                )}
                 <Kpi
                   etiqueta="TOTAL ACUMULADO"
                   valor={fmt(abierta.acumulado)}
-                  pie="esta semana más lo que viene de atrás"
+                  pie={
+                    hayAbono
+                      ? "lo que falta, ya descontado lo abonado"
+                      : "esta semana más lo que viene de atrás"
+                  }
                   color={abierta.acumulado < 0 ? "text-negativo" : undefined}
                 />
               </div>
 
               {/*
-                Saldar el arrastre, aquí mismo.
+                Saldar el arrastre, aquí mismo. Sólo cuando hay arrastre: el
+                bloque puede pintarse también por un abono sin arrastre, y en
+                ese caso no hay nada viejo que saldar.
 
                 Vivía sólo en la pestaña de saldos, y quien está cuadrando con
                 un vendedor concreto está EN ESTA pantalla: mandarlo a otra
@@ -448,30 +479,32 @@ export async function VistaHoja({
                 Es el mismo componente que allí: la regla de qué se salda y
                 cómo se registra el ajuste vive en un solo sitio.
               */}
-              <div className="flex-none flex items-center gap-3 bg-superficie border border-borde rounded-card shadow-card px-[18px]">
-                {/*
-                  Cobrar admite un ABONO: lo corriente es que traiga una parte
-                  y el resto la semana siguiente. Saldar cierra la deuda entera
-                  de un golpe. Sólo se cobra lo que debe él; un arrastre
-                  negativo es dinero que la casa le debe.
-                */}
-                {abierta.arrastre > 0 && (
-                  <PagarSaldos
+              {hayArrastre && (
+                <div className="flex-none flex items-center gap-3 bg-superficie border border-borde rounded-card shadow-card px-[18px]">
+                  {/*
+                    Cobrar admite un ABONO: lo corriente es que traiga una parte
+                    y el resto la semana siguiente. Saldar cierra la deuda entera
+                    de un golpe. Sólo se cobra lo que debe él; un arrastre
+                    negativo es dinero que la casa le debe.
+                  */}
+                  {abierta.arrastre > 0 && (
+                    <PagarSaldos
+                      vendedorId={vendedor.id}
+                      vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
+                      pendiente={abierta.arrastre}
+                      hoy={iso(hoyHonduras())}
+                      variante="fila"
+                    />
+                  )}
+                  <SaldarArrastre
                     vendedorId={vendedor.id}
                     vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
-                    pendiente={abierta.arrastre}
+                    arrastre={abierta.arrastre}
+                    desde={abierta.inicio}
                     hoy={iso(hoyHonduras())}
-                    variante="fila"
                   />
-                )}
-                <SaldarArrastre
-                  vendedorId={vendedor.id}
-                  vendedor={`${vendedor.codigo} · ${rotulo(vendedor)}`}
-                  arrastre={abierta.arrastre}
-                  desde={abierta.inicio}
-                  hoy={iso(hoyHonduras())}
-                />
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -486,6 +519,9 @@ export async function VistaHoja({
             semana={abierta.semana}
             abonos={abonos}
             arrastre={abierta.arrastre}
+            // El abono efectivo de esta semana (ver abonadoSemana): el papel da
+            // el mismo total que la pantalla.
+            abonado={abonadoSemana}
           />
 
           {(cortes?.length ?? 0) > 0 && (

@@ -26,6 +26,8 @@ export type FilaSaldoVendedor = {
   semana: number;
   liquidado: number;
   pendiente: number;
+  /** Lo entregado a cuenta y todavía sin cerrar en un corte. Desde la 0130. */
+  abonado: number;
   actual: number;
   /** El saldo con el que entró al sistema, si trae uno. Desde la 0095. */
   apertura?: { id: string; monto: number; vigenteDesde: string } | null;
@@ -67,10 +69,15 @@ export function TablaSaldos({
       anterior: a.anterior + f.anterior,
       semana: a.semana + f.semana,
       liquidado: a.liquidado + f.liquidado,
+      abonado: a.abonado + f.abonado,
       actual: a.actual + f.actual,
     }),
-    { anterior: 0, semana: 0, liquidado: 0, actual: 0 },
+    { anterior: 0, semana: 0, liquidado: 0, abonado: 0, actual: 0 },
   );
+
+  // ¿Alguien tiene abonos a cuenta? Si nadie, la columna no se dibuja: una
+  // columna de puros guiones sólo estorba el cuadro que se sale a cobrar.
+  const hayAbonos = total.abonado !== 0;
 
   // Se cobra a unos y se paga a otros: el neto de la última columna esconde
   // las dos, así que van también por separado.
@@ -109,6 +116,7 @@ export function TablaSaldos({
         anterior: f.anterior,
         semana: f.semana,
         liquidado: f.liquidado,
+        abonado: f.abonado,
         actual: f.actual,
       })),
       // Las mismas sumas del pie del cuadro, ya calculadas: el papel no las
@@ -116,6 +124,7 @@ export function TablaSaldos({
       totales: {
         anterior: total.anterior,
         semana: total.semana,
+        abonado: total.abonado,
         actual: total.actual,
       },
     };
@@ -175,14 +184,15 @@ export function TablaSaldos({
                   "SALDO ANTERIOR",
                   "SALDO DE LA SEMANA",
                   "LIQUIDADO",
+                  ...(hayAbonos ? ["ABONADO"] : []),
                   "SALDO ACTUAL",
-                ].map((th, i) => (
+                ].map((th, i, arr) => (
                   <th
                     key={th}
                     className={cn(
                       "text-th font-semibold tracking-th text-secundario border-b border-riel py-[9px]",
                       i <= 1 ? "text-left" : "text-right",
-                      i === 0 ? "pl-4 pr-3" : i === 5 ? "pl-3 pr-4" : "px-3",
+                      i === 0 ? "pl-4 pr-3" : i === arr.length - 1 ? "pl-3 pr-4" : "px-3",
                       th === "SALDO ACTUAL" && "border-l border-riel",
                     )}
                   >
@@ -308,6 +318,11 @@ export function TablaSaldos({
                   <td className={cn(celda, "text-cuerpo")}>
                     {f.liquidado === 0 ? "—" : fmt(f.liquidado, false)}
                   </td>
+                  {hayAbonos && (
+                    <td className={cn(celda, f.abonado !== 0 ? "text-positivo" : "")}>
+                      {f.abonado === 0 ? "—" : fmt(f.abonado, false)}
+                    </td>
+                  )}
                   <td
                     className={cn(
                       "pl-3 pr-4 py-[8px] border-b border-fondo border-l border-riel text-right font-semibold",
@@ -347,6 +362,16 @@ export function TablaSaldos({
                 <td className="px-3 py-[10px] text-right text-h2 font-semibold">
                   {fmt(total.liquidado, false)}
                 </td>
+                {hayAbonos && (
+                  <td
+                    className={cn(
+                      "px-3 py-[10px] text-right text-h2 font-semibold",
+                      total.abonado !== 0 && "text-positivo",
+                    )}
+                  >
+                    {fmt(total.abonado, false)}
+                  </td>
+                )}
                 <td
                   className={cn(
                     "pl-3 pr-4 py-[10px] border-l border-riel text-right text-h2 font-semibold",

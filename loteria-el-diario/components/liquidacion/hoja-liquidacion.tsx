@@ -39,6 +39,7 @@ export function HojaLiquidacion({
   semana,
   abonos,
   arrastre,
+  abonado,
 }: {
   filas: FilaLiquidacion[];
   vendedorId: string;
@@ -54,6 +55,8 @@ export function HojaLiquidacion({
   abonos: AbonoImpreso[];
   /** Lo pendiente de semanas anteriores, para la cabecera del papel. */
   arrastre: number;
+  /** Lo entregado a cuenta y sin cerrar: baja del total en el papel. Desde 0130. */
+  abonado: number;
 }) {
   /*
    * Sólo lo PENDIENTE entra en la selección.
@@ -266,6 +269,10 @@ export function HojaLiquidacion({
               semana,
               abonos,
               arrastre,
+              // El comprobante de la semana entera sí descuenta lo abonado: es
+              // la cuenta completa del vendedor y el total tiene que cuadrar con
+              // la pantalla.
+              abonado,
               lineas: filas.map((f) => ({
                 fecha: f.fecha,
                 hora: f.hora,
@@ -321,6 +328,10 @@ export function HojaLiquidacion({
                  */
                 abonos: [],
                 arrastre,
+                // Y por lo mismo que los abonos: un abono a cuenta habla de la
+                // semana entera, no de estos sorteos sueltos. Fuera del recibo
+                // parcial.
+                abonado: 0,
                 lineas: elegidas.map((f) => ({
                   fecha: f.fecha,
                   hora: f.hora,

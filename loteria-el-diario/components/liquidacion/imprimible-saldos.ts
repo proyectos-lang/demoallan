@@ -6,6 +6,8 @@ export type FilaSaldo = {
   anterior: number;
   semana: number;
   liquidado: number;
+  /** Lo entregado a cuenta y sin cerrar. Desde la 0130. */
+  abonado: number;
   actual: number;
 };
 
@@ -22,7 +24,7 @@ export type HojaSaldos = {
    * ya calculadas —no se rehacen aquí— para que el papel diga exactamente lo
    * mismo que el cuadro de arriba, sin un redondeo que las separe.
    */
-  totales: { anterior: number; semana: number; actual: number };
+  totales: { anterior: number; semana: number; abonado: number; actual: number };
 };
 
 /** `2,590.00`, con el menos de verdad (U+2212) para los negativos. */
@@ -103,6 +105,10 @@ function esc(s: string): string {
  * que es lo que ese formato permite y el vertical no.
  */
 export function documentoSaldos(h: HojaSaldos): string {
+  // La columna de abonos sólo sale si alguien abonó: una columna de blancos
+  // estrecharía las demás sin decir nada. Igual que en el cuadro de pantalla.
+  const conAbonos = h.totales.abonado !== 0;
+
   const fila = (f: FilaSaldo, i: number) => `<tr>
     <td class="i">${i + 1}</td>
     <td>${esc(f.nombre)}</td>
@@ -112,16 +118,18 @@ export function documentoSaldos(h: HojaSaldos): string {
       f.anterior === 0 ? "" : money(f.anterior)
     }</td>
     <td class="n ${f.semana < 0 ? "rojo" : ""}">${f.semana === 0 ? "" : money(f.semana)}</td>
+    ${conAbonos ? `<td class="n">${f.abonado === 0 ? "" : money(f.abonado)}</td>` : ""}
     <td class="n b ${f.actual < 0 ? "rojo" : ""}">L${money(f.actual)}</td>
   </tr>`;
 
-  // La fila de totales del pie: las tres cifras sumadas, como en pantalla.
+  // La fila de totales del pie: las cifras sumadas, como en pantalla.
   const t = h.totales;
   const totales = `<tr class="tot">
     <td class="i"></td>
     <td>TOTALES</td>
     <td class="n ${t.anterior < 0 ? "rojo" : ""}">${money(t.anterior)}</td>
     <td class="n ${t.semana < 0 ? "rojo" : ""}">${money(t.semana)}</td>
+    ${conAbonos ? `<td class="n">${money(t.abonado)}</td>` : ""}
     <td class="n b ${t.actual < 0 ? "rojo" : ""}">L${money(t.actual)}</td>
   </tr>`;
 
@@ -144,6 +152,7 @@ export function documentoSaldos(h: HojaSaldos): string {
         <th>Vendedor</th>
         <th class="n">Saldo anterior</th>
         <th class="n">Saldo de la semana</th>
+        ${conAbonos ? `<th class="n">Abonado</th>` : ""}
         <th class="n">Saldo actual</th>
       </tr></thead>`;
 

@@ -116,6 +116,13 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
   // primera semana de todas nunca arrastra nada.
   const hayArrastre = Math.round(abierta.arrastre * 100) !== 0;
   const debeAcumulado = abierta.acumulado >= 0;
+  /*
+   * Lo que ya entregó a cuenta y la base descontó de esta semana, derivado de
+   * acumulado = pendiente + arrastre − abonado. Sólo la semana vigente lo
+   * descuenta, así que en una pasada da cero y la tarjeta no sale.
+   */
+  const abonadoSemana = abierta.pendiente + abierta.arrastre - abierta.acumulado;
+  const hayAbono = Math.round(abonadoSemana * 100) !== 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -180,22 +187,33 @@ export default async function MiLiquidacionPage({ searchParams }: PageProps<"/mi
             el resto queda. Sin esta fila, el vendedor mira la semana y le sale
             una cifra que no es la que le van a pedir.
           */}
-          {hayArrastre && (
+          {(hayArrastre || hayAbono) && (
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
-              <Kpi
-                etiqueta="VIENE DE SEMANAS ANTERIORES"
-                valor={fmt(Math.abs(abierta.arrastre))}
-                pie={
-                  abierta.arrastre >= 0
-                    ? "sin liquidar, lo entrega usted"
-                    : "sin liquidar, se lo entregan"
-                }
-                color={abierta.arrastre < 0 ? "text-negativo" : undefined}
-              />
+              {hayArrastre && (
+                <Kpi
+                  etiqueta="VIENE DE SEMANAS ANTERIORES"
+                  valor={fmt(Math.abs(abierta.arrastre))}
+                  pie={
+                    abierta.arrastre >= 0
+                      ? "sin liquidar, lo entrega usted"
+                      : "sin liquidar, se lo entregan"
+                  }
+                  color={abierta.arrastre < 0 ? "text-negativo" : undefined}
+                />
+              )}
+              {/* Lo que ya entregó a cuenta: baja del total, sin cerrar sorteos. */}
+              {hayAbono && (
+                <Kpi
+                  etiqueta="YA ENTREGÓ A CUENTA"
+                  valor={fmt(abonadoSemana)}
+                  pie="a cuenta, sin cerrar sorteos"
+                  color="text-positivo"
+                />
+              )}
               <Kpi
                 etiqueta={debeAcumulado ? "TOTAL QUE USTED ENTREGA" : "TOTAL QUE LE ENTREGAN"}
                 valor={fmt(Math.abs(abierta.acumulado))}
-                pie="esta semana más lo anterior"
+                pie={hayAbono ? "lo que falta, ya con lo entregado" : "esta semana más lo anterior"}
                 color={debeAcumulado ? undefined : "text-negativo"}
               />
             </div>

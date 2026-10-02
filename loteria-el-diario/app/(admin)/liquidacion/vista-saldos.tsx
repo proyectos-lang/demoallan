@@ -118,6 +118,7 @@ export async function VistaSaldos({
     semana: Number(f.r_semana),
     liquidado: Number(f.r_liquidado),
     pendiente: Number(f.r_pendiente),
+    abonado: Number(f.r_abonado ?? 0),
     actual: Number(f.r_actual),
     apertura: porVendedor.get(f.r_vendedor_id) ?? null,
   }));
