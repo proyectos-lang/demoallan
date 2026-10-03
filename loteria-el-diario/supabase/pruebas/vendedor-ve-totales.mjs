@@ -15,8 +15,9 @@
  * ----------------
  *   · Que `fn_mi_periodo` y `fn_informe_gerencia` devuelvan LA MISMA venta y
  *     el MISMO premiado. Es la comprobación central: si alguna vez vuelven a
- *     separarse, esta prueba lo dice.
- *   · Que `fn_mi_dia` sume igual.
+ *     separarse, esta prueba lo dice. Desde la 0131, con captura viva ese valor
+ *     común es el del total (reemplaza los tickets), no la suma de las dos vías.
+ *   · Que `fn_mi_dia` cuente igual que el período.
  *   · Que el premiado de la captura se DEDUZCA del factor, como en la 0070.
  *   · Que se diga cuánto viene de administración: sin eso el vendedor ve su
  *     venta crecer sin explicación y no puede cuadrar su libreta.
@@ -133,8 +134,11 @@ async function main() {
    * 200 al número que saldrá— y administración capturó por él una hoja de 500
    * con 140 de premio pagado.
    *
-   * 140 / 70 = 2 de premiado deducido. Si el sistema dedujera mal, el premiado
-   * del admin y el del vendedor dejarían de coincidir y se vería aquí.
+   * Desde la 0131, la captura viva REEMPLAZA los tickets: para ese sorteo el
+   * vendedor cuenta SÓLO los 500 de la captura (no 1.500), y su premiado es
+   * SÓLO el deducido del total, 140 / 70 = 2 (no 202). La comprobación central
+   * no cambia: el vendedor y el administrador tienen que ver LO MISMO, ahora
+   * sobre los valores del reemplazo. Antes las dos fuentes se sumaban.
    */
   const noche = sorteos[2];
   const GANADOR = 46;
@@ -165,7 +169,8 @@ async function main() {
     p_hasta: FECHA,
   });
   const fAntes = (antes ?? []).find((x) => x.r_hora === "21:00");
-  check("la venta ya suma las dos fuentes", Number(fAntes?.r_venta) === 1500,
+  check("la captura viva ya reemplaza los tickets: la venta es sólo el total",
+        Number(fAntes?.r_venta) === 500,
         String(fAntes?.r_venta));
   check(
     "pero SIN número ganador no se inventa premiado",
@@ -188,15 +193,16 @@ async function main() {
   console.log(
     `        venta ${v?.r_venta} · premiado ${v?.r_premiado} · premios ${v?.r_premios}`,
   );
-  check("venta = 1000 suyos + 500 de administración", Number(v?.r_venta) === 1500,
+  check("venta = sólo los 500 de administración; los 1000 en tickets se ignoran",
+        Number(v?.r_venta) === 500,
         String(v?.r_venta));
   check(
-    "premiado = 200 suyos + 2 deducidos (140 ÷ 70)",
-    Number(v?.r_premiado) === 202,
+    "premiado = sólo los 2 deducidos del total (140 ÷ 70); los 200 propios no cuentan",
+    Number(v?.r_premiado) === 2,
     String(v?.r_premiado),
   );
-  check("premios = 14000 suyos + 140 de la captura",
-        Number(v?.r_premios) === 14140, String(v?.r_premios));
+  check("premios = sólo los 140 de la captura; los 14000 de los tickets se ignoran",
+        Number(v?.r_premios) === 140, String(v?.r_premios));
   check(
     "SE DICE cuánto viene de administración",
     Number(v?.r_venta_admin) === 500 && v?.r_capturas === 1,
@@ -238,11 +244,11 @@ async function main() {
   });
   check("fn_mi_dia responde", !eDia, eDia?.message ?? "");
   const d = (dia ?? []).find((x) => x.r_hora === "21:00");
-  check("suma las dos fuentes igual", Number(d?.r_venta) === 1500, String(d?.r_venta));
+  check("cuenta sólo la captura, igual que el período", Number(d?.r_venta) === 500, String(d?.r_venta));
   check("y también lo dice", Number(d?.r_venta_admin) === 500, String(d?.r_venta_admin));
   check(
-    "la comisión usa la congelada de cada fuente",
-    Math.abs(Number(d?.r_comision) - (1000 * COMISION + 500 * COMISION)) < 0.01,
+    "la comisión es la de la captura (500 × comisión); los tickets no cuentan",
+    Math.abs(Number(d?.r_comision) - 500 * COMISION) < 0.01,
     String(d?.r_comision),
   );
 

@@ -94,6 +94,18 @@ const { data: yaCapturados } = await sb
   .is("anulado_en", null);
 const ocupados = new Set((yaCapturados ?? []).map((r) => r.vendedor_id));
 
+// Y que TAMPOCO tenga tickets en ese sorteo. Desde la 0131 la captura viva
+// reemplaza los tickets del vendedor: si el elegido tuviera tickets en este
+// sorteo, la captura de prueba no sumaría 777 sino que sustituiría esa venta, y
+// los asserts de «sube exactamente 777» dejarían de valer. Exigiendo que no
+// tenga tickets, los 777 son puramente aditivos y el delta vuelve a ser exacto.
+const { data: tktsAbierto } = await sb
+  .from("ticket")
+  .select("vendedor_id")
+  .eq("sorteo_id", abierto.id)
+  .is("anulado_en", null);
+const conTickets = new Set((tktsAbierto ?? []).map((r) => r.vendedor_id));
+
 const { data: candidatos } = await sb
   .from("vendedor")
   .select("id, codigo, alias, nombre")
@@ -101,9 +113,11 @@ const { data: candidatos } = await sb
   .is("eliminado_en", null)
   .order("codigo");
 
-const v = (candidatos ?? []).find((c) => !ocupados.has(c.id));
+const v = (candidatos ?? []).find((c) => !ocupados.has(c.id) && !conTickets.has(c.id));
 if (!v) {
-  console.error("Todos los vendedores activos ya tienen captura en ese sorteo.");
+  console.error(
+    "No hay vendedor activo sin captura NI tickets en ese sorteo; la prueba necesita uno limpio.",
+  );
   process.exit(1);
 }
 
@@ -297,10 +311,21 @@ if (v11) {
       ventaTickets += (ls ?? []).reduce((a, l) => a + num(l.monto), 0);
     }
 
+    // Desde la 0131, la captura por totales viva REEMPLAZA los tickets de ese
+    // sorteo+vendedor (ya no se suman). En los sorteos del día donde V-011
+    // tenga sólo una fuente, su venta es esa fuente; donde tenga AMBAS, es sólo
+    // la del total. Por tanto, agregando el día entero, la venta del tablero
+    // queda acotada: nunca menos que la mayor de las dos fuentes (el caso en
+    // que las dos vías coinciden siempre en el mismo sorteo) y nunca más que su
+    // suma (el caso en que no se solapan en ningún sorteo). No fijamos un valor
+    // exacto porque son datos reales de producción que no controlamos desde la
+    // prueba y no conocemos el solapamiento sorteo a sorteo; el assert estricto
+    // de «capturas + tickets» de antes ya no vale con el modelo de reemplazo.
+    const mayorFuente = Math.max(sumaCap, ventaTickets);
     check(
-      "la venta liquidada es capturas + tickets, sin contar nada dos veces",
-      cerca(num(f.r_venta), sumaCap + ventaTickets, 1),
-      `tablero ${num(f.r_venta)} · capturas ${sumaCap} + tickets ${ventaTickets}`,
+      "la venta liquidada está entre la mayor fuente y la suma (reemplazo, no suma)",
+      num(f.r_venta) >= mayorFuente - 1 && num(f.r_venta) <= sumaCap + ventaTickets + 1,
+      `tablero ${num(f.r_venta)} · cota [${mayorFuente}, ${sumaCap + ventaTickets}] (capturas ${sumaCap}, tickets ${ventaTickets})`,
     );
     check(
       "un día ya liquidado no deja nada pendiente",

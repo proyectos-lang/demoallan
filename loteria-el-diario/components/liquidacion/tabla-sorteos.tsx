@@ -17,10 +17,10 @@ export type FilaLiquidacion = {
   /** venta − comisión − premios. */
   saldo: number;
   /**
-   * Si el sorteo tiene tickets con números vivos. Esos NO se editan a mano
-   * desde la hoja —su venta es la suma de tickets reales, atada al cupo y al
-   * premiado— y se corrigen desde la venta. Sólo los de venta por totales
-   * (`tieneLineas` falso) son editables aquí.
+   * Si el sorteo tiene tickets con números vivos. Desde la 0131 esto ya NO
+   * impide editar la venta a mano: el total que se teclea reemplaza esos
+   * tickets (el recálculo los ignora mientras haya captura por totales viva).
+   * Se conserva por si alguna vista quiere distinguir el origen de la venta.
    */
   tieneLineas?: boolean;
   /**
@@ -271,10 +271,11 @@ export function TablaSorteos({
                     </span>
                   </td>
                   {(() => {
-                    // Editable sólo en la hoja del administrador (hay `edicion`)
-                    // y sólo en sorteos por totales: los que tienen tickets con
-                    // números se corrigen desde la venta, no aquí.
-                    const editable = Boolean(edicion) && !f.tieneLineas;
+                    // Editable sólo en la hoja del administrador (hay `edicion`).
+                    // Desde la 0131 TAMBIÉN se editan los sorteos con tickets: el
+                    // total que se teclea reemplaza esos tickets (el recálculo los
+                    // ignora mientras la captura viva). Antes se vetaban aquí.
+                    const editable = Boolean(edicion);
                     const enCurso = guardando.has(f.liquidacionId);
                     return (
                       <>

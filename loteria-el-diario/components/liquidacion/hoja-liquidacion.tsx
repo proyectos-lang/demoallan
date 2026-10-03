@@ -197,9 +197,10 @@ export function HojaLiquidacion({
           filas={filas}
           seleccion={{ marcados, alternar, alternarDia }}
           /*
-            Edición manual: el gerente corrige venta/premios de un sorteo por
-            totales en el sitio. La base rechaza los que tienen tickets con
-            números y propaga el cambio a toda la cuenta por el recálculo. La
+            Edición manual: el gerente corrige venta/premios de un sorteo en el
+            sitio. Desde la 0131 también los que tienen tickets con números: el
+            total que teclea reemplaza esos tickets (el recálculo los ignora
+            mientras la captura viva), y propaga el cambio a toda la cuenta. La
             página revalida al guardar; la tabla ya pintó lo que devolvió la base.
           */
           edicion={{

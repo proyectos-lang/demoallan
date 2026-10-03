@@ -20,8 +20,9 @@
  *     premiado y con cero abajo también salía en cero.
  *   · Que nunca queden premios pagados con premiado en cero. Es la regla que
  *     de verdad importa: la contradicción del papel.
- *   · Que las ventas con números sigan contando igual, y que sumen con las
- *     capturas cuando hay de las dos.
+ *   · Que las ventas con números sigan contando igual cuando NO hay captura;
+ *     y que, cuando un sorteo tiene las dos, mande la captura y los tickets se
+ *     ignoren (reemplazo de la 0131, no suma).
  *   · Que la hoja coincida con el informe de gerencia, que es contra lo que se
  *     cuadra por teléfono.
  *
@@ -136,7 +137,8 @@ async function main() {
    *   11:00 — SÓLO captura por totales. Es el caso que fallaba: venta y
    *           premios sin premiado.
    *   15:00 — sólo venta con números, para comprobar que no se rompió.
-   *   21:00 — las dos fuentes, para comprobar que suman.
+   *   21:00 — las dos fuentes, para comprobar que la captura viva reemplaza
+   *           los tickets (0131): manda el total, los tickets no cuentan.
    */
   await sb.rpc("fn_registrar_venta_total", {
     p_sorteo_id: manana.id,
@@ -164,7 +166,10 @@ async function main() {
     p_sorteo_id: noche.id,
     p_vendedor_id: vendedor,
     p_venta: 2000,
-    p_premios: 700,   // 700 / 70 = 10 deducidos, que se suman a los 50 propios
+    // Desde la 0131 la captura viva REEMPLAZA los tickets: el premiado y los
+    // premios de este sorteo salen SÓLO del total. 700 / 70 = 10 de premiado
+    // deducido; los 50 propios al ganador se ignoran. Antes se sumaban.
+    p_premios: 700,
     p_nota: null,
     p_usuario_id: admin.id,
   });
@@ -208,18 +213,18 @@ async function main() {
         String(f15?.r_premiado));
   check("y el factor sale igual", Number(f15?.r_factor) === FACTOR, String(f15?.r_factor));
 
-  // --- Las dos fuentes suman --------------------------------------------------
-  console.log("\n--- Las dos fuentes en el mismo sorteo ---");
+  // --- La captura reemplaza los tickets en el mismo sorteo --------------------
+  console.log("\n--- Las dos fuentes en el mismo sorteo: manda la captura ---");
   const f21 = fila("21:00");
   console.log(`        premiado ${f21?.r_premiado} · premios ${f21?.r_premios}`);
   check(
-    "premiado = 50 suyos + 10 deducidos",
-    Number(f21?.r_premiado) === 60,
+    "premiado = sólo los 10 deducidos del total (700 ÷ 70); los 50 propios se ignoran",
+    Number(f21?.r_premiado) === 10,
     String(f21?.r_premiado),
   );
   check(
-    "premios = 3500 suyos + 700 de la captura",
-    Number(f21?.r_premios) === 4200,
+    "premios = sólo los 700 de la captura; los 3500 de los tickets se ignoran",
+    Number(f21?.r_premios) === 700,
     String(f21?.r_premios),
   );
 

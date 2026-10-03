@@ -16,7 +16,8 @@
  *   · Que la VENTA de un sorteo abierto capturado por totales SE VEA. Hoy
  *     desaparece del informe hasta que el sorteo se liquida — dinero real
  *     invisible en la pantalla.
- *   · Que un vendedor con LAS DOS VÍAS sume las dos, sin duplicar ninguna.
+ *   · Que un vendedor con LAS DOS VÍAS cuente SÓLO la captura: desde la 0131
+ *     el total viva reemplaza los tickets, no se suman.
  *   · Que un vendedor que vende sólo línea a línea NO CAMBIE. Es lo que hay
  *     que proteger: el arreglo no puede mover las cifras de los demás.
  *
@@ -135,6 +136,9 @@ async function main() {
   await capturar(s11.id, tot, 7000, 2100);
 
   // MIX: 1000 en líneas al 7 (que no gana) + captura de 2000 con 700 de premio.
+  // Desde la 0131 la captura viva REEMPLAZA los tickets: la venta/comisión/
+  // premiado de MIX salen SÓLO de la captura (2000; premiado 700/70 = 10) y los
+  // 1000 en líneas al 7 se ignoran. Antes las dos fuentes se sumaban (3000).
   await sb.rpc("fn_registrar_tanda", {
     p_sorteo_id: s11.id,
     p_vendedor_id: mix,
@@ -198,12 +202,14 @@ async function main() {
     check("el pago de premios se mantiene", Number(T.r_pago) === 2100, String(T.r_pago));
   }
 
-  console.log("\n--- Las dos vías a la vez ---");
+  console.log("\n--- Las dos vías a la vez: la captura reemplaza los tickets ---");
   if (M) {
-    check("la venta suma línea y captura", Number(M.r_venta) === 3000, String(M.r_venta));
-    // 700/70 = 10 de la captura; las líneas del 7 no ganaron.
+    // La captura viva manda: la venta es SÓLO la del total (2000), no la suma
+    // con los 1000 en líneas, que se ignoran.
+    check("la venta es sólo la de la captura, no la suma", Number(M.r_venta) === 2000, String(M.r_venta));
+    // 700/70 = 10 de la captura; los tickets al 7 no cuentan.
     check("el premiado sale de la captura", Number(M.r_premiado) === 10, String(M.r_premiado));
-    check("sin duplicar la venta", Number(M.r_venta) === 3000, String(M.r_venta));
+    check("sin sumar la venta de los tickets ignorados", Number(M.r_venta) === 2000, String(M.r_venta));
   }
 
   console.log("\n--- Sólo líneas: NO debe cambiar ---");

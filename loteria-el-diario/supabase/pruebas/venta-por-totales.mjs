@@ -176,8 +176,10 @@ try {
     .from("liquidacion").select("id").eq("sorteo_id", sorteoId).eq("vendedor_id", dos.id).maybeSingle();
   check("la fila del vendedor desaparece al anular", !lq3);
 
-  // --- 6. Las dos fuentes en el mismo vendedor ----------------------------
-  console.log("\n6. Un vendedor con las dos formas a la vez");
+  // --- 6. La captura por totales REEMPLAZA los tickets (0131) --------------
+  // Desde la 0131 el modelo cambió: si un vendedor tiene captura por totales
+  // viva, sus tickets se ignoran y manda el total. Antes se sumaban.
+  console.log("\n6. La captura por totales reemplaza los tickets del vendedor");
   const { error: eMix } = await sb.rpc("fn_registrar_venta_total", {
     p_sorteo_id: sorteoId,
     p_vendedor_id: uno.id,
@@ -187,11 +189,24 @@ try {
   check("se registra sobre quien ya tenía líneas", !eMix, eMix?.message ?? "");
   const { data: lq4 } = await sb
     .from("liquidacion").select("*").eq("sorteo_id", sorteoId).eq("vendedor_id", uno.id).maybeSingle();
-  check("la venta es la suma de las dos fuentes",
-    cent(lq4?.venta) === previsto.venta + cent(1000),
-    `${cent(lq4?.venta)} vs ${previsto.venta + cent(1000)}`);
-  check("los premios no cambian: la captura no traía premio",
-    cent(lq4?.premios) === previsto.premios);
+  check("la venta es SÓLO la del total, no la suma",
+    cent(lq4?.venta) === cent(1000),
+    `${cent(lq4?.venta)} vs ${cent(1000)}`);
+  check("la comisión es la del total (10% sobre 1000 = 100), no la de los tickets",
+    cent(lq4?.comision) === cent(100),
+    `${cent(lq4?.comision)}`);
+  check("los premios son los del total (0), no los de los tickets ganadores",
+    cent(lq4?.premios) === 0,
+    `${cent(lq4?.premios)}`);
+  // Y al anular el total, los tickets vuelven a contar: es reversible.
+  const { data: vt6 } = await sb
+    .from("venta_total").select("id").eq("sorteo_id", sorteoId).eq("vendedor_id", uno.id).is("anulado_en", null).maybeSingle();
+  await sb.rpc("fn_anular_venta_total", { p_id: vt6.id });
+  const { data: lq5 } = await sb
+    .from("liquidacion").select("*").eq("sorteo_id", sorteoId).eq("vendedor_id", uno.id).maybeSingle();
+  check("anulado el total, los tickets vuelven a contar",
+    cent(lq5?.venta) === previsto.venta,
+    `${cent(lq5?.venta)} vs ${previsto.venta}`);
 } catch (e) {
   fallos++;
   console.log(`\n  FALLA excepción: ${e.message}`);
